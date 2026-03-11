@@ -1,6 +1,7 @@
 
 #include<vector>
 #include<cstring>
+#include<map>
 #include<math.h>
 
 #include <gsl/gsl_randist.h>
@@ -8,7 +9,9 @@
 
 #include "util.hpp"
 
-void sample_cons_params(struct node nodes[],struct config conf,gsl_rng *rand,int tp);
+using std::map;
+
+void sample_cons_params(struct node nodes[],struct config conf,gsl_rng *rand,int tp, map<int,int>& node_id_map);
 double multi_param_post(struct node nodes[], struct datum data[], int old,struct config conf);
 double param_post(struct node nodes[], struct datum data[], int old,struct config conf, int tp);
 void update_params(struct node nodes[], struct config conf);

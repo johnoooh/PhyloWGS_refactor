@@ -65,10 +65,17 @@ int main(int argc, char* argv[]){
 void mh_loop(struct node nodes[],struct datum data[],char* fname, struct config conf){
 	gsl_rng *rand = gsl_rng_alloc(gsl_rng_mt19937);
 	double ratio=0.0;
+
+	// Build node_id_map once here rather than inside sample_cons_params
+	// (which is called NTPS times per MH iteration).
+	map<int, int> node_id_map;
+	for(int i=0;i<conf.NNODES;i++)
+		node_id_map[nodes[i].id]=i;
+
 	for (int itr=0;itr<conf.MH_ITR;itr++){
 	
 		for(int tp=0;tp<conf.NTPS;tp++)
-			sample_cons_params(nodes,conf,rand,tp);		
+			sample_cons_params(nodes,conf,rand,tp,node_id_map);		
 			
 		double a = multi_param_post(nodes,data,0,conf)-multi_param_post(nodes,data,1,conf);			
 		
@@ -110,12 +117,9 @@ void mh_loop(struct node nodes[],struct datum data[],char* fname, struct config 
 
 
 // done for multi-sample
-void sample_cons_params(struct node nodes[], struct config conf, gsl_rng *rand, int tp){
+// node_id_map is now built once in mh_loop and passed in.
+void sample_cons_params(struct node nodes[], struct config conf, gsl_rng *rand, int tp, map<int,int>& node_id_map){
 
-	map <int, int> node_id_map;
-	for(int i=0;i<conf.NNODES;i++)
-		node_id_map[nodes[i].id]=i;
-	
 	int NNODES=conf.NNODES;
 	double pi[NNODES];
 	for(int i=0;i<NNODES;i++)

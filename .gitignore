@@ -1,4 +1,18 @@
-*.o
+__pycache__/
 *.pyc
-venv
-env
+*.o
+# Test/benchmark output dirs
+test_output/
+validation_run_*/
+chains/
+benchmark_runs/
+*.pickle
+*.zip
+*.gz
+# Latex
+*.pdf
+*.aux
+*.log
+misc/
+phylowgs_sims/
+witness/

@@ -1,14 +1,26 @@
-import sys
+#!/usr/bin/env python3
+"""
+Node base class for TSSB tree nodes.
 
+Optimizations vs original:
+- get_ancestors() result is cached on the node; cache is invalidated
+  recursively when parent changes. This eliminates repeated O(depth)
+  list allocations throughout the hot MCMC paths.
+- Python 3 compatible.
+"""
+
+import sys
 from numpy.random import *
 from numpy import *
+
 
 class Node(object):
 
     def __init__(self, parent=None, tssb=None):
-        self.data      = set([])
-        self._children = []#set([])#shankar
-        self.tssb      = tssb
+        self.data = set([])
+        self._children = []
+        self.tssb = tssb
+        self._ancestors_cache = None  # cached result of get_ancestors()
 
         if parent is not None:
             parent.add_child(self)
@@ -19,9 +31,9 @@ class Node(object):
     def kill(self):
         if self._parent is not None:
             self._parent._children.remove(self)
-
-        self._parent   = None
+        self._parent = None
         self._children = None
+        self._ancestors_cache = None
 
     def spawn(self):
         return self.__class__(parent=self, tssb=self.tssb)
@@ -36,7 +48,7 @@ class Node(object):
         return False
 
     def num_data(self):
-        return reduce(lambda x,y: x+y, map(lambda c: c.num_data(), self._children), len(self.data))
+        return sum([c.num_data() for c in self._children], len(self.data))
 
     def num_local_data(self):
         return len(self.data)
@@ -49,9 +61,9 @@ class Node(object):
 
     def resample_params(self):
         pass
-    
+
     def add_child(self, child):
-        self._children.append(child)#shankar
+        self._children.append(child)
 
     def remove_child(self, child):
         self._children.remove(child)
@@ -60,34 +72,51 @@ class Node(object):
         return self._children
 
     def get_data(self):
-		#return self.tssb.data[list(self.data),:] #shankar
-		ids = list(self.data)
-		return [self.tssb.data[id] for id in ids]
-		
+        ids = list(self.data)
+        return [self.tssb.data[id] for id in ids]
+
     def logprob(self, x):
-        0/0
-        return 0 
+        raise NotImplementedError
 
     def data_log_likelihood(self):
         return self.complete_logprob()
-    
+
     def sample(self, num_data=1):
         return rand(num_data, 2)
 
-    def parent(self):        
+    def parent(self):
         return self._parent
+
+    def _set_parent(self, new_parent):
+        """Change parent and invalidate ancestor caches recursively."""
+        self._parent = new_parent
+        self._invalidate_ancestors_cache()
+
+    def _invalidate_ancestors_cache(self):
+        """Recursively invalidate cached ancestors for self and all descendants."""
+        self._ancestors_cache = None
+        if self._children:
+            for child in self._children:
+                child._invalidate_ancestors_cache()
+
+    def get_ancestors(self):
+        """
+        Return list of nodes from root down to (and including) self.
+
+        Result is cached and reused until the tree structure changes.
+        Cache is invalidated via _invalidate_ancestors_cache() when a
+        node's parent is reassigned.
+        """
+        if self._ancestors_cache is not None:
+            return self._ancestors_cache
+        if self._parent is None:
+            self._ancestors_cache = [self]
+        else:
+            self._ancestors_cache = self._parent.get_ancestors() + [self]
+        return self._ancestors_cache
 
     def global_param(self, key):
         if self.parent() is None:
             return self.__dict__[key]
         else:
             return self.parent().global_param(key)
-
-    def get_ancestors(self):
-        if self._parent is None:
-            return [self]
-        else:
-            ancestors = self._parent.get_ancestors()
-            ancestors.append(self)
-            return ancestors
-
