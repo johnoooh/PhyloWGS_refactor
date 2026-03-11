@@ -23,13 +23,13 @@ def calc_tree_densities(summaries):
 
   try:
     density = list(scipy.stats.gaussian_kde(XY)(XY))
-  except (np.linalg.linalg.LinAlgError, FloatingPointError):
+  except (np.linalg.LinAlgError, FloatingPointError):
     # Occurs when sample covariance matrix is singular because, e.g., data lies
     # on manifold. We see this happen when all trees are linear, implying BI=0.
     # To overcome this error, calculate density in 1D without using the BI.
     try:
       density = list(scipy.stats.gaussian_kde(X)(X))
-    except (np.linalg.linalg.LinAlgError, FloatingPointError):
+    except (np.linalg.LinAlgError, FloatingPointError):
       # ... but an exception may still occur if all trees have the same
       # structure, I think. This was triggered when working with Steph's trees,
       # using PhyloSteph.
@@ -42,9 +42,9 @@ class JsonWriter(object):
     self._dataset_name = dataset_name
 
   def write_mutlist(self, mutlist, mutlist_outfn):
-    with gzip.GzipFile(mutlist_outfn, 'w') as mutf:
+    with gzip.GzipFile(mutlist_outfn, 'wb') as mutf:
       mutlist['dataset_name'] = self._dataset_name
-      json.dump(mutlist, mutf)
+      mutf.write(json.dumps(mutlist).encode('utf-8'))
 
   def write_summaries(self, summaries, params, summaries_outfn):
     for summary in summaries.values():
@@ -59,8 +59,8 @@ class JsonWriter(object):
       'trees': summaries,
       'tree_densities': calc_tree_densities(summaries),
     }
-    with gzip.GzipFile(summaries_outfn, 'w') as summf:
-      json.dump(to_dump, summf)
+    with gzip.GzipFile(summaries_outfn, 'wb') as summf:
+      summf.write(json.dumps(to_dump).encode('utf-8'))
 
   def write_mutass(self, mutass, mutass_outfn):
     with zipfile.ZipFile(mutass_outfn, 'w', compression=zipfile.ZIP_DEFLATED, allowZip64=True) as muts_file:

@@ -1,4 +1,5 @@
-from numpy	  import *
+#!/usr/bin/env python3
+from numpy import *
 from numpy.random import *
 from tssb		import *
 from util		import *
@@ -110,15 +111,15 @@ def print_tree_latex(tssb,fout,score):
 
 	fout = open(fout,'w')
 	count=-1
-	#tree_file='\documentclass{article}\n'
-	tree_file='\documentclass{standalone}\n'	
-	tree_file+='\usepackage{tikz}\n'
-	tree_file+='\usepackage{multicol}\n'
-	tree_file+='\usetikzlibrary{fit,positioning}\n'
+	#tree_file='\\documentclass{article}\n'
+	tree_file='\\documentclass{standalone}\n'
+	tree_file+='\\usepackage{tikz}\n'
+	tree_file+='\\usepackage{multicol}\n'
+	tree_file+='\\usetikzlibrary{fit,positioning}\n'
 	tree_file+='\\begin{document}\n'
 	tree_file+='\\begin{tikzpicture}\n'
 	tree_file+='\\node (a) at (0,0){\n'
-	tree_file+='\\begin{tikzpicture}\n'	
+	tree_file+='\\begin{tikzpicture}\n'
 	tree_file+='[grow=east, ->, level distance=20mm,\
 	every node/.style={circle, minimum size = 8mm, thick, draw =black,inner sep=2mm},\
 	every label/.append style={shape=rectangle, yshift=-1mm},\
@@ -130,27 +131,27 @@ def print_tree_latex(tssb,fout,score):
 	tree_file=write_tree(tssb.root['node'], tree_file)
 	tree_file+=';\n'
 	tree_file+='\\end{tikzpicture}\n'
-	tree_file+='};\n'	
+	tree_file+='};\n'
 	count=-1
 	tree_file+='\\node (b) at (a.south)[anchor=north,yshift=-.5cm]{\n'
-	tree_file+='\\begin{tikzpicture}\n'	
+	tree_file+='\\begin{tikzpicture}\n'
 	tree_file+='\\node (table){\n'
 	tree_file+='\\begin{tabular}{|c|p{5cm}|p{5cm}|'
 	for i in range(len(tssb.root['node'].params)):
 		tree_file+='l|'
 	tree_file+='}\n'
 	tree_file+='\\hline\n'
-	tree_file+='Node & \multicolumn{{1}}{{|c|}}{{Mutations}} & \multicolumn{{1}}{{|c|}}{{Frequencies}} \\\\\n'.format(len(tssb.root['node'].params))
+	tree_file+='Node & \\multicolumn{{1}}{{|c|}}{{Mutations}} & \\multicolumn{{1}}{{|c|}}{{Frequencies}} \\\\\n'.format(len(tssb.root['node'].params))
 	tree_file+='\\hline\n'
 	tree_file=print_index(tssb.root['node'], tree_file)
 	tree_file+='\\hline\n'
 	tree_file+='\\end{tabular}\n'
 	tree_file+='};\n'
 	tree_file+='\\end{tikzpicture}\n'
-	tree_file+='};\n'	
+	tree_file+='};\n'
 	#tree_file+='\\node at (b.south) [anchor=north,yshift=-.5cm]{Posterior probability: ' + str(score) + '};\n'
 	tree_file+='\\end{tikzpicture}\n'
-	tree_file+='\end{document}\n'
+	tree_file+='\\end{document}\n'
 	fout.write(tree_file)
 	fout.close()	
 
