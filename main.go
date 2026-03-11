@@ -1,0 +1,1466 @@
+// PhyloWGS-Go: Pure Go implementation of PhyloWGS MCMC cancer phylogenetics sampler
+package main
+
+import (
+	"bufio"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"log"
+	"math"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"phylowgs-go/cuda"
+	"runtime"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+)
+
+// Global GPU engine (shared across chains)
+var (
+	gpuEngine   *cuda.GPULikelihoodEngine
+	useGPU      bool
+	gpuMu       sync.Mutex
+)
+
+// ============================================================================
+// Data Structures
+// ============================================================================
+
+// SSM represents a Simple Somatic Mutation
+type SSM struct {
+	ID               string
+	Name             string
+	A                []int     // variant read counts per timepoint
+	D                []int     // total depth per timepoint
+	MuR              float64   // reference allele probability in normal
+	MuV              float64   // variant allele probability
+	LogBinNormConst  []float64 // precomputed log binomial coefficients
+	Node             *Node     // assigned node in tree
+	CNVs             []*CNVRef // CNVs affecting this SSM
+}
+
+// SSMDataInterface implementation for cuda.SSMDataInterface
+func (s *SSM) GetA() []int              { return s.A }
+func (s *SSM) GetD() []int              { return s.D }
+func (s *SSM) GetMuR() float64          { return s.MuR }
+func (s *SSM) GetMuV() float64          { return s.MuV }
+func (s *SSM) GetLogBinNormConst() []float64 { return s.LogBinNormConst }
+
+// CNV data interface implementation
+func (s *SSM) HasCNV() bool {
+	return len(s.CNVs) > 0
+}
+func (s *SSM) GetMajorCN() int {
+	if len(s.CNVs) == 0 {
+		return 1 // diploid
+	}
+	return s.CNVs[0].PaternalCN
+}
+func (s *SSM) GetMinorCN() int {
+	if len(s.CNVs) == 0 {
+		return 1 // diploid
+	}
+	return s.CNVs[0].MaternalCN
+}
+
+// CNVRef references a CNV affecting an SSM
+type CNVRef struct {
+	CNV        *CNV
+	MaternalCN int
+	PaternalCN int
+}
+
+// CNV represents a Copy Number Variation
+type CNV struct {
+	ID              string
+	A               []int
+	D               []int
+	LogBinNormConst []float64
+	Node            *Node
+	AffectedSSMs    []string // SSM IDs affected by this CNV
+}
+
+// Node represents a clone in the phylogenetic tree
+type Node struct {
+	ID       int
+	Parent   *Node
+	Children []*Node
+	Data     []int   // indices of SSMs assigned to this node
+	Params   []float64 // cellular prevalence (phi) per timepoint
+	Pi       []float64 // node-specific prevalence
+	Params1  []float64 // proposed params (for MH)
+	Pi1      []float64 // proposed pi (for MH)
+	Height   int
+	Path     []*Node // ancestors from root to this node
+}
+
+// TSSB represents the Tree-Structured Stick-Breaking Process
+type TSSB struct {
+	Root       *TSSBNode
+	DPAlpha    float64
+	DPGamma    float64
+	AlphaDecay float64
+	NumData    int
+	Data       []*SSM
+	CNVData    []*CNV
+	Assignments []*Node // which node each datum is assigned to
+	NTPS       int      // number of timepoints
+	
+	// GPU acceleration buffers
+	phiBuf     []float64 // flat phi buffer [nSSM * nTimepoints]
+	gpuReady   bool      // true if static data uploaded to GPU
+}
+
+// TSSBNode is a node in the TSSB structure
+type TSSBNode struct {
+	Node     *Node
+	Main     float64      // stick length for stopping here
+	Sticks   []float64    // sticks for going to children
+	Children []*TSSBNode
+}
+
+// ChainResult holds results from a single MCMC chain
+type ChainResult struct {
+	ChainID     int
+	Trees       []TreeSample
+	BurninLLH   []float64
+	SampleLLH   []float64
+	FinalTree   *TSSB
+	ElapsedTime time.Duration
+}
+
+// TreeSample holds a sampled tree state
+type TreeSample struct {
+	Iteration int
+	LLH       float64
+	NumNodes  int
+}
+
+// ============================================================================
+// Math utilities
+// ============================================================================
+
+func logFactorial(n int) float64 {
+	if n <= 1 {
+		return 0
+	}
+	result := 0.0
+	for i := 2; i <= n; i++ {
+		result += math.Log(float64(i))
+	}
+	return result
+}
+
+func logBinCoeff(n, k int) float64 {
+	if k < 0 || k > n {
+		return math.Inf(-1)
+	}
+	return logFactorial(n) - logFactorial(k) - logFactorial(n-k)
+}
+
+func logBinomialLikelihood(a, d int, mu float64) float64 {
+	if mu <= 0 {
+		mu = 1e-15
+	}
+	if mu >= 1 {
+		mu = 1 - 1e-15
+	}
+	return float64(a)*math.Log(mu) + float64(d-a)*math.Log(1-mu)
+}
+
+func logsumexp(vals []float64) float64 {
+	if len(vals) == 0 {
+		return math.Inf(-1)
+	}
+	maxVal := vals[0]
+	for _, v := range vals[1:] {
+		if v > maxVal {
+			maxVal = v
+		}
+	}
+	if math.IsInf(maxVal, -1) {
+		return math.Inf(-1)
+	}
+	sum := 0.0
+	for _, v := range vals {
+		sum += math.Exp(v - maxVal)
+	}
+	return maxVal + math.Log(sum)
+}
+
+func boundBeta(a, b float64, rng *rand.Rand) float64 {
+	// Simple beta distribution sampling using gamma variates
+	x := gammaVariate(a, rng)
+	y := gammaVariate(b, rng)
+	result := x / (x + y)
+	// Bound away from 0 and 1
+	if result < 1e-6 {
+		result = 1e-6
+	}
+	if result > 1-1e-6 {
+		result = 1 - 1e-6
+	}
+	return result
+}
+
+func gammaVariate(alpha float64, rng *rand.Rand) float64 {
+	// Marsaglia and Tsang's method for gamma variates
+	if alpha < 1 {
+		return gammaVariate(1+alpha, rng) * math.Pow(rng.Float64(), 1/alpha)
+	}
+	d := alpha - 1.0/3.0
+	c := 1.0 / math.Sqrt(9.0*d)
+	for {
+		var x, v float64
+		for {
+			x = rng.NormFloat64()
+			v = 1.0 + c*x
+			if v > 0 {
+				break
+			}
+		}
+		v = v * v * v
+		u := rng.Float64()
+		if u < 1-0.0331*(x*x)*(x*x) {
+			return d * v
+		}
+		if math.Log(u) < 0.5*x*x+d*(1-v+math.Log(v)) {
+			return d * v
+		}
+	}
+}
+
+func dirichletSample(alpha []float64, rng *rand.Rand) []float64 {
+	result := make([]float64, len(alpha))
+	sum := 0.0
+	for i, a := range alpha {
+		result[i] = gammaVariate(a, rng)
+		sum += result[i]
+	}
+	for i := range result {
+		result[i] /= sum
+		if result[i] < 1e-10 {
+			result[i] = 1e-10
+		}
+	}
+	// Renormalize
+	sum = 0
+	for _, v := range result {
+		sum += v
+	}
+	for i := range result {
+		result[i] /= sum
+	}
+	return result
+}
+
+func dirichletLogPDF(x, alpha []float64) float64 {
+	if len(x) != len(alpha) {
+		return math.Inf(-1)
+	}
+	logB := 0.0
+	for _, a := range alpha {
+		logB += lgamma(a)
+	}
+	sumAlpha := 0.0
+	for _, a := range alpha {
+		sumAlpha += a
+	}
+	logB -= lgamma(sumAlpha)
+	
+	result := -logB
+	for i := range x {
+		if x[i] <= 0 {
+			return math.Inf(-1)
+		}
+		result += (alpha[i] - 1) * math.Log(x[i])
+	}
+	return result
+}
+
+func lgamma(x float64) float64 {
+	lg, _ := math.Lgamma(x)
+	return lg
+}
+
+func betaPDFLn(x, a, b float64) float64 {
+	if x <= 0 || x >= 1 {
+		return math.Inf(-1)
+	}
+	return (a-1)*math.Log(x) + (b-1)*math.Log(1-x) - lgamma(a) - lgamma(b) + lgamma(a+b)
+}
+
+// ============================================================================
+// Data Loading
+// ============================================================================
+
+func loadSSMData(filename string) ([]*SSM, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var ssms []*SSM
+	scanner := bufio.NewScanner(file)
+	lineNum := 0
+	for scanner.Scan() {
+		lineNum++
+		if lineNum == 1 {
+			continue // skip header
+		}
+		line := scanner.Text()
+		fields := strings.Split(line, "\t")
+		if len(fields) < 5 {
+			continue
+		}
+
+		ssm := &SSM{
+			ID:   fields[0],
+			Name: fields[1],
+		}
+
+		// Parse read counts
+		aStrs := strings.Split(fields[2], ",")
+		dStrs := strings.Split(fields[3], ",")
+		ssm.A = make([]int, len(aStrs))
+		ssm.D = make([]int, len(dStrs))
+		for i, s := range aStrs {
+			ssm.A[i], _ = strconv.Atoi(s)
+		}
+		for i, s := range dStrs {
+			ssm.D[i], _ = strconv.Atoi(s)
+		}
+
+		// Parse mu values
+		ssm.MuR = 0.999
+		ssm.MuV = 0.5
+		if len(fields) > 4 {
+			ssm.MuR, _ = strconv.ParseFloat(fields[4], 64)
+		}
+		if len(fields) > 5 {
+			ssm.MuV, _ = strconv.ParseFloat(fields[5], 64)
+		}
+
+		// Precompute log binomial coefficients
+		ssm.LogBinNormConst = make([]float64, len(ssm.A))
+		for i := range ssm.A {
+			ssm.LogBinNormConst[i] = logBinCoeff(ssm.D[i], ssm.A[i])
+		}
+
+		ssms = append(ssms, ssm)
+	}
+
+	return ssms, scanner.Err()
+}
+
+func loadCNVData(filename string, ssms []*SSM) ([]*CNV, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// Build SSM lookup map
+	ssmMap := make(map[string]*SSM)
+	for _, ssm := range ssms {
+		ssmMap[ssm.ID] = ssm
+	}
+
+	var cnvs []*CNV
+	scanner := bufio.NewScanner(file)
+	lineNum := 0
+	for scanner.Scan() {
+		lineNum++
+		if lineNum == 1 {
+			continue // skip header
+		}
+		line := scanner.Text()
+		fields := strings.Split(line, "\t")
+		if len(fields) < 3 {
+			continue
+		}
+
+		cnv := &CNV{
+			ID: fields[0],
+		}
+
+		// Parse read counts
+		aStrs := strings.Split(fields[1], ",")
+		dStrs := strings.Split(fields[2], ",")
+		cnv.A = make([]int, len(aStrs))
+		cnv.D = make([]int, len(dStrs))
+		for i, s := range aStrs {
+			cnv.A[i], _ = strconv.Atoi(s)
+		}
+		for i, s := range dStrs {
+			cnv.D[i], _ = strconv.Atoi(s)
+		}
+
+		// Precompute log binomial coefficients
+		cnv.LogBinNormConst = make([]float64, len(cnv.A))
+		for i := range cnv.A {
+			cnv.LogBinNormConst[i] = logBinCoeff(cnv.D[i], cnv.A[i])
+		}
+
+		// Parse SSM references
+		if len(fields) > 3 && fields[3] != "" {
+			ssmRefs := strings.Split(fields[3], ";")
+			for _, ref := range ssmRefs {
+				parts := strings.Split(ref, ",")
+				if len(parts) >= 3 {
+					ssmID := parts[0]
+					maternalCN, _ := strconv.Atoi(parts[1])
+					paternalCN, _ := strconv.Atoi(parts[2])
+					cnv.AffectedSSMs = append(cnv.AffectedSSMs, ssmID)
+					if ssm, ok := ssmMap[ssmID]; ok {
+						ssm.CNVs = append(ssm.CNVs, &CNVRef{
+							CNV:        cnv,
+							MaternalCN: maternalCN,
+							PaternalCN: paternalCN,
+						})
+					}
+				}
+			}
+		}
+
+		cnvs = append(cnvs, cnv)
+	}
+
+	return cnvs, scanner.Err()
+}
+
+// ============================================================================
+// Tree Operations
+// ============================================================================
+
+func newNode(parent *Node, ntps int) *Node {
+	n := &Node{
+		Children: make([]*Node, 0),
+		Data:     make([]int, 0),
+		Params:   make([]float64, ntps),
+		Pi:       make([]float64, ntps),
+		Params1:  make([]float64, ntps),
+		Pi1:      make([]float64, ntps),
+		Parent:   parent,
+	}
+	if parent != nil {
+		parent.Children = append(parent.Children, n)
+	}
+	return n
+}
+
+func (n *Node) hasData() bool {
+	if len(n.Data) > 0 {
+		return true
+	}
+	for _, child := range n.Children {
+		if child.hasData() {
+			return true
+		}
+	}
+	return false
+}
+
+func (n *Node) getAncestors() []*Node {
+	if n.Parent == nil {
+		return []*Node{n}
+	}
+	return append(n.Parent.getAncestors(), n)
+}
+
+func newTSSB(ssms []*SSM, cnvs []*CNV, dpAlpha, dpGamma, alphaDecay float64, rng *rand.Rand) *TSSB {
+	ntps := len(ssms[0].A)
+	
+	// Create root node
+	rootNode := newNode(nil, ntps)
+	rootNode.ID = 0
+	for i := range rootNode.Params {
+		rootNode.Params[i] = 1.0
+		rootNode.Pi[i] = 1.0
+	}
+
+	root := &TSSBNode{
+		Node:     rootNode,
+		Main:     1e-30, // Root always passes through
+		Sticks:   make([]float64, 0),
+		Children: make([]*TSSBNode, 0),
+	}
+
+	tssb := &TSSB{
+		Root:        root,
+		DPAlpha:     dpAlpha,
+		DPGamma:     dpGamma,
+		AlphaDecay:  alphaDecay,
+		NumData:     len(ssms),
+		Data:        ssms,
+		CNVData:     cnvs,
+		Assignments: make([]*Node, len(ssms)),
+		NTPS:        ntps,
+	}
+	rootNode.Height = 0
+
+	// Create initial child node and assign all data to it
+	childNode := newNode(rootNode, ntps)
+	childNode.ID = 1
+	childNode.Height = 1
+	// Initialize child params
+	for i := range childNode.Params {
+		childNode.Params[i] = 0.5
+		childNode.Pi[i] = 0.5
+	}
+
+	childTSSB := &TSSBNode{
+		Node:     childNode,
+		Main:     boundBeta(1.0, alphaDecay*dpAlpha, rng),
+		Sticks:   make([]float64, 0),
+		Children: make([]*TSSBNode, 0),
+	}
+	root.Children = append(root.Children, childTSSB)
+	root.Sticks = append(root.Sticks, 0.999999)
+
+	// Assign all data to child node
+	for i := range ssms {
+		childNode.Data = append(childNode.Data, i)
+		tssb.Assignments[i] = childNode
+		ssms[i].Node = childNode
+	}
+
+	return tssb
+}
+
+func (t *TSSB) getNodes() []*Node {
+	var nodes []*Node
+	var descend func(*TSSBNode)
+	descend = func(root *TSSBNode) {
+		nodes = append(nodes, root.Node)
+		for _, child := range root.Children {
+			descend(child)
+		}
+	}
+	descend(t.Root)
+	return nodes
+}
+
+func (t *TSSB) getMixture() ([]float64, []*Node) {
+	var weights []float64
+	var nodes []*Node
+	
+	var descend func(*TSSBNode, float64)
+	descend = func(root *TSSBNode, mass float64) {
+		weights = append(weights, mass*root.Main)
+		nodes = append(nodes, root.Node)
+		
+		edges := sticksToEdges(root.Sticks)
+		for i, child := range root.Children {
+			childMass := mass * (1 - root.Main)
+			if i < len(edges) {
+				if i == 0 {
+					childMass *= edges[i]
+				} else {
+					childMass *= edges[i] - edges[i-1]
+				}
+			}
+			descend(child, childMass)
+		}
+	}
+	descend(t.Root, 1.0)
+	return weights, nodes
+}
+
+func sticksToEdges(sticks []float64) []float64 {
+	if len(sticks) == 0 {
+		return nil
+	}
+	edges := make([]float64, len(sticks))
+	prod := 1.0
+	for i, s := range sticks {
+		edges[i] = 1 - prod*(1-s)
+		prod *= (1 - s)
+	}
+	return edges
+}
+
+func (t *TSSB) setNodeHeights() {
+	t.Root.Node.Height = 0
+	var descend func(*TSSBNode, int)
+	descend = func(root *TSSBNode, height int) {
+		root.Node.Height = height
+		for _, child := range root.Children {
+			descend(child, height+1)
+		}
+	}
+	for _, child := range t.Root.Children {
+		descend(child, 1)
+	}
+}
+
+func (t *TSSB) setNodePaths() {
+	nodes := t.getNodes()
+	for _, node := range nodes {
+		node.Path = node.getAncestors()
+	}
+}
+
+func (t *TSSB) mapDatumToNode() {
+	nodes := t.getNodes()
+	for _, node := range nodes {
+		for _, idx := range node.Data {
+			if idx < len(t.Data) {
+				t.Data[idx].Node = node
+			}
+		}
+	}
+}
+
+// ============================================================================
+// Likelihood Computation
+// ============================================================================
+
+func (ssm *SSM) logLikelihood(phi []float64) float64 {
+	if len(ssm.CNVs) == 0 {
+		// Simple case: no CNV
+		return ssm.logLikelihoodNoCNV(phi)
+	}
+	// CNV case - more complex
+	return ssm.logLikelihoodWithCNV(phi)
+}
+
+func (ssm *SSM) logLikelihoodNoCNV(phi []float64) float64 {
+	llh := 0.0
+	for tp := range ssm.A {
+		p := phi[tp]
+		if p < 0 {
+			p = 0
+		}
+		if p > 1 {
+			p = 1
+		}
+		mu := (1-p)*ssm.MuR + p*ssm.MuV
+		if mu < 1e-15 {
+			mu = 1e-15
+		}
+		if mu > 1-1e-15 {
+			mu = 1 - 1e-15
+		}
+		llh += logBinomialLikelihood(ssm.A[tp], ssm.D[tp], mu) + ssm.LogBinNormConst[tp]
+	}
+	return llh
+}
+
+func (ssm *SSM) logLikelihoodWithCNV(phi []float64) float64 {
+	// CNV-aware likelihood computation
+	// Accounts for copy number changes affecting expected VAF
+	//
+	// For an SSM overlapping a CNV, the expected VAF depends on:
+	// 1. Normal cell contribution (diploid, no variant)
+	// 2. Tumor cell contribution (CNV-altered, variant on one allele)
+	//
+	// We average over the two possibilities:
+	// - Variant on major allele copy
+	// - Variant on minor allele copy
+	
+	if len(ssm.CNVs) == 0 {
+		return ssm.logLikelihoodNoCNV(phi)
+	}
+	
+	// Use first overlapping CNV (typically there's only one)
+	cnvRef := ssm.CNVs[0]
+	majorCN := cnvRef.PaternalCN  // In PhyloWGS format: paternal = major
+	minorCN := cnvRef.MaternalCN  // maternal = minor
+	totalCN := majorCN + minorCN
+	
+	// Handle edge cases
+	if totalCN <= 0 {
+		// Complete deletion - no reads expected
+		return ssm.logLikelihoodNoCNV(phi)
+	}
+	
+	llh := 0.0
+	for tp := range ssm.A {
+		p := phi[tp]
+		if p < 0 {
+			p = 0
+		}
+		if p > 1 {
+			p = 1
+		}
+		
+		// Compute possible (nr, nv) combinations based on which allele has the variant
+		// Following PhyloWGS Python implementation from data.py
+		var possibilities []struct{ nr, nv float64 }
+		
+		// Case 1: Variant on major allele
+		// - Normal cells: 2 ref copies
+		// - Tumor cells: variant on major (nv = majorCN), ref on minor (nr = minorCN)
+		nr1 := (1-p)*2 + p*float64(minorCN)
+		nv1 := p * float64(majorCN)
+		if nv1 > 0 {
+			possibilities = append(possibilities, struct{ nr, nv float64 }{nr1, nv1})
+		}
+		
+		// Case 2: Variant on minor allele  
+		// - Normal cells: 2 ref copies
+		// - Tumor cells: variant on minor (nv = minorCN), ref on major (nr = majorCN)
+		nr2 := (1-p)*2 + p*float64(majorCN)
+		nv2 := p * float64(minorCN)
+		if nv2 > 0 {
+			possibilities = append(possibilities, struct{ nr, nv float64 }{nr2, nv2})
+		}
+		
+		// If both possibilities are valid, average their likelihoods
+		if len(possibilities) == 0 {
+			// No valid configurations - use no-CNV likelihood
+			mu := (1-p)*ssm.MuR + p*ssm.MuV
+			if mu < 1e-15 {
+				mu = 1e-15
+			}
+			if mu > 1-1e-15 {
+				mu = 1 - 1e-15
+			}
+			llh += logBinomialLikelihood(ssm.A[tp], ssm.D[tp], mu) + ssm.LogBinNormConst[tp]
+		} else {
+			// Average over possibilities using logsumexp
+			lls := make([]float64, len(possibilities))
+			for i, poss := range possibilities {
+				// mu = (nr * muR + nv * (1-muR)) / (nr + nv)
+				// This accounts for:
+				// - Reference alleles (nr copies) contributing muR reads
+				// - Variant alleles (nv copies) contributing (1-muR) = ~1 reads
+				denom := poss.nr + poss.nv
+				if denom < 1e-15 {
+					denom = 1e-15
+				}
+				mu := (poss.nr*ssm.MuR + poss.nv*(1-ssm.MuR)) / denom
+				if mu < 1e-15 {
+					mu = 1e-15
+				}
+				if mu > 1-1e-15 {
+					mu = 1 - 1e-15
+				}
+				// Include prior: equal probability for each configuration
+				lls[i] = logBinomialLikelihood(ssm.A[tp], ssm.D[tp], mu) + 
+				         math.Log(1.0/float64(len(possibilities))) + 
+				         ssm.LogBinNormConst[tp]
+			}
+			llh += logsumexp(lls)
+		}
+	}
+	return llh
+}
+
+func (t *TSSB) completeDataLogLikelihood() float64 {
+	weights, nodes := t.getMixture()
+	llh := 0.0
+	
+	// Try GPU-accelerated path
+	if useGPU && gpuEngine != nil && t.gpuReady {
+		gpuMu.Lock()
+		gpuLLH, err := t.computeLikelihoodGPU(weights, nodes)
+		gpuMu.Unlock()
+		if err == nil {
+			return gpuLLH
+		}
+		// Fall through to CPU path on error
+	}
+	
+	// CPU path
+	for i, node := range nodes {
+		if len(node.Data) > 0 {
+			llh += float64(len(node.Data)) * math.Log(weights[i])
+			for _, idx := range node.Data {
+				llh += t.Data[idx].logLikelihood(node.Params)
+			}
+		}
+	}
+	return llh
+}
+
+// computeLikelihoodGPU computes log-likelihood using the GPU
+// Packs phi values based on current node assignments and calls GPU kernel
+func (t *TSSB) computeLikelihoodGPU(weights []float64, nodes []*Node) (float64, error) {
+	nSSM := len(t.Data)
+	nTP := t.NTPS
+	
+	// Ensure phi buffer is allocated
+	if len(t.phiBuf) < nSSM*nTP {
+		t.phiBuf = make([]float64, nSSM*nTP)
+	}
+	
+	// Pack phi values for each SSM based on its assigned node
+	for i, ssm := range t.Data {
+		node := ssm.Node
+		if node == nil {
+			// Fallback - this shouldn't happen
+			for tp := 0; tp < nTP; tp++ {
+				t.phiBuf[i*nTP+tp] = 0.5
+			}
+		} else {
+			for tp := 0; tp < nTP; tp++ {
+				phi := node.Params[tp]
+				if phi < 0 {
+					phi = 0
+				}
+				if phi > 1 {
+					phi = 1
+				}
+				t.phiBuf[i*nTP+tp] = phi
+			}
+		}
+	}
+	
+	// Compute likelihoods on GPU
+	ssmLLH, err := gpuEngine.ComputeBatchFast(t.phiBuf, nSSM, nTP)
+	if err != nil {
+		return 0, err
+	}
+	
+	// Sum up total likelihood with mixture weights
+	llh := 0.0
+	
+	// Build node weight map
+	nodeWeights := make(map[*Node]float64)
+	for i, node := range nodes {
+		nodeWeights[node] = weights[i]
+	}
+	
+	// Sum per-SSM likelihoods with log mixture weights
+	for i, ssm := range t.Data {
+		w := nodeWeights[ssm.Node]
+		if w > 0 {
+			llh += math.Log(w) + ssmLLH[i]
+		}
+	}
+	
+	return llh, nil
+}
+
+// initGPUForTSSB uploads static SSM data to GPU
+func (t *TSSB) initGPUForTSSB() error {
+	if !useGPU || gpuEngine == nil {
+		return nil
+	}
+	
+	// Convert SSM slice to interface slice
+	ssms := make([]cuda.SSMDataInterface, len(t.Data))
+	for i, s := range t.Data {
+		ssms[i] = s
+	}
+	
+	gpuMu.Lock()
+	defer gpuMu.Unlock()
+	
+	err := gpuEngine.UploadStaticData(ssms)
+	if err != nil {
+		return err
+	}
+	
+	t.gpuReady = true
+	return nil
+}
+
+// ============================================================================
+// MCMC Moves
+// ============================================================================
+
+func (t *TSSB) resampleAssignments(rng *rand.Rand) {
+	// Pre-compute tree metadata
+	t.setNodeHeights()
+	t.setNodePaths()
+	t.mapDatumToNode()
+
+	weights, nodes := t.getMixture()
+	eps := 1e-15
+
+	for n := 0; n < t.NumData; n++ {
+		oldNode := t.Assignments[n]
+		oldLLH := t.Data[n].logLikelihood(oldNode.Params)
+		llhSlice := math.Log(rng.Float64()) + oldLLH
+
+		maxU := 1.0
+		minU := 0.0
+
+		for iter := 0; iter < 100; iter++ { // Max iterations to prevent infinite loop
+			newU := (maxU-minU)*rng.Float64() + minU
+			
+			// Find node at position newU
+			cumWeight := 0.0
+			var newNode *Node
+			for i, w := range weights {
+				cumWeight += w
+				if newU < cumWeight {
+					newNode = nodes[i]
+					break
+				}
+			}
+			if newNode == nil {
+				newNode = nodes[len(nodes)-1]
+			}
+			
+			// Skip root node
+			if newNode.Parent == nil && len(t.Root.Children) > 0 {
+				newNode = t.Root.Children[0].Node
+			}
+
+			newLLH := t.Data[n].logLikelihood(newNode.Params)
+
+			if newLLH > llhSlice {
+				// Accept move
+				// Remove from old node
+				for i, idx := range oldNode.Data {
+					if idx == n {
+						oldNode.Data = append(oldNode.Data[:i], oldNode.Data[i+1:]...)
+						break
+					}
+				}
+				// Add to new node
+				newNode.Data = append(newNode.Data, n)
+				t.Assignments[n] = newNode
+				t.Data[n].Node = newNode
+				break
+			}
+
+			// Shrink slice
+			if maxU-minU < eps {
+				break
+			}
+			
+			// Determine direction to shrink
+			if rng.Float64() < 0.5 {
+				minU = newU
+			} else {
+				maxU = newU
+			}
+		}
+	}
+}
+
+func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
+	// Get all nodes
+	_, nodes := t.getMixture()
+	if len(nodes) == 0 {
+		return 0
+	}
+
+	// Build node ID map
+	nodeIDMap := make(map[int]int)
+	for i, node := range nodes {
+		node.ID = i
+		nodeIDMap[node.ID] = i
+	}
+
+	accepted := 0
+
+	for iter := 0; iter < iters; iter++ {
+		// Sample new pi values for each timepoint
+		for tp := 0; tp < t.NTPS; tp++ {
+			// Get current pi values
+			pi := make([]float64, len(nodes))
+			for i, node := range nodes {
+				pi[i] = node.Pi[tp]
+				if pi[i] < 1e-10 {
+					pi[i] = 1e-10
+				}
+			}
+
+			// Sample from Dirichlet centered on current pi
+			alpha := make([]float64, len(pi))
+			for i := range pi {
+				alpha[i] = std*pi[i] + 1
+			}
+			piNew := dirichletSample(alpha, rng)
+
+			// Store proposed values
+			for i, node := range nodes {
+				node.Pi1[tp] = piNew[i]
+			}
+
+			// Update proposed params (cumulative prevalence)
+			for i := len(nodes) - 1; i >= 0; i-- {
+				node := nodes[i]
+				node.Params1[tp] = node.Pi1[tp]
+				for _, child := range node.Children {
+					childIdx := nodeIDMap[child.ID]
+					if childIdx < len(nodes) {
+						node.Params1[tp] += nodes[childIdx].Params1[tp]
+					}
+				}
+			}
+		}
+
+		// Compute acceptance ratio
+		oldLLH := t.paramPost(nodes, false)
+		newLLH := t.paramPost(nodes, true)
+		logA := newLLH - oldLLH
+
+		// Add Dirichlet correction terms
+		for tp := 0; tp < t.NTPS; tp++ {
+			piOld := make([]float64, len(nodes))
+			piNew := make([]float64, len(nodes))
+			for i, node := range nodes {
+				piOld[i] = node.Pi[tp]
+				piNew[i] = node.Pi1[tp]
+				if piOld[i] < 1e-10 {
+					piOld[i] = 1e-10
+				}
+				if piNew[i] < 1e-10 {
+					piNew[i] = 1e-10
+				}
+			}
+
+			// Forward proposal: q(pi_new | pi_old)
+			alphaFwd := make([]float64, len(piNew))
+			for i := range piNew {
+				alphaFwd[i] = std * piNew[i]
+			}
+			logA += dirichletLogPDF(piOld, alphaFwd)
+
+			// Backward proposal: q(pi_old | pi_new)
+			alphaBwd := make([]float64, len(piOld))
+			for i := range piOld {
+				alphaBwd[i] = std * piOld[i]
+			}
+			logA -= dirichletLogPDF(piNew, alphaBwd)
+		}
+
+		// Accept/reject
+		if math.Log(rng.Float64()) < logA {
+			accepted++
+			for _, node := range nodes {
+				copy(node.Params, node.Params1)
+				copy(node.Pi, node.Pi1)
+			}
+		}
+	}
+
+	return float64(accepted) / float64(iters)
+}
+
+func (t *TSSB) paramPost(nodes []*Node, useNew bool) float64 {
+	llh := 0.0
+	for _, node := range nodes {
+		var params []float64
+		if useNew {
+			params = node.Params1
+		} else {
+			params = node.Params
+		}
+		for _, idx := range node.Data {
+			llh += t.Data[idx].logLikelihood(params)
+		}
+	}
+	return llh
+}
+
+func (t *TSSB) resampleSticks(rng *rand.Rand) {
+	var descend func(*TSSBNode, int)
+	descend = func(root *TSSBNode, depth int) {
+		dataDown := 0
+		// Process children in reverse order
+		for i := len(root.Children) - 1; i >= 0; i-- {
+			child := root.Children[i]
+			childData := countData(child)
+			descend(child, depth+1)
+			
+			postAlpha := 1.0 + float64(childData)
+			postBeta := t.DPGamma + float64(dataDown)
+			if depth != 0 {
+				root.Sticks[i] = boundBeta(postAlpha, postBeta, rng)
+			} else {
+				root.Sticks[i] = 0.999999
+			}
+			dataDown += childData
+		}
+
+		dataHere := len(root.Node.Data)
+		postAlpha := 1.0 + float64(dataHere)
+		postBeta := math.Pow(t.AlphaDecay, float64(depth))*t.DPAlpha + float64(dataDown)
+		if depth >= 1 { // min_depth = 0 typically
+			root.Main = boundBeta(postAlpha, postBeta, rng)
+		} else {
+			root.Main = 1e-30
+		}
+	}
+	descend(t.Root, 0)
+}
+
+func countData(node *TSSBNode) int {
+	count := len(node.Node.Data)
+	for _, child := range node.Children {
+		count += countData(child)
+	}
+	return count
+}
+
+func (t *TSSB) cullTree() {
+	var descend func(*TSSBNode) int
+	descend = func(root *TSSBNode) int {
+		counts := make([]int, len(root.Children))
+		for i, child := range root.Children {
+			counts[i] = descend(child)
+		}
+		
+		// Keep only children with data
+		keep := 0
+		for i := len(counts) - 1; i >= 0; i-- {
+			if counts[i] > 0 {
+				keep = i + 1
+				break
+			}
+		}
+		
+		// Remove empty trailing children
+		if keep < len(root.Children) {
+			root.Children = root.Children[:keep]
+			if keep < len(root.Sticks) {
+				root.Sticks = root.Sticks[:keep]
+			}
+		}
+		
+		total := len(root.Node.Data)
+		for _, c := range counts[:keep] {
+			total += c
+		}
+		return total
+	}
+	descend(t.Root)
+}
+
+func (t *TSSB) resampleHypers(rng *rand.Rand) {
+	// Resample dp_alpha using slice sampler
+	minDPAlpha := 1.0
+	maxDPAlpha := 50.0
+	
+	dpAlphaLLH := func(alpha float64) float64 {
+		var descend func(*TSSBNode, int) float64
+		descend = func(root *TSSBNode, depth int) float64 {
+			llh := 0.0
+			if depth >= 1 {
+				llh = betaPDFLn(root.Main, 1.0, math.Pow(t.AlphaDecay, float64(depth))*alpha)
+			}
+			for _, child := range root.Children {
+				llh += descend(child, depth+1)
+			}
+			return llh
+		}
+		return descend(t.Root, 0)
+	}
+
+	// Slice sample for dp_alpha
+	llhSlice := math.Log(rng.Float64()) + dpAlphaLLH(t.DPAlpha)
+	lower := minDPAlpha
+	upper := maxDPAlpha
+	for iter := 0; iter < 100; iter++ {
+		newAlpha := (upper-lower)*rng.Float64() + lower
+		newLLH := dpAlphaLLH(newAlpha)
+		if newLLH > llhSlice {
+			t.DPAlpha = newAlpha
+			break
+		}
+		if newAlpha < t.DPAlpha {
+			lower = newAlpha
+		} else {
+			upper = newAlpha
+		}
+	}
+
+	// Resample alpha_decay
+	minDecay := 0.05
+	maxDecay := 0.80
+	llhSlice = math.Log(rng.Float64()) + dpAlphaLLH(t.DPAlpha)
+	lower = minDecay
+	upper = maxDecay
+	for iter := 0; iter < 100; iter++ {
+		newDecay := (upper-lower)*rng.Float64() + lower
+		oldDecay := t.AlphaDecay
+		t.AlphaDecay = newDecay
+		newLLH := dpAlphaLLH(t.DPAlpha)
+		t.AlphaDecay = oldDecay
+		if newLLH > llhSlice {
+			t.AlphaDecay = newDecay
+			break
+		}
+		if newDecay < t.AlphaDecay {
+			lower = newDecay
+		} else {
+			upper = newDecay
+		}
+	}
+}
+
+// ============================================================================
+// MCMC Chain
+// ============================================================================
+
+func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters int, seed int64) ChainResult {
+	start := time.Now()
+	rng := rand.New(rand.NewSource(seed))
+
+	// Deep copy SSMs for this chain
+	ssmsCopy := make([]*SSM, len(ssms))
+	for i, ssm := range ssms {
+		ssmsCopy[i] = &SSM{
+			ID:              ssm.ID,
+			Name:            ssm.Name,
+			A:               append([]int{}, ssm.A...),
+			D:               append([]int{}, ssm.D...),
+			MuR:             ssm.MuR,
+			MuV:             ssm.MuV,
+			LogBinNormConst: append([]float64{}, ssm.LogBinNormConst...),
+		}
+	}
+
+	// Initialize TSSB
+	tssb := newTSSB(ssmsCopy, cnvs, 25.0, 1.0, 0.25, rng)
+	
+	// Initialize GPU for this TSSB (uploads static SSM data)
+	if err := tssb.initGPUForTSSB(); err != nil {
+		log.Printf("Chain %d: GPU init failed, using CPU: %v", chainID, err)
+	}
+
+	mhStd := 100.0
+	var burninLLH []float64
+	var sampleLLH []float64
+	var trees []TreeSample
+
+	totalIters := burnin + samples
+	
+	for iter := -burnin; iter < samples; iter++ {
+		// MCMC iteration
+		tssb.resampleAssignments(rng)
+		tssb.cullTree()
+
+		// Pre-compute tree metadata for MH
+		tssb.setNodeHeights()
+		tssb.setNodePaths()
+		tssb.mapDatumToNode()
+
+		// MH sampling for params
+		mhAcc := tssb.metropolis(mhIters, mhStd, rng)
+
+		// Adapt MH step size
+		if mhAcc < 0.08 && mhStd < 10000 {
+			mhStd *= 2.0
+		}
+		if mhAcc > 0.5 && mhAcc < 0.99 {
+			mhStd /= 2.0
+		}
+
+		// Resample tree structure
+		tssb.resampleSticks(rng)
+		tssb.resampleHypers(rng)
+
+		// Compute likelihood
+		llh := tssb.completeDataLogLikelihood()
+
+		if iter < 0 {
+			burninLLH = append(burninLLH, llh)
+		} else {
+			sampleLLH = append(sampleLLH, llh)
+			_, nodes := tssb.getMixture()
+			trees = append(trees, TreeSample{
+				Iteration: iter,
+				LLH:       llh,
+				NumNodes:  len(nodes),
+			})
+		}
+
+		// Progress logging
+		if (iter+burnin+1)%100 == 0 {
+			elapsed := time.Since(start)
+			progress := float64(iter+burnin+1) / float64(totalIters) * 100
+			log.Printf("Chain %d: iter=%d/%d (%.1f%%) llh=%.2f elapsed=%v", 
+				chainID, iter+burnin+1, totalIters, progress, llh, elapsed.Round(time.Second))
+		}
+	}
+
+	return ChainResult{
+		ChainID:     chainID,
+		Trees:       trees,
+		BurninLLH:   burninLLH,
+		SampleLLH:   sampleLLH,
+		FinalTree:   tssb,
+		ElapsedTime: time.Since(start),
+	}
+}
+
+// ============================================================================
+// Output
+// ============================================================================
+
+func writeResults(outDir string, results []ChainResult) error {
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		return err
+	}
+
+	// Write summary
+	summaryPath := filepath.Join(outDir, "summary.json")
+	summary := struct {
+		NumChains   int       `json:"num_chains"`
+		TotalTime   string    `json:"total_time"`
+		ChainTimes  []string  `json:"chain_times"`
+		BestLLH     float64   `json:"best_llh"`
+		TreeCounts  []int     `json:"trees_per_chain"`
+	}{
+		NumChains:  len(results),
+		TreeCounts: make([]int, len(results)),
+		ChainTimes: make([]string, len(results)),
+	}
+
+	bestLLH := math.Inf(-1)
+	var maxTime time.Duration
+	for i, r := range results {
+		summary.TreeCounts[i] = len(r.Trees)
+		summary.ChainTimes[i] = r.ElapsedTime.String()
+		if r.ElapsedTime > maxTime {
+			maxTime = r.ElapsedTime
+		}
+		for _, t := range r.Trees {
+			if t.LLH > bestLLH {
+				bestLLH = t.LLH
+			}
+		}
+	}
+	summary.TotalTime = maxTime.String()
+	summary.BestLLH = bestLLH
+
+	data, _ := json.MarshalIndent(summary, "", "  ")
+	if err := os.WriteFile(summaryPath, data, 0644); err != nil {
+		return err
+	}
+
+	// Write per-chain samples
+	for _, r := range results {
+		chainPath := filepath.Join(outDir, fmt.Sprintf("chain_%d_samples.txt", r.ChainID))
+		f, err := os.Create(chainPath)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(f, "Iteration\tLLH\tNumNodes")
+		for _, t := range r.Trees {
+			fmt.Fprintf(f, "%d\t%.6f\t%d\n", t.Iteration, t.LLH, t.NumNodes)
+		}
+		f.Close()
+	}
+
+	return nil
+}
+
+// ============================================================================
+// Main
+// ============================================================================
+
+func main() {
+	// Parse command line flags
+	samples := flag.Int("s", 2500, "Number of MCMC samples")
+	burnin := flag.Int("B", 1000, "Burn-in samples")
+	chains := flag.Int("j", 6, "Number of parallel chains")
+	outDir := flag.String("O", "output", "Output directory")
+	mhIters := flag.Int("i", 5000, "MH iterations per MCMC iteration")
+	seed := flag.Int64("r", 0, "Random seed (0 = use time)")
+	noGPU := flag.Bool("no-gpu", false, "Disable GPU acceleration")
+	
+	flag.Parse()
+	args := flag.Args()
+
+	if len(args) < 2 {
+		fmt.Fprintf(os.Stderr, "Usage: phylowgs-go [options] ssm_data.txt cnv_data.txt\n")
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
+
+	ssmFile := args[0]
+	cnvFile := args[1]
+
+	if *seed == 0 {
+		*seed = time.Now().UnixNano()
+	}
+
+	log.Printf("PhyloWGS-Go starting")
+	log.Printf("  SSM file: %s", ssmFile)
+	log.Printf("  CNV file: %s", cnvFile)
+	log.Printf("  Burn-in: %d, Samples: %d, Chains: %d", *burnin, *samples, *chains)
+	log.Printf("  MH iterations: %d", *mhIters)
+	log.Printf("  Random seed: %d", *seed)
+	log.Printf("  CPUs: %d", runtime.NumCPU())
+
+	// Load data
+	ssms, err := loadSSMData(ssmFile)
+	if err != nil {
+		log.Fatalf("Failed to load SSM data: %v", err)
+	}
+	log.Printf("Loaded %d SSMs with %d timepoints", len(ssms), len(ssms[0].A))
+
+	cnvs, err := loadCNVData(cnvFile, ssms)
+	if err != nil {
+		log.Fatalf("Failed to load CNV data: %v", err)
+	}
+	log.Printf("Loaded %d CNVs", len(cnvs))
+	
+	// Initialize GPU if available and not disabled
+	if !*noGPU && cuda.Available() {
+		nTimepoints := len(ssms[0].A)
+		engine, err := cuda.NewGPUEngine(len(ssms), nTimepoints)
+		if err != nil {
+			log.Printf("Warning: GPU initialization failed: %v", err)
+			log.Printf("Continuing with CPU-only mode")
+		} else {
+			gpuEngine = engine
+			useGPU = true
+			defer gpuEngine.Close()
+			log.Printf("GPU acceleration enabled")
+		}
+	} else if *noGPU {
+		log.Printf("GPU acceleration disabled by --no-gpu flag")
+	} else {
+		log.Printf("CUDA not available, using CPU-only mode")
+	}
+
+	// Run chains in parallel
+	start := time.Now()
+	results := make([]ChainResult, *chains)
+	var wg sync.WaitGroup
+
+	for i := 0; i < *chains; i++ {
+		wg.Add(1)
+		go func(chainID int) {
+			defer wg.Done()
+			chainSeed := *seed + int64(chainID)*1000
+			results[chainID] = runChain(chainID, ssms, cnvs, *burnin, *samples, *mhIters, chainSeed)
+		}(i)
+	}
+
+	wg.Wait()
+	totalTime := time.Since(start)
+
+	// Compute statistics
+	totalSamples := 0
+	var allLLH []float64
+	for _, r := range results {
+		totalSamples += len(r.Trees)
+		allLLH = append(allLLH, r.SampleLLH...)
+	}
+
+	// Sort LLH to find best
+	sort.Float64s(allLLH)
+	bestLLH := allLLH[len(allLLH)-1]
+	medianLLH := allLLH[len(allLLH)/2]
+
+	log.Printf("\n=== Results ===")
+	log.Printf("Total time: %v", totalTime.Round(time.Millisecond))
+	log.Printf("Total samples: %d", totalSamples)
+	log.Printf("Throughput: %.2f samples/sec/chain", float64(totalSamples)/totalTime.Seconds()/float64(*chains))
+	log.Printf("Best LLH: %.2f", bestLLH)
+	log.Printf("Median LLH: %.2f", medianLLH)
+
+	// Write results
+	if err := writeResults(*outDir, results); err != nil {
+		log.Printf("Warning: failed to write results: %v", err)
+	}
+	log.Printf("Results written to %s", *outDir)
+}
