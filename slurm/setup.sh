@@ -32,17 +32,36 @@ if command -v module &>/dev/null; then
 fi
 
 # ── Go installation ──────────────────────────────────────────────────────────
+MIN_GO_MAJOR=1
+MIN_GO_MINOR=21  # minimum required for this codebase
+
+need_go_install=false
 if ! command -v go &>/dev/null; then
-    echo "[go] Not found — installing Go $GO_VERSION to $GO_INSTALL_DIR"
+    echo "[go] Not found — will install Go $GO_VERSION"
+    need_go_install=true
+else
+    CURRENT_GO=$(go version | grep -oP 'go\K[0-9]+\.[0-9]+' | head -1)
+    CURRENT_MAJOR=$(echo "$CURRENT_GO" | cut -d. -f1)
+    CURRENT_MINOR=$(echo "$CURRENT_GO" | cut -d. -f2)
+    echo "[go] Found $(go version)"
+    if [[ "$CURRENT_MAJOR" -lt "$MIN_GO_MAJOR" ]] || \
+       [[ "$CURRENT_MAJOR" -eq "$MIN_GO_MAJOR" && "$CURRENT_MINOR" -lt "$MIN_GO_MINOR" ]]; then
+        echo "[go] Version $CURRENT_GO is too old (need >= $MIN_GO_MAJOR.$MIN_GO_MINOR) — installing $GO_VERSION"
+        need_go_install=true
+    else
+        echo "[go] Version OK ($CURRENT_GO >= $MIN_GO_MAJOR.$MIN_GO_MINOR)"
+        echo "export PATH=\"$(dirname $(command -v go)):\$PATH\"" >> "$WORKDIR/env.sh"
+    fi
+fi
+
+if [[ "$need_go_install" == true ]]; then
+    echo "[go] Installing Go $GO_VERSION to $GO_INSTALL_DIR"
     mkdir -p "$GO_INSTALL_DIR"
     curl -sSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" \
         | tar -C "$GO_INSTALL_DIR" -xz
     export PATH="$GO_INSTALL_DIR/go/bin:$PATH"
     echo "export PATH=\"$GO_INSTALL_DIR/go/bin:\$PATH\"" >> "$WORKDIR/env.sh"
-else
-    GO_BIN=$(command -v go)
-    echo "[go] Found at $GO_BIN ($(go version))"
-    echo "export PATH=\"$(dirname $GO_BIN):\$PATH\"" >> "$WORKDIR/env.sh"
+    echo "[go] Installed: $(go version)"
 fi
 
 # ── uv installation ──────────────────────────────────────────────────────────
