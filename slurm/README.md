@@ -31,20 +31,22 @@ squeue -u $USER
 For each sample:
 1. **Convert job** (`cmobic_cpu`) — MAF + FACETS → `ssm_data.txt` + `cnv_data.txt`
 2. **Run jobs** (one per implementation, after convert):
+   - `original-python` → `cmobic_cpu`
    - `optimized-python` → `cmobic_cpu`
    - `go-cpu` → `cmobic_cpu`
-   - `go-cpu-opt` → `cmobic_cpu`
    - `go-gpu` → `gpu` partition, `--gres=gpu:1`
 3. **Analysis job** (`cmobic_cpu`) — depends on ALL run jobs completing
 
 ## Implementations
 
-| Name | Branch | Partition | Notes |
+| Name | Source | Partition | Notes |
 |---|---|---|---|
-| `optimized-python` | `main` | cmobic_cpu | Python 3 refactor |
-| `go-cpu` | `go/main` | cmobic_cpu | Pure Go, no opts |
-| `go-cpu-opt` | `go/feature/parallel-traversal` | cmobic_cpu | MH caching, 2.15× |
-| `go-gpu` | `go/feature/cuda-likelihood` | gpu | CUDA kernel |
+| `original-python` | `morrislab/phylowgs` | cmobic_cpu | Original PhyloWGS (Python 3 compat) |
+| `optimized-python` | `PhyloWGS_refactor:main` | cmobic_cpu | Python 3 refactor, same math |
+| `go-cpu` | `PhyloWGS_refactor:go/main` | cmobic_cpu | Go rewrite, CPU only (`--no-gpu`) |
+| `go-gpu` | `PhyloWGS_refactor:go/main` | gpu | Go rewrite, CUDA kernel, `--gres=gpu:1` |
+
+All Go implementations share the same source (`go/main`). CPU and GPU are different build targets from the same codebase.
 
 ## Options
 
@@ -81,10 +83,11 @@ workdir/
 ├── implementations.tsv       # Implementation manifest
 ├── convert_inputs.py         # MAF + FACETS converter
 ├── impls/
-│   ├── optimized-python/     # Cloned + uv venv
-│   ├── go-cpu/               # Cloned + compiled binary
-│   ├── go-cpu-opt/           # Cloned + compiled binary
-│   └── go-gpu/               # Cloned + CUDA binary
+│   ├── original-python/      # Cloned from morrislab/phylowgs + uv venv
+│   ├── optimized-python/     # Cloned from PhyloWGS_refactor:main + uv venv
+│   ├── go-src/               # Cloned from PhyloWGS_refactor:go/main (shared source)
+│   ├── go-cpu/               # CPU binary built from go-src
+│   └── go-gpu/               # CUDA binary built from go-src + liblikelihood.so
 ├── inputs/
 │   └── SAMPLE001/
 │       ├── ssm_data.txt

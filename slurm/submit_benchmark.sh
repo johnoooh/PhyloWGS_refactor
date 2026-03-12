@@ -11,41 +11,42 @@
 #   --workdir DIR       Workdir created by setup.sh (default: ./phylowgs_benchmark)
 #   --burnin N          MCMC burn-in iterations (default: 1000)
 #   --samples N         MCMC samples (default: 2500)
-#   --chains N          Parallel chains (default: 4)
-#   --time HH:MM:SS     Wall time limit (default: 4:00:00)
+#   --chains N          Parallel chains for Go impls (default: 4)
+#   --time HH:MM:SS     Wall time limit CPU jobs (default: 6:00:00)
+#   --gpu-time HH:MM:SS Wall time limit GPU job (default: 4:00:00)
 #   --mem MB            Memory per job in MB (default: 8000)
 #   --dry-run           Print jobs without submitting
 
 set -euo pipefail
 
-# ── Defaults ─────────────────────────────────────────────────────────────────
 WORKDIR="${PHYLOWGS_WORKDIR:-$(pwd)/phylowgs_benchmark}"
 BURNIN=1000
 SAMPLES=2500
 CHAINS=4
-TIME_LIMIT="4:00:00"
+TIME_LIMIT="6:00:00"
+GPU_TIME_LIMIT="4:00:00"
 MEM_MB=8000
 DRY_RUN=false
 CSV_FILE=""
 
-# ── Parse args ────────────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --workdir)  WORKDIR="$2";    shift 2 ;;
-        --burnin)   BURNIN="$2";     shift 2 ;;
-        --samples)  SAMPLES="$2";    shift 2 ;;
-        --chains)   CHAINS="$2";     shift 2 ;;
-        --time)     TIME_LIMIT="$2"; shift 2 ;;
-        --mem)      MEM_MB="$2";     shift 2 ;;
-        --dry-run)  DRY_RUN=true;    shift ;;
-        *.csv|*.tsv) CSV_FILE="$1";  shift ;;
+        --workdir)   WORKDIR="$2";       shift 2 ;;
+        --burnin)    BURNIN="$2";        shift 2 ;;
+        --samples)   SAMPLES="$2";       shift 2 ;;
+        --chains)    CHAINS="$2";        shift 2 ;;
+        --time)      TIME_LIMIT="$2";    shift 2 ;;
+        --gpu-time)  GPU_TIME_LIMIT="$2";shift 2 ;;
+        --mem)       MEM_MB="$2";        shift 2 ;;
+        --dry-run)   DRY_RUN=true;       shift ;;
+        *.csv|*.tsv) CSV_FILE="$1";      shift ;;
         *) echo "Unknown arg: $1"; exit 1 ;;
     esac
 done
 
-[[ -z "$CSV_FILE" ]] && { echo "Usage: $0 samples.csv [options]"; exit 1; }
+[[ -z "$CSV_FILE" ]]   && { echo "Usage: $0 samples.csv [options]"; exit 1; }
 [[ ! -f "$CSV_FILE" ]] && { echo "CSV not found: $CSV_FILE"; exit 1; }
-[[ ! -d "$WORKDIR" ]] && { echo "Workdir not found: $WORKDIR — run setup.sh first"; exit 1; }
+[[ ! -d "$WORKDIR" ]]  && { echo "Workdir not found: $WORKDIR — run setup.sh first"; exit 1; }
 
 RESULTS_DIR="$WORKDIR/results"
 LOGS_DIR="$WORKDIR/logs"
@@ -55,7 +56,7 @@ mkdir -p "$RESULTS_DIR" "$LOGS_DIR" "$INPUTS_DIR"
 # ── Read samples CSV ──────────────────────────────────────────────────────────
 declare -a SAMPLE_IDS MAFS FACETS_FILES
 while IFS=',' read -r sample_id maf facets; do
-    [[ "$sample_id" == "sample_id" ]] && continue  # skip header
+    [[ "$sample_id" == "sample_id" ]] && continue
     [[ -z "$sample_id" ]] && continue
     SAMPLE_IDS+=("$sample_id")
     MAFS+=("$maf")
@@ -64,22 +65,12 @@ done < "$CSV_FILE"
 
 N_SAMPLES="${#SAMPLE_IDS[@]}"
 echo "=== PhyloWGS Benchmark Submission ==="
-echo "Samples: $N_SAMPLES | B=$BURNIN s=$SAMPLES j=$CHAINS"
-echo "Workdir: $WORKDIR"
+echo "Samples:  $N_SAMPLES"
+echo "Config:   B=$BURNIN s=$SAMPLES j=$CHAINS"
+echo "Workdir:  $WORKDIR"
 echo ""
 
-# ── Read implementations manifest ────────────────────────────────────────────
-declare -a IMPL_NAMES IMPL_TYPES IMPL_BINARIES IMPL_PARTITIONS IMPL_EXTRA_ARGS
-while IFS=$'\t' read -r name type binary branch partition extra_args; do
-    [[ "$name" == "name" ]] && continue
-    IMPL_NAMES+=("$name")
-    IMPL_TYPES+=("$type")
-    IMPL_BINARIES+=("$binary")
-    IMPL_PARTITIONS+=("$partition")
-    IMPL_EXTRA_ARGS+=("$extra_args")
-done < "$WORKDIR/implementations.tsv"
-
-# ── Step 1: Input conversion jobs (one per sample) ───────────────────────────
+# ── Step 1: Input conversion (one per sample) ─────────────────────────────────
 declare -a CONVERT_JIDS
 for i in "${!SAMPLE_IDS[@]}"; do
     sid="${SAMPLE_IDS[$i]}"
@@ -88,7 +79,7 @@ for i in "${!SAMPLE_IDS[@]}"; do
     outdir="$INPUTS_DIR/$sid"
     mkdir -p "$outdir"
 
-    CONVERT_SCRIPT=$(cat << EOF
+    SCRIPT=$(cat << EOF
 #!/usr/bin/env bash
 #SBATCH --job-name=phylo_convert_${sid}
 #SBATCH --partition=cmobic_cpu
@@ -97,126 +88,195 @@ for i in "${!SAMPLE_IDS[@]}"; do
 #SBATCH --time=0:30:00
 #SBATCH --output=${LOGS_DIR}/convert_${sid}.out
 #SBATCH --error=${LOGS_DIR}/convert_${sid}.err
-
 set -euo pipefail
 source "$WORKDIR/env.sh" 2>/dev/null || true
-cd "$WORKDIR"
-
-python3 convert_inputs.py \
-    --sample-id "$sid" \
-    --maf "$maf" \
-    --facets "$facets" \
-    --outdir "$outdir"
-
-echo "DONE: $sid"
+python3 "$WORKDIR/convert_inputs.py" \
+    --sample-id "$sid" --maf "$maf" --facets "$facets" --outdir "$outdir"
+echo "DONE convert: $sid"
 EOF
 )
     if [[ "$DRY_RUN" == true ]]; then
         echo "[dry-run] convert: $sid"
         CONVERT_JIDS+=("DRY_$i")
     else
-        JID=$(echo "$CONVERT_SCRIPT" | sbatch --parsable)
+        JID=$(echo "$SCRIPT" | sbatch --parsable)
         echo "  [convert] $sid → job $JID"
         CONVERT_JIDS+=("$JID")
     fi
 done
 
-# Dependency string for all conversion jobs
-CONVERT_DEP=$(IFS=':'; echo "${CONVERT_JIDS[*]}")
-
-# ── Step 2: PhyloWGS run jobs (per sample × per implementation) ───────────────
+# ── Step 2: Run jobs (4 implementations × N samples) ─────────────────────────
 declare -a ALL_RUN_JIDS
-for j in "${!IMPL_NAMES[@]}"; do
-    impl="${IMPL_NAMES[$j]}"
-    itype="${IMPL_TYPES[$j]}"
-    binary="${IMPL_BINARIES[$j]}"
-    partition="${IMPL_PARTITIONS[$j]}"
-    extra="${IMPL_EXTRA_ARGS[$j]}"
 
-    impl_dir="$WORKDIR/impls/$impl"
+run_job() {
+    local impl="$1"
+    local sid="$2"
+    local convert_jid="$3"
+    local out_dir="$RESULTS_DIR/$sid/$impl"
+    mkdir -p "$out_dir"
 
-    declare -a IMPL_JIDS
-    for i in "${!SAMPLE_IDS[@]}"; do
-        sid="${SAMPLE_IDS[$i]}"
-        input_dir="$INPUTS_DIR/$sid"
-        out_dir="$RESULTS_DIR/$sid/$impl"
-        mkdir -p "$out_dir"
+    local script_body=""
 
-        # GPU-specific SLURM flags
-        GPU_FLAGS=""
-        if [[ "$partition" == "gpu" ]]; then
-            GPU_FLAGS="#SBATCH --gres=gpu:1"
-        fi
+    case "$impl" in
 
-        # Build the run command
-        if [[ "$itype" == "python" ]]; then
-            RUN_CMD="source \"$impl_dir/.venv/bin/activate\"
-python3 \"$impl_dir/evolve.py\" \
+      original-python)
+        script_body=$(cat << EOF
+#SBATCH --job-name=phylo_orig_${sid}
+#SBATCH --partition=cmobic_cpu
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=${MEM_MB}M
+#SBATCH --time=${TIME_LIMIT}
+#SBATCH --output=${LOGS_DIR}/original-python_${sid}.out
+#SBATCH --error=${LOGS_DIR}/original-python_${sid}.err
+
+set -euo pipefail
+source "$WORKDIR/env.sh" 2>/dev/null || true
+source "$WORKDIR/impls/original-python/.venv/bin/activate"
+
+echo "START: \$(date) | $impl | $sid"
+START=\$(date +%s)
+
+cd "$WORKDIR/impls/original-python"
+python3 evolve.py \
     -B $BURNIN -s $SAMPLES \
-    -O \"$out_dir\" \
-    \"$input_dir/ssm_data.txt\" \
-    \"$input_dir/cnv_data.txt\""
-        else
-            # Go binary
-            LD_PREFIX=""
-            if [[ "$partition" == "gpu" ]]; then
-                LD_PREFIX="LD_LIBRARY_PATH=\"$impl_dir/cuda\""
-            fi
-            RUN_CMD="${LD_PREFIX} \"$impl_dir/$binary\" \
-    -B $BURNIN -s $SAMPLES -j $CHAINS \
-    $extra \
-    -O \"$out_dir\" \
-    \"$input_dir/ssm_data.txt\" \
-    \"$input_dir/cnv_data.txt\""
-        fi
+    -O "$out_dir" \
+    "$INPUTS_DIR/$sid/ssm_data.txt" \
+    "$INPUTS_DIR/$sid/cnv_data.txt"
 
-        RUN_SCRIPT=$(cat << EOF
-#!/usr/bin/env bash
-#SBATCH --job-name=phylo_${impl}_${sid}
-#SBATCH --partition=${partition}
+END=\$(date +%s)
+echo "{\"sample_id\":\"$sid\",\"impl\":\"$impl\",\"wall_seconds\":\$((END-START)),\"exit_code\":0}" \
+    > "$out_dir/timing.json"
+echo "END: \$(date) | elapsed \$((END-START))s"
+EOF
+)
+        ;;
+
+      optimized-python)
+        script_body=$(cat << EOF
+#SBATCH --job-name=phylo_opt_${sid}
+#SBATCH --partition=cmobic_cpu
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=${MEM_MB}M
+#SBATCH --time=${TIME_LIMIT}
+#SBATCH --output=${LOGS_DIR}/optimized-python_${sid}.out
+#SBATCH --error=${LOGS_DIR}/optimized-python_${sid}.err
+
+set -euo pipefail
+source "$WORKDIR/env.sh" 2>/dev/null || true
+source "$WORKDIR/impls/optimized-python/.venv/bin/activate"
+
+echo "START: \$(date) | $impl | $sid"
+START=\$(date +%s)
+
+cd "$WORKDIR/impls/optimized-python"
+python3 evolve.py \
+    -B $BURNIN -s $SAMPLES \
+    -O "$out_dir" \
+    "$INPUTS_DIR/$sid/ssm_data.txt" \
+    "$INPUTS_DIR/$sid/cnv_data.txt"
+
+END=\$(date +%s)
+echo "{\"sample_id\":\"$sid\",\"impl\":\"$impl\",\"wall_seconds\":\$((END-START)),\"exit_code\":0}" \
+    > "$out_dir/timing.json"
+echo "END: \$(date) | elapsed \$((END-START))s"
+EOF
+)
+        ;;
+
+      go-cpu)
+        script_body=$(cat << EOF
+#SBATCH --job-name=phylo_gcpu_${sid}
+#SBATCH --partition=cmobic_cpu
 #SBATCH --cpus-per-task=${CHAINS}
 #SBATCH --mem=${MEM_MB}M
 #SBATCH --time=${TIME_LIMIT}
-#SBATCH --output=${LOGS_DIR}/${impl}_${sid}.out
-#SBATCH --error=${LOGS_DIR}/${impl}_${sid}.err
-${GPU_FLAGS}
+#SBATCH --output=${LOGS_DIR}/go-cpu_${sid}.out
+#SBATCH --error=${LOGS_DIR}/go-cpu_${sid}.err
 
 set -euo pipefail
 source "$WORKDIR/env.sh" 2>/dev/null || true
 
-echo "START: \$(date)"
-echo "Impl: $impl | Sample: $sid"
+echo "START: \$(date) | $impl | $sid"
+START=\$(date +%s)
 
-START_TIME=\$(date +%s)
+"$WORKDIR/impls/go-cpu/phylowgs-cpu" \
+    --no-gpu -B $BURNIN -s $SAMPLES -j $CHAINS \
+    -O "$out_dir" \
+    "$INPUTS_DIR/$sid/ssm_data.txt" \
+    "$INPUTS_DIR/$sid/cnv_data.txt"
 
-$RUN_CMD
-
-END_TIME=\$(date +%s)
-ELAPSED=\$((END_TIME - START_TIME))
-
-# Write timing file for analysis
-echo "{\"sample_id\": \"$sid\", \"impl\": \"$impl\", \"wall_seconds\": \$ELAPSED, \"exit_code\": 0}" \
+END=\$(date +%s)
+echo "{\"sample_id\":\"$sid\",\"impl\":\"$impl\",\"wall_seconds\":\$((END-START)),\"exit_code\":0}" \
     > "$out_dir/timing.json"
-
-echo "END: \$(date) | Elapsed: \${ELAPSED}s"
+echo "END: \$(date) | elapsed \$((END-START))s"
 EOF
 )
-        if [[ "$DRY_RUN" == true ]]; then
-            echo "[dry-run] run: $impl × $sid"
-            IMPL_JIDS+=("DRY_${j}_${i}")
-        else
-            JID=$(echo "$RUN_SCRIPT" | sbatch --parsable --dependency="afterok:${CONVERT_JIDS[$i]}")
-            echo "  [run] $impl × $sid → job $JID (after convert ${CONVERT_JIDS[$i]})"
-            IMPL_JIDS+=("$JID")
-            ALL_RUN_JIDS+=("$JID")
+        ;;
+
+      go-gpu)
+        # Skip if CUDA unavailable
+        if [[ -f "$WORKDIR/impls/go-gpu/.skip" ]]; then
+            echo "  [skip] go-gpu: CUDA not available on this machine"
+            return 0
         fi
+        script_body=$(cat << EOF
+#SBATCH --job-name=phylo_ggpu_${sid}
+#SBATCH --partition=gpu
+#SBATCH --cpus-per-task=${CHAINS}
+#SBATCH --mem=${MEM_MB}M
+#SBATCH --time=${GPU_TIME_LIMIT}
+#SBATCH --gres=gpu:1
+#SBATCH --output=${LOGS_DIR}/go-gpu_${sid}.out
+#SBATCH --error=${LOGS_DIR}/go-gpu_${sid}.err
+
+set -euo pipefail
+source "$WORKDIR/env.sh" 2>/dev/null || true
+
+echo "START: \$(date) | $impl | $sid"
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null || true
+START=\$(date +%s)
+
+LD_LIBRARY_PATH="$WORKDIR/impls/go-gpu" \
+"$WORKDIR/impls/go-gpu/phylowgs-gpu" \
+    -B $BURNIN -s $SAMPLES -j $CHAINS \
+    -O "$out_dir" \
+    "$INPUTS_DIR/$sid/ssm_data.txt" \
+    "$INPUTS_DIR/$sid/cnv_data.txt"
+
+END=\$(date +%s)
+echo "{\"sample_id\":\"$sid\",\"impl\":\"$impl\",\"wall_seconds\":\$((END-START)),\"exit_code\":0}" \
+    > "$out_dir/timing.json"
+echo "END: \$(date) | elapsed \$((END-START))s"
+EOF
+)
+        ;;
+    esac
+
+    local full_script="#!/usr/bin/env bash
+${script_body}"
+
+    if [[ "$DRY_RUN" == true ]]; then
+        echo "[dry-run] run: $impl × $sid"
+    else
+        local JID
+        JID=$(echo "$full_script" | sbatch --parsable --dependency="afterok:${convert_jid}")
+        echo "  [run] $impl × $sid → job $JID"
+        ALL_RUN_JIDS+=("$JID")
+    fi
+}
+
+for i in "${!SAMPLE_IDS[@]}"; do
+    sid="${SAMPLE_IDS[$i]}"
+    conv_jid="${CONVERT_JIDS[$i]}"
+    for impl in original-python optimized-python go-cpu go-gpu; do
+        run_job "$impl" "$sid" "$conv_jid"
     done
 done
 
-# ── Step 3: Analysis job (depends on all run jobs) ────────────────────────────
+# ── Step 3: Analysis job ───────────────────────────────────────────────────────
 ALL_RUN_DEP=$(IFS=':'; echo "${ALL_RUN_JIDS[*]}")
 
-ANALYSIS_SCRIPT=$(cat << EOF
+ANALYSIS=$(cat << EOF
 #!/usr/bin/env bash
 #SBATCH --job-name=phylo_analyze
 #SBATCH --partition=cmobic_cpu
@@ -231,10 +291,10 @@ source "$WORKDIR/env.sh" 2>/dev/null || true
 source "$WORKDIR/impls/optimized-python/.venv/bin/activate"
 
 echo "START analysis: \$(date)"
-python3 "$WORKDIR/impls/go-cpu-opt/slurm/analyze_benchmark.py" \
+python3 "$WORKDIR/impls/go-cpu/slurm/analyze_benchmark.py" \
     --results-dir "$RESULTS_DIR" \
     --outdir "$WORKDIR/analysis" \
-    --implementations $(IFS=' '; echo "${IMPL_NAMES[*]}")
+    --implementations original-python optimized-python go-cpu go-gpu
 
 echo "END analysis: \$(date)"
 echo "Report: $WORKDIR/analysis/report.html"
@@ -243,16 +303,15 @@ EOF
 
 if [[ "$DRY_RUN" == true ]]; then
     echo ""
-    echo "[dry-run] analysis job would depend on: ${ALL_RUN_JIDS[*]:-none}"
+    echo "[dry-run] analysis depends on: ${ALL_RUN_JIDS[*]:-none}"
 else
-    ANA_JID=$(echo "$ANALYSIS_SCRIPT" | sbatch --parsable --dependency="afterok:${ALL_RUN_DEP}")
+    ANA_JID=$(echo "$ANALYSIS" | sbatch --parsable --dependency="afterok:${ALL_RUN_DEP}")
     echo ""
     echo "=== All jobs submitted ==="
-    echo "  Input conversion: ${#CONVERT_JIDS[@]} jobs"
-    echo "  PhyloWGS runs:    ${#ALL_RUN_JIDS[@]} jobs (${N_SAMPLES} samples × ${#IMPL_NAMES[@]} impls)"
-    echo "  Analysis:         job $ANA_JID (depends on all runs)"
+    echo "  Convert jobs: ${#CONVERT_JIDS[@]}"
+    echo "  Run jobs:     ${#ALL_RUN_JIDS[@]} (${N_SAMPLES} samples × 4 impls)"
+    echo "  Analysis:     job $ANA_JID (depends on all)"
     echo ""
-    echo "Monitor:"
-    echo "  squeue -u \$USER"
-    echo "  sacct -j $ANA_JID --format=JobID,State,Elapsed,MaxRSS"
+    echo "Monitor:  squeue -u \$USER"
+    echo "Results:  $WORKDIR/analysis/report.html"
 fi
