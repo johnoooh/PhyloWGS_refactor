@@ -25,6 +25,12 @@ mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 > env.sh  # reset env file
 
+# ── Load HPC modules ─────────────────────────────────────────────────────────
+if command -v module &>/dev/null; then
+    module load cuda/12 2>/dev/null && echo "[module] Loaded cuda/12" || \
+        echo "[module] cuda/12 not available — GPU build may fail"
+fi
+
 # ── Go installation ──────────────────────────────────────────────────────────
 if ! command -v go &>/dev/null; then
     echo "[go] Not found — installing Go $GO_VERSION to $GO_INSTALL_DIR"

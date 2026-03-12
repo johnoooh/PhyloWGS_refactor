@@ -231,6 +231,7 @@ EOF
 
 set -euo pipefail
 source "$WORKDIR/env.sh" 2>/dev/null || true
+command -v module &>/dev/null && module load cuda/12 2>/dev/null || true
 
 echo "START: \$(date) | $impl | $sid"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null || true
