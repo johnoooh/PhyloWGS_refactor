@@ -9,7 +9,7 @@ set -euo pipefail
 REPO="https://github.com/johnoooh/PhyloWGS_refactor.git"
 ORIGINAL_REPO="https://github.com/morrislab/phylowgs.git"
 WORKDIR="${PHYLOWGS_WORKDIR:-$(pwd)/phylowgs_benchmark}"
-GO_VERSION="1.22.0"
+GO_VERSION="1.26.1"
 GO_INSTALL_DIR="$WORKDIR/go_install"
 
 while [[ $# -gt 0 ]]; do
@@ -33,7 +33,7 @@ fi
 
 # ── Go installation ──────────────────────────────────────────────────────────
 MIN_GO_MAJOR=1
-MIN_GO_MINOR=21  # minimum required for this codebase
+MIN_GO_MINOR=26  # minimum required — must be >= 1.26
 
 need_go_install=false
 if ! command -v go &>/dev/null; then
