@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 # setup.sh — One-time setup on HPC login node
-# Clones all PhyloWGS branches, builds uv envs and Go binaries
+# Clones all PhyloWGS implementations, builds uv envs and Go binaries
 #
 # Usage: bash setup.sh [--workdir /path/to/workdir]
-#
-# Requires: git, uv, Go (or will download Go), CUDA toolkit (for GPU build)
 
 set -euo pipefail
 
 REPO="https://github.com/johnoooh/PhyloWGS_refactor.git"
+ORIGINAL_REPO="https://github.com/morrislab/phylowgs.git"
 WORKDIR="${PHYLOWGS_WORKDIR:-$(pwd)/phylowgs_benchmark}"
 GO_VERSION="1.22.0"
 GO_INSTALL_DIR="$WORKDIR/go_install"
@@ -24,6 +23,7 @@ echo "=== PhyloWGS Benchmark Setup ==="
 echo "Workdir: $WORKDIR"
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
+> env.sh  # reset env file
 
 # ── Go installation ──────────────────────────────────────────────────────────
 if ! command -v go &>/dev/null; then
@@ -45,75 +45,91 @@ if ! command -v uv &>/dev/null; then
     curl -LsSf https://astral.sh/uv/install.sh | sh
     export PATH="$HOME/.cargo/bin:$PATH"
     echo "export PATH=\"$HOME/.cargo/bin:\$PATH\"" >> "$WORKDIR/env.sh"
+else
+    echo "[uv] Found at $(command -v uv)"
+    echo "export PATH=\"$(dirname $(command -v uv)):\$PATH\"" >> "$WORKDIR/env.sh"
 fi
 
-# ── Define implementations ───────────────────────────────────────────────────
-declare -A BRANCHES=(
-    ["optimized-python"]="main"
-    ["go-cpu"]="go/main"
-    ["go-cpu-opt"]="go/feature/parallel-traversal"
-    ["go-gpu"]="go/feature/cuda-likelihood"
-)
+mkdir -p "$WORKDIR/impls"
 
-# ── Clone each branch ────────────────────────────────────────────────────────
-for impl in "${!BRANCHES[@]}"; do
-    branch="${BRANCHES[$impl]}"
-    dest="$WORKDIR/impls/$impl"
+# ── Clone: original PhyloWGS (morrislab) ────────────────────────────────────
+echo "[original-python] Cloning from morrislab/phylowgs"
+if [[ -d "$WORKDIR/impls/original-python" ]]; then
+    git -C "$WORKDIR/impls/original-python" pull --rebase --autostash 2>&1 | tail -2
+else
+    git clone --depth=1 "$ORIGINAL_REPO" "$WORKDIR/impls/original-python" 2>&1 | tail -3
+fi
+echo "[original-python] Building uv environment (Python 2 compat via Python 3)"
+cd "$WORKDIR/impls/original-python"
+uv venv --python 3.10 .venv
+# Original PhyloWGS deps
+uv pip install --quiet numpy scipy ete3 pyvcf3 2>&1 | tail -2
 
-    if [[ -d "$dest" ]]; then
-        echo "[$impl] Already cloned — pulling"
-        git -C "$dest" pull --rebase --autostash 2>&1 | tail -2
-    else
-        echo "[$impl] Cloning branch $branch"
-        git clone --depth=1 --branch "$branch" "$REPO" "$dest" 2>&1 | tail -3
-    fi
-done
-
-# ── Python env: optimized-python ────────────────────────────────────────────
+# ── Clone: optimized Python (refactor main branch) ───────────────────────────
+echo "[optimized-python] Cloning from PhyloWGS_refactor:main"
+if [[ -d "$WORKDIR/impls/optimized-python" ]]; then
+    git -C "$WORKDIR/impls/optimized-python" pull --rebase --autostash 2>&1 | tail -2
+else
+    git clone --depth=1 --branch main "$REPO" "$WORKDIR/impls/optimized-python" 2>&1 | tail -3
+fi
 echo "[optimized-python] Building uv environment"
 cd "$WORKDIR/impls/optimized-python"
 uv venv --python 3.10 .venv
 uv pip install --quiet numpy scipy 2>&1 | tail -2
 
-# ── Go builds ───────────────────────────────────────────────────────────────
-source "$WORKDIR/env.sh" 2>/dev/null || true
-
-for impl in go-cpu go-cpu-opt; do
-    echo "[$impl] Building CPU binary"
-    cd "$WORKDIR/impls/$impl"
-    go build -o "phylowgs-cpu" . 2>&1
-    echo "[$impl] Built: $(ls -lh phylowgs-cpu | awk '{print $5, $9}')"
-done
-
-# ── CUDA build: go-gpu ───────────────────────────────────────────────────────
-echo "[go-gpu] Building CUDA binary"
-cd "$WORKDIR/impls/go-gpu"
-if command -v nvcc &>/dev/null; then
-    cd cuda && bash build.sh 2>&1 | tail -5 && cd ..
-    CGO_ENABLED=1 LD_LIBRARY_PATH="$WORKDIR/impls/go-gpu/cuda" \
-        go build -tags cuda -o phylowgs-gpu . 2>&1
-    echo "[go-gpu] CUDA build OK"
+# ── Clone: Go implementation (go/main — single source for cpu + gpu) ─────────
+echo "[go] Cloning from PhyloWGS_refactor:go/main"
+if [[ -d "$WORKDIR/impls/go-src" ]]; then
+    git -C "$WORKDIR/impls/go-src" pull --rebase --autostash 2>&1 | tail -2
 else
-    echo "[go-gpu] WARNING: nvcc not found — falling back to CPU build"
-    go build -o phylowgs-gpu . 2>&1
+    git clone --depth=1 --branch go/main "$REPO" "$WORKDIR/impls/go-src" 2>&1 | tail -3
 fi
 
-# ── Input conversion scripts ─────────────────────────────────────────────────
-# Copy conversion helpers into workdir
+source "$WORKDIR/env.sh" 2>/dev/null || true
+
+# ── Build: Go CPU binary ──────────────────────────────────────────────────────
+echo "[go-cpu] Building CPU binary"
+cd "$WORKDIR/impls/go-src"
+go build -o "$WORKDIR/impls/go-cpu/phylowgs-cpu" . 2>&1
+mkdir -p "$WORKDIR/impls/go-cpu"
+go build -o "$WORKDIR/impls/go-cpu/phylowgs-cpu" . 2>&1
+echo "[go-cpu] Built: $(ls -lh $WORKDIR/impls/go-cpu/phylowgs-cpu | awk '{print $5, $9}')"
+
+# ── Build: Go GPU (CUDA) binary ───────────────────────────────────────────────
+mkdir -p "$WORKDIR/impls/go-gpu"
+echo "[go-gpu] Building CUDA binary"
+if command -v nvcc &>/dev/null; then
+    cd "$WORKDIR/impls/go-src/cuda"
+    bash build.sh 2>&1 | tail -5
+    cd "$WORKDIR/impls/go-src"
+    CGO_ENABLED=1 LD_LIBRARY_PATH="$WORKDIR/impls/go-src/cuda" \
+        go build -tags cuda -o "$WORKDIR/impls/go-gpu/phylowgs-gpu" . 2>&1
+    # Copy shared lib next to binary
+    cp cuda/liblikelihood.so "$WORKDIR/impls/go-gpu/" 2>/dev/null || true
+    echo "[go-gpu] CUDA build OK: $(ls -lh $WORKDIR/impls/go-gpu/phylowgs-gpu | awk '{print $5, $9}')"
+else
+    echo "[go-gpu] WARNING: nvcc not found — GPU implementation unavailable"
+    echo "CUDA_UNAVAILABLE" > "$WORKDIR/impls/go-gpu/.skip"
+fi
+
+# ── Copy conversion helper ────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cp "$SCRIPT_DIR/convert_inputs.py" "$WORKDIR/convert_inputs.py" 2>/dev/null || \
-    echo "[warn] convert_inputs.py not found — copy manually"
+cp "$SCRIPT_DIR/convert_inputs.py" "$WORKDIR/convert_inputs.py"
 
 # ── Write implementation manifest ────────────────────────────────────────────
 cat > "$WORKDIR/implementations.tsv" << EOF
-name	type	binary	branch	partition	extra_args
-optimized-python	python	python	main	cmobic_cpu	
-go-cpu	go	phylowgs-cpu	go/main	cmobic_cpu	--no-gpu
-go-cpu-opt	go	phylowgs-cpu	go/feature/parallel-traversal	cmobic_cpu	--no-gpu
-go-gpu	go	phylowgs-gpu	go/feature/cuda-likelihood	gpu	
+name	type	binary_or_script	partition	extra_args	notes
+original-python	python	evolve.py	cmobic_cpu		Original morrislab/phylowgs
+optimized-python	python	evolve.py	cmobic_cpu		Python 3 refactor (this repo main)
+go-cpu	go	phylowgs-cpu	cmobic_cpu	--no-gpu	Go rewrite, CPU only
+go-gpu	go	phylowgs-gpu	gpu		Go rewrite, CUDA kernel
 EOF
 
 echo ""
 echo "=== Setup complete ==="
 echo "Workdir: $WORKDIR"
-echo "Next: bash submit_benchmark.sh <samples.csv> --workdir $WORKDIR"
+echo ""
+echo "Implementations:"
+column -t "$WORKDIR/implementations.tsv"
+echo ""
+echo "Next: bash submit_benchmark.sh samples.csv --workdir $WORKDIR"
