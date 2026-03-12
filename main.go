@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"phylowgs-go/cuda"
 	"runtime"
+	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -97,6 +98,7 @@ type Node struct {
 	Pi1      []float64 // proposed pi (for MH)
 	Height   int
 	Path     []*Node // ancestors from root to this node
+	AncestorSet map[*Node]bool // pre-computed ancestor lookup (for fast isAncestorOf)
 }
 
 // TSSB represents the Tree-Structured Stick-Breaking Process
@@ -110,10 +112,18 @@ type TSSB struct {
 	CNVData    []*CNV
 	Assignments []*Node // which node each datum is assigned to
 	NTPS       int      // number of timepoints
+	MaxDepth   int      // maximum tree depth (default 15)
+	MinDepth   int      // minimum depth before stopping (default 0)
+	NodeIDCounter int   // counter for generating unique node IDs
 	
 	// GPU acceleration buffers
 	phiBuf     []float64 // flat phi buffer [nSSM * nTimepoints]
 	gpuReady   bool      // true if static data uploaded to GPU
+	
+	// Cached mixture weights (invalidated on tree structure changes)
+	cachedWeights []float64
+	cachedNodes   []*Node
+	weightsDirty  bool
 }
 
 // TSSBNode is a node in the TSSB structure
@@ -170,7 +180,15 @@ func logBinomialLikelihood(a, d int, mu float64) float64 {
 	if mu >= 1 {
 		mu = 1 - 1e-15
 	}
-	return float64(a)*math.Log(mu) + float64(d-a)*math.Log(1-mu)
+	logMu := math.Log(mu)
+	// Use log1p for better numerical stability when mu is close to 0 or 1
+	log1MinusMu := math.Log1p(-mu)
+	return float64(a)*logMu + float64(d-a)*log1MinusMu
+}
+
+// logBinomialLikelihoodPrecomputed uses precomputed log values
+func logBinomialLikelihoodPrecomputed(a, d int, logMu, log1MinusMu float64) float64 {
+	return float64(a)*logMu + float64(d-a)*log1MinusMu
 }
 
 func logsumexp(vals []float64) float64 {
@@ -493,21 +511,25 @@ func newTSSB(ssms []*SSM, cnvs []*CNV, dpAlpha, dpGamma, alphaDecay float64, rng
 	}
 
 	tssb := &TSSB{
-		Root:        root,
-		DPAlpha:     dpAlpha,
-		DPGamma:     dpGamma,
-		AlphaDecay:  alphaDecay,
-		NumData:     len(ssms),
-		Data:        ssms,
-		CNVData:     cnvs,
-		Assignments: make([]*Node, len(ssms)),
-		NTPS:        ntps,
+		Root:          root,
+		DPAlpha:       dpAlpha,
+		DPGamma:       dpGamma,
+		AlphaDecay:    alphaDecay,
+		NumData:       len(ssms),
+		Data:          ssms,
+		CNVData:       cnvs,
+		Assignments:   make([]*Node, len(ssms)),
+		NTPS:          ntps,
+		MaxDepth:      15,
+		MinDepth:      0,
+		NodeIDCounter: 1, // root is 0
 	}
 	rootNode.Height = 0
 
 	// Create initial child node and assign all data to it
 	childNode := newNode(rootNode, ntps)
-	childNode.ID = 1
+	tssb.NodeIDCounter++
+	childNode.ID = tssb.NodeIDCounter
 	childNode.Height = 1
 	// Initialize child params
 	for i := range childNode.Params {
@@ -524,11 +546,16 @@ func newTSSB(ssms []*SSM, cnvs []*CNV, dpAlpha, dpGamma, alphaDecay float64, rng
 	root.Children = append(root.Children, childTSSB)
 	root.Sticks = append(root.Sticks, 0.999999)
 
-	// Assign all data to child node
+	// Assign all SSMs to child node
 	for i := range ssms {
 		childNode.Data = append(childNode.Data, i)
 		tssb.Assignments[i] = childNode
 		ssms[i].Node = childNode
+	}
+
+	// Assign all CNVs to child node (CNVs are also tree data in PhyloWGS)
+	for _, cnv := range cnvs {
+		cnv.Node = childNode
 	}
 
 	return tssb
@@ -571,6 +598,43 @@ func (t *TSSB) getMixture() ([]float64, []*Node) {
 	}
 	descend(t.Root, 1.0)
 	return weights, nodes
+}
+
+// getMixtureCached returns cached mixture weights, recomputing if dirty
+func (t *TSSB) getMixtureCached() ([]float64, []*Node) {
+	if t.weightsDirty || t.cachedWeights == nil {
+		t.cachedWeights, t.cachedNodes = t.getMixture()
+		t.weightsDirty = false
+	}
+	return t.cachedWeights, t.cachedNodes
+}
+
+// invalidateWeightsCache marks the mixture weight cache as dirty
+func (t *TSSB) invalidateWeightsCache() {
+	t.weightsDirty = true
+}
+
+// rebuildAncestorSets pre-computes ancestor sets for all nodes
+// This makes isAncestorOf() O(1) instead of O(depth)
+func (t *TSSB) rebuildAncestorSets() {
+	nodes := t.getNodes()
+	for _, n := range nodes {
+		n.AncestorSet = make(map[*Node]bool)
+		cur := n.Parent
+		for cur != nil {
+			n.AncestorSet[cur] = true
+			cur = cur.Parent
+		}
+	}
+}
+
+// isAncestorOfCached uses pre-computed ancestor sets for O(1) lookup
+func isAncestorOfCached(candidate, target *Node) bool {
+	if target.AncestorSet == nil {
+		// Fall back to slow path if not cached
+		return isAncestorOf(candidate, target)
+	}
+	return target.AncestorSet[candidate]
 }
 
 func sticksToEdges(sticks []float64) []float64 {
@@ -653,31 +717,220 @@ func (ssm *SSM) logLikelihoodNoCNV(phi []float64) float64 {
 	return llh
 }
 
+// findMostRecentCNV finds the most recent (deepest) CNV in a node's ancestry
+// that affects the given SSM. Mirrors Python's find_most_recent_cnv().
+// Returns nil if no CNV affects this node for this SSM.
+func findMostRecentCNV(ssm *SSM, nd *Node) *CNVRef {
+	if len(ssm.CNVs) == 0 {
+		return nil
+	}
+	// Walk up ancestors from deepest (most recent) to root
+	ancestors := nd.getAncestors()
+	for i := len(ancestors) - 1; i >= 0; i-- {
+		anc := ancestors[i]
+		// Check if any of the SSM's CNVs have their node == anc
+		for _, cnvRef := range ssm.CNVs {
+			if cnvRef.CNV.Node == anc {
+				return cnvRef
+			}
+		}
+	}
+	return nil
+}
+
+// isAncestorOf returns true if candidate is an ancestor of target
+// (i.e., candidate is on the path from root to target)
+func isAncestorOf(candidate *Node, target *Node) bool {
+	ancestors := target.getAncestors()
+	for _, anc := range ancestors {
+		if anc == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+// computeNGenomes computes (nr, nv) pairs for an SSM by traversing ALL tree nodes.
+// This mirrors Python's compute_n_genomes() exactly.
+// Returns 2 or 4 pairs depending on SSM/CNV relationship.
+func computeNGenomes(ssm *SSM, tssb *TSSB, tp int, newState bool) [][2]float64 {
+	// Initialize 4 pairs (matching Python: nr1,nv1, nr2,nv2, nr3,nv3, nr4,nv4)
+	var nr1, nv1, nr2, nv2, nr3, nv3, nr4, nv4 float64
+
+	// Get SSM's assigned node (equivalent to self.node.path[-1] in Python)
+	ssmNode := ssm.Node
+
+	// Traverse ALL nodes in tree
+	nodes := tssb.getNodes()
+	for _, nd := range nodes {
+		// Get pi for this node (mixture weight contribution)
+		var pi float64
+		if newState {
+			pi = nd.Pi1[tp]
+		} else {
+			pi = nd.Pi[tp]
+		}
+
+		// Find most recent CNV affecting this node for this SSM
+		mrCNV := findMostRecentCNV(ssm, nd)
+
+		// Check if SSM node is an ancestor of current node
+		// (meaning the variant is present in this node's cells)
+		// Use cached lookup if available
+		ssmInAncestors := isAncestorOfCached(ssmNode, nd)
+
+		// Get CNV copy numbers if present
+		var cp, cm int // paternal (major), maternal (minor)
+		if mrCNV != nil {
+			cp = mrCNV.PaternalCN
+			cm = mrCNV.MaternalCN
+		}
+
+		if !ssmInAncestors && mrCNV == nil {
+			// Case 1: No variant, no CNV - standard diploid (2 ref copies)
+			nr1 += pi * 2
+			nr2 += pi * 2
+			nr3 += pi * 2
+			nr4 += pi * 2
+		} else if ssmInAncestors && mrCNV == nil {
+			// Case 2: Has variant, no CNV - 1 ref, 1 var
+			nr1 += pi
+			nv1 += pi
+			nr2 += pi
+			nv2 += pi
+			nr3 += pi
+			nv3 += pi
+			nr4 += pi
+			nv4 += pi
+		} else if !ssmInAncestors && mrCNV != nil {
+			// Case 3: No variant, has CNV - all copies are reference
+			totalCN := float64(cp + cm)
+			nr1 += pi * totalCN
+			nr2 += pi * totalCN
+			nr3 += pi * totalCN
+			nr4 += pi * totalCN
+		} else if ssmInAncestors && mrCNV != nil {
+			// Case 4: Has variant AND has CNV - complex timing cases
+			totalCN := float64(cp + cm)
+
+			// Cases 3 and 4 in Python: SSM occurred BEFORE CNV
+			// (variant not amplified - at most 1 copy of variant)
+			nr3 += pi * math.Max(0, totalCN-1)
+			nv3 += pi * math.Min(1, totalCN)
+			nr4 += pi * math.Max(0, totalCN-1)
+			nv4 += pi * math.Min(1, totalCN)
+
+			// Cases 1 and 2: Check timing relationship
+			// If SSM node is ancestor of CNV node, SSM occurred first (variant amplified)
+			cnvNode := mrCNV.CNV.Node
+			if cnvNode != nil && isAncestorOfCached(ssmNode, cnvNode) {
+				// SSM occurred before CNV - variant gets amplified/deleted by CNV
+				// Case 1: variant on paternal allele
+				nr1 += pi * float64(cp)
+				nv1 += pi * float64(cm)
+				// Case 2: variant on maternal allele  
+				nr2 += pi * float64(cm)
+				nv2 += pi * float64(cp)
+			} else {
+				// CNV occurred before or same node as SSM - variant not amplified
+				nr1 += pi * math.Max(0, totalCN-1)
+				nv1 += pi * math.Min(1, totalCN)
+				nr2 += pi * math.Max(0, totalCN-1)
+				nv2 += pi * math.Min(1, totalCN)
+			}
+		}
+	}
+
+	// Decide whether to return 2 or 4 pairs
+	// Return 4 pairs only if SSM is at the same node as its CNV
+	returnFour := false
+	if len(ssm.CNVs) == 1 && ssm.CNVs[0].CNV.Node == ssm.Node {
+		returnFour = true
+	}
+
+	if returnFour {
+		return [][2]float64{
+			{nr1, nv1},
+			{nr2, nv2},
+			{nr3, nv3},
+			{nr4, nv4},
+		}
+	}
+	return [][2]float64{
+		{nr1, nv1},
+		{nr2, nv2},
+	}
+}
+
+// logLikelihoodWithCNVTree computes CNV-aware likelihood using full tree traversal.
+// This is the correct implementation matching Python's __log_complete_likelihood__.
+func logLikelihoodWithCNVTree(ssm *SSM, tssb *TSSB) float64 {
+	if len(ssm.CNVs) == 0 {
+		// No CNV - use standard likelihood with assigned node's phi
+		return ssm.logLikelihoodNoCNV(ssm.Node.Params)
+	}
+
+	llh := 0.0
+	for tp := range ssm.A {
+		// Compute (nr, nv) pairs for this timepoint
+		possNGenomes := computeNGenomes(ssm, tssb, tp, false)
+
+		// Filter out pairs where nv <= 0 (matching Python: nv > 0)
+		var validPairs [][2]float64
+		for _, ng := range possNGenomes {
+			if ng[1] > 0 {
+				validPairs = append(validPairs, ng)
+			}
+		}
+
+		if len(validPairs) == 0 {
+			// No valid configurations - return very low likelihood
+			llh += math.Log(1e-99)
+			continue
+		}
+
+		// Compute likelihood for each (nr, nv) pair and average via logsumexp
+		prior := math.Log(1.0 / float64(len(validPairs)))
+		lls := make([]float64, len(validPairs))
+		for i, ng := range validPairs {
+			nr, nv := ng[0], ng[1]
+			total := nr + nv
+			if total < 1e-15 {
+				total = 1e-15
+			}
+			// mu = (nr * muR + nv * (1-muR)) / (nr + nv)
+			mu := (nr*ssm.MuR + nv*(1-ssm.MuR)) / total
+			if mu < 1e-15 {
+				mu = 1e-15
+			}
+			if mu > 1-1e-15 {
+				mu = 1 - 1e-15
+			}
+			lls[i] = logBinomialLikelihood(ssm.A[tp], ssm.D[tp], mu) + prior + ssm.LogBinNormConst[tp]
+		}
+		llh += logsumexp(lls)
+	}
+	return llh
+}
+
+// logLikelihoodWithCNV is a wrapper that calls the tree-traversal version
+// when a TSSB is available. For backward compatibility.
 func (ssm *SSM) logLikelihoodWithCNV(phi []float64) float64 {
-	// CNV-aware likelihood computation
-	// Accounts for copy number changes affecting expected VAF
-	//
-	// For an SSM overlapping a CNV, the expected VAF depends on:
-	// 1. Normal cell contribution (diploid, no variant)
-	// 2. Tumor cell contribution (CNV-altered, variant on one allele)
-	//
-	// We average over the two possibilities:
-	// - Variant on major allele copy
-	// - Variant on minor allele copy
+	// This function is called without TSSB context, so we fall back to simple model
+	// The tree-traversal version (logLikelihoodWithCNVTree) should be called instead
+	// when TSSB is available.
 	
 	if len(ssm.CNVs) == 0 {
 		return ssm.logLikelihoodNoCNV(phi)
 	}
 	
-	// Use first overlapping CNV (typically there's only one)
+	// Simple fallback: use first CNV's copy numbers
 	cnvRef := ssm.CNVs[0]
-	majorCN := cnvRef.PaternalCN  // In PhyloWGS format: paternal = major
-	minorCN := cnvRef.MaternalCN  // maternal = minor
+	majorCN := cnvRef.PaternalCN
+	minorCN := cnvRef.MaternalCN
 	totalCN := majorCN + minorCN
 	
-	// Handle edge cases
 	if totalCN <= 0 {
-		// Complete deletion - no reads expected
 		return ssm.logLikelihoodNoCNV(phi)
 	}
 	
@@ -691,63 +944,36 @@ func (ssm *SSM) logLikelihoodWithCNV(phi []float64) float64 {
 			p = 1
 		}
 		
-		// Compute possible (nr, nv) combinations based on which allele has the variant
-		// Following PhyloWGS Python implementation from data.py
-		var possibilities []struct{ nr, nv float64 }
+		// Two cases: variant on major or minor allele
+		var lls []float64
 		
 		// Case 1: Variant on major allele
-		// - Normal cells: 2 ref copies
-		// - Tumor cells: variant on major (nv = majorCN), ref on minor (nr = minorCN)
 		nr1 := (1-p)*2 + p*float64(minorCN)
 		nv1 := p * float64(majorCN)
 		if nv1 > 0 {
-			possibilities = append(possibilities, struct{ nr, nv float64 }{nr1, nv1})
+			total := nr1 + nv1
+			mu := (nr1*ssm.MuR + nv1*(1-ssm.MuR)) / total
+			mu = math.Max(1e-15, math.Min(1-1e-15, mu))
+			lls = append(lls, logBinomialLikelihood(ssm.A[tp], ssm.D[tp], mu)+
+				math.Log(0.5)+ssm.LogBinNormConst[tp])
 		}
 		
-		// Case 2: Variant on minor allele  
-		// - Normal cells: 2 ref copies
-		// - Tumor cells: variant on minor (nv = minorCN), ref on major (nr = majorCN)
+		// Case 2: Variant on minor allele
 		nr2 := (1-p)*2 + p*float64(majorCN)
 		nv2 := p * float64(minorCN)
 		if nv2 > 0 {
-			possibilities = append(possibilities, struct{ nr, nv float64 }{nr2, nv2})
+			total := nr2 + nv2
+			mu := (nr2*ssm.MuR + nv2*(1-ssm.MuR)) / total
+			mu = math.Max(1e-15, math.Min(1-1e-15, mu))
+			lls = append(lls, logBinomialLikelihood(ssm.A[tp], ssm.D[tp], mu)+
+				math.Log(0.5)+ssm.LogBinNormConst[tp])
 		}
 		
-		// If both possibilities are valid, average their likelihoods
-		if len(possibilities) == 0 {
-			// No valid configurations - use no-CNV likelihood
+		if len(lls) == 0 {
 			mu := (1-p)*ssm.MuR + p*ssm.MuV
-			if mu < 1e-15 {
-				mu = 1e-15
-			}
-			if mu > 1-1e-15 {
-				mu = 1 - 1e-15
-			}
+			mu = math.Max(1e-15, math.Min(1-1e-15, mu))
 			llh += logBinomialLikelihood(ssm.A[tp], ssm.D[tp], mu) + ssm.LogBinNormConst[tp]
 		} else {
-			// Average over possibilities using logsumexp
-			lls := make([]float64, len(possibilities))
-			for i, poss := range possibilities {
-				// mu = (nr * muR + nv * (1-muR)) / (nr + nv)
-				// This accounts for:
-				// - Reference alleles (nr copies) contributing muR reads
-				// - Variant alleles (nv copies) contributing (1-muR) = ~1 reads
-				denom := poss.nr + poss.nv
-				if denom < 1e-15 {
-					denom = 1e-15
-				}
-				mu := (poss.nr*ssm.MuR + poss.nv*(1-ssm.MuR)) / denom
-				if mu < 1e-15 {
-					mu = 1e-15
-				}
-				if mu > 1-1e-15 {
-					mu = 1 - 1e-15
-				}
-				// Include prior: equal probability for each configuration
-				lls[i] = logBinomialLikelihood(ssm.A[tp], ssm.D[tp], mu) + 
-				         math.Log(1.0/float64(len(possibilities))) + 
-				         ssm.LogBinNormConst[tp]
-			}
 			llh += logsumexp(lls)
 		}
 	}
@@ -758,23 +984,38 @@ func (t *TSSB) completeDataLogLikelihood() float64 {
 	weights, nodes := t.getMixture()
 	llh := 0.0
 	
-	// Try GPU-accelerated path
+	// Try GPU-accelerated path (only for non-CNV SSMs)
 	if useGPU && gpuEngine != nil && t.gpuReady {
 		gpuMu.Lock()
 		gpuLLH, err := t.computeLikelihoodGPU(weights, nodes)
 		gpuMu.Unlock()
 		if err == nil {
+			// GPU computed non-CNV SSMs, now add CNV SSMs via CPU tree traversal
+			for _, ssm := range t.Data {
+				if len(ssm.CNVs) > 0 {
+					// Subtract the simple LLH that GPU computed, add correct tree LLH
+					gpuLLH -= ssm.logLikelihoodNoCNV(ssm.Node.Params)
+					gpuLLH += logLikelihoodWithCNVTree(ssm, t)
+				}
+			}
 			return gpuLLH
 		}
 		// Fall through to CPU path on error
 	}
 	
-	// CPU path
+	// CPU path - use tree traversal for CNV SSMs
 	for i, node := range nodes {
 		if len(node.Data) > 0 {
 			llh += float64(len(node.Data)) * math.Log(weights[i])
 			for _, idx := range node.Data {
-				llh += t.Data[idx].logLikelihood(node.Params)
+				ssm := t.Data[idx]
+				if len(ssm.CNVs) > 0 {
+					// Use tree-traversal likelihood for CNV SSMs
+					llh += logLikelihoodWithCNVTree(ssm, t)
+				} else {
+					// Standard likelihood for non-CNV SSMs
+					llh += ssm.logLikelihoodNoCNV(node.Params)
+				}
 			}
 		}
 	}
@@ -873,12 +1114,27 @@ func (t *TSSB) resampleAssignments(rng *rand.Rand) {
 	t.setNodeHeights()
 	t.setNodePaths()
 	t.mapDatumToNode()
+	t.rebuildAncestorSets() // Pre-compute ancestor lookups
 
-	weights, nodes := t.getMixture()
 	eps := 1e-15
 
 	for n := 0; n < t.NumData; n++ {
 		oldNode := t.Assignments[n]
+		
+		// Get path indices for current assignment
+		ancestors := oldNode.getAncestors()
+		currentIndices := make([]int, 0)
+		current := t.Root
+		for _, anc := range ancestors[1:] { // skip root
+			for i, child := range current.Children {
+				if child.Node == anc {
+					currentIndices = append(currentIndices, i)
+					current = child
+					break
+				}
+			}
+		}
+		
 		oldLLH := t.Data[n].logLikelihood(oldNode.Params)
 		llhSlice := math.Log(rng.Float64()) + oldLLH
 
@@ -888,23 +1144,13 @@ func (t *TSSB) resampleAssignments(rng *rand.Rand) {
 		for iter := 0; iter < 100; iter++ { // Max iterations to prevent infinite loop
 			newU := (maxU-minU)*rng.Float64() + minU
 			
-			// Find node at position newU
-			cumWeight := 0.0
-			var newNode *Node
-			for i, w := range weights {
-				cumWeight += w
-				if newU < cumWeight {
-					newNode = nodes[i]
-					break
-				}
-			}
-			if newNode == nil {
-				newNode = nodes[len(nodes)-1]
-			}
+			// Use findOrCreateNode for dynamic node creation
+			newNode, newPath := t.findOrCreateNode(newU, rng)
 			
-			// Skip root node
+			// Skip root node (follow PhyloWGS convention: root should be empty)
 			if newNode.Parent == nil && len(t.Root.Children) > 0 {
 				newNode = t.Root.Children[0].Node
+				newPath = []int{0}
 			}
 
 			newLLH := t.Data[n].logLikelihood(newNode.Params)
@@ -925,19 +1171,62 @@ func (t *TSSB) resampleAssignments(rng *rand.Rand) {
 				break
 			}
 
-			// Shrink slice
+			// Shrink slice based on path comparison
 			if maxU-minU < eps {
 				break
 			}
 			
-			// Determine direction to shrink
-			if rng.Float64() < 0.5 {
+			// Path comparison for slice shrinking
+			pathComp := comparePaths(currentIndices, newPath)
+			if pathComp < 0 {
 				minU = newU
 			} else {
 				maxU = newU
 			}
 		}
 	}
+	
+	// Invalidate caches since tree structure may have changed
+	t.invalidateWeightsCache()
+}
+
+// comparePaths compares two paths lexicographically
+// Returns -1 if path1 < path2, 0 if equal, 1 if path1 > path2
+func comparePaths(path1, path2 []int) int {
+	if len(path1) == 0 && len(path2) == 0 {
+		return 0
+	}
+	if len(path1) == 0 {
+		return 1
+	}
+	if len(path2) == 0 {
+		return -1
+	}
+	
+	// Compare element by element
+	minLen := len(path1)
+	if len(path2) < minLen {
+		minLen = len(path2)
+	}
+	
+	for i := 0; i < minLen; i++ {
+		if path1[i] < path2[i] {
+			return -1
+		}
+		if path1[i] > path2[i] {
+			return 1
+		}
+	}
+	
+	// If all compared elements are equal, shorter path is "greater" 
+	// (closer to root = earlier in traversal)
+	if len(path1) < len(path2) {
+		return 1
+	}
+	if len(path1) > len(path2) {
+		return -1
+	}
+	return 0
 }
 
 func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
@@ -955,6 +1244,9 @@ func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
 	}
 
 	accepted := 0
+	
+	// Cache the current likelihood - it only changes when we accept a move
+	cachedOldLLH := t.paramPost(nodes, false)
 
 	for iter := 0; iter < iters; iter++ {
 		// Sample new pi values for each timepoint
@@ -993,8 +1285,8 @@ func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
 			}
 		}
 
-		// Compute acceptance ratio
-		oldLLH := t.paramPost(nodes, false)
+		// Compute acceptance ratio - use cached old LLH
+		oldLLH := cachedOldLLH
 		newLLH := t.paramPost(nodes, true)
 		logA := newLLH - oldLLH
 
@@ -1035,6 +1327,8 @@ func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
 				copy(node.Params, node.Params1)
 				copy(node.Pi, node.Pi1)
 			}
+			// Update cached LLH to new value (since we accepted)
+			cachedOldLLH = newLLH
 		}
 	}
 
@@ -1042,6 +1336,8 @@ func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
 }
 
 func (t *TSSB) paramPost(nodes []*Node, useNew bool) float64 {
+	// Simple serial computation - parallelization overhead too high for this hot path
+	// (called 10,000+ times per MCMC iteration)
 	llh := 0.0
 	for _, node := range nodes {
 		var params []float64
@@ -1051,8 +1347,65 @@ func (t *TSSB) paramPost(nodes []*Node, useNew bool) float64 {
 			params = node.Params
 		}
 		for _, idx := range node.Data {
-			llh += t.Data[idx].logLikelihood(params)
+			ssm := t.Data[idx]
+			if len(ssm.CNVs) > 0 {
+				llh += logLikelihoodWithCNVTreeMH(ssm, t, useNew)
+			} else {
+				llh += ssm.logLikelihoodNoCNV(params)
+			}
 		}
+	}
+	return llh
+}
+
+// logLikelihoodWithCNVTreeMH is like logLikelihoodWithCNVTree but supports MH state
+func logLikelihoodWithCNVTreeMH(ssm *SSM, tssb *TSSB, newState bool) float64 {
+	if len(ssm.CNVs) == 0 {
+		var params []float64
+		if newState {
+			params = ssm.Node.Params1
+		} else {
+			params = ssm.Node.Params
+		}
+		return ssm.logLikelihoodNoCNV(params)
+	}
+
+	llh := 0.0
+	for tp := range ssm.A {
+		// Compute (nr, nv) pairs for this timepoint using newState flag
+		possNGenomes := computeNGenomes(ssm, tssb, tp, newState)
+
+		// Filter out pairs where nv <= 0
+		var validPairs [][2]float64
+		for _, ng := range possNGenomes {
+			if ng[1] > 0 {
+				validPairs = append(validPairs, ng)
+			}
+		}
+
+		if len(validPairs) == 0 {
+			llh += math.Log(1e-99)
+			continue
+		}
+
+		prior := math.Log(1.0 / float64(len(validPairs)))
+		lls := make([]float64, len(validPairs))
+		for i, ng := range validPairs {
+			nr, nv := ng[0], ng[1]
+			total := nr + nv
+			if total < 1e-15 {
+				total = 1e-15
+			}
+			mu := (nr*ssm.MuR + nv*(1-ssm.MuR)) / total
+			if mu < 1e-15 {
+				mu = 1e-15
+			}
+			if mu > 1-1e-15 {
+				mu = 1 - 1e-15
+			}
+			lls[i] = logBinomialLikelihood(ssm.A[tp], ssm.D[tp], mu) + prior + ssm.LogBinNormConst[tp]
+		}
+		llh += logsumexp(lls)
 	}
 	return llh
 }
@@ -1087,6 +1440,7 @@ func (t *TSSB) resampleSticks(rng *rand.Rand) {
 		}
 	}
 	descend(t.Root, 0)
+	t.invalidateWeightsCache()
 }
 
 func countData(node *TSSBNode) int {
@@ -1129,6 +1483,326 @@ func (t *TSSB) cullTree() {
 		return total
 	}
 	descend(t.Root)
+	t.invalidateWeightsCache()
+}
+
+// spawnChild creates a new child TSSBNode from a parent TSSBNode
+// Equivalent to Python's root['node'].spawn() pattern
+func (t *TSSB) spawnChild(parent *TSSBNode, depth int, rng *rand.Rand) *TSSBNode {
+	// Create new Node
+	childNode := newNode(parent.Node, t.NTPS)
+	t.NodeIDCounter++
+	childNode.ID = t.NodeIDCounter
+	childNode.Height = depth + 1
+	
+	// Initialize params from parent (copy parent phi as starting point)
+	for i := range childNode.Params {
+		childNode.Params[i] = parent.Node.Params[i] * 0.5 // Start at half parent's phi
+		childNode.Pi[i] = childNode.Params[i]
+	}
+	
+	// Compute main stick break
+	var main float64
+	if t.MinDepth <= depth+1 {
+		main = boundBeta(1.0, math.Pow(t.AlphaDecay, float64(depth+1))*t.DPAlpha, rng)
+	} else {
+		main = 0.0
+	}
+	
+	return &TSSBNode{
+		Node:     childNode,
+		Main:     main,
+		Sticks:   make([]float64, 0),
+		Children: make([]*TSSBNode, 0),
+	}
+}
+
+// resampleStickOrders reorders children of each node by stick lengths
+// and prunes branches with no assigned data.
+// Equivalent to original tssb.resample_stick_orders()
+func (t *TSSB) resampleStickOrders(rng *rand.Rand) {
+	var descend func(*TSSBNode, int)
+	descend = func(root *TSSBNode, depth int) {
+		if len(root.Children) == 0 {
+			return
+		}
+		
+		// Find children that have data (represented set)
+		represented := make(map[int]bool)
+		for i, child := range root.Children {
+			if child.Node.hasData() {
+				represented[i] = true
+			}
+		}
+		
+		// If no children have data, skip reordering (they'll be pruned anyway)
+		if len(represented) == 0 {
+			return
+		}
+		
+		// Compute weights from sticks
+		edges := sticksToEdges(root.Sticks)
+		allWeights := make([]float64, len(edges))
+		if len(edges) > 0 {
+			allWeights[0] = edges[0]
+			for i := 1; i < len(edges); i++ {
+				allWeights[i] = edges[i] - edges[i-1]
+			}
+		}
+		
+		newOrder := make([]int, 0)
+		
+		// Sample children in random order, weighted by stick lengths
+		for len(represented) > 0 {
+			u := rng.Float64()
+			
+			// Build sub-weights for children not yet in new_order
+			// Safeguard: maximum number of child creations per sampling
+			maxCreations := 10
+			creations := 0
+			
+			for {
+				subIndices := make([]int, 0)
+				for i := 0; i < len(root.Sticks); i++ {
+					inOrder := false
+					for _, k := range newOrder {
+						if k == i {
+							inOrder = true
+							break
+						}
+					}
+					if !inOrder {
+						subIndices = append(subIndices, i)
+					}
+				}
+				
+				// If no indices left to sample, break
+				if len(subIndices) == 0 {
+					break
+				}
+				
+				// Compute sub-weights including leftover mass
+				subWeights := make([]float64, len(subIndices)+1)
+				totalUsed := 0.0
+				for i, idx := range subIndices {
+					subWeights[i] = allWeights[idx]
+					totalUsed += allWeights[idx]
+				}
+				subWeights[len(subIndices)] = 1.0 - totalUsed // leftover
+				if subWeights[len(subIndices)] < 0 {
+					subWeights[len(subIndices)] = 0
+				}
+				
+				// Normalize
+				sumW := 0.0
+				for _, w := range subWeights {
+					sumW += w
+				}
+				if sumW > 0 {
+					for i := range subWeights {
+						subWeights[i] /= sumW
+					}
+				} else {
+					// All weights are zero - pick first remaining index
+					if len(subIndices) > 0 {
+						newOrder = append(newOrder, subIndices[0])
+						delete(represented, subIndices[0])
+					}
+					break
+				}
+				
+				// Sample index from cumulative weights
+				cumSum := 0.0
+				index := len(subIndices) // default to leftover
+				for i, w := range subWeights {
+					cumSum += w
+					if u < cumSum {
+						index = i
+						break
+					}
+				}
+				
+				if index == len(subIndices) {
+					// Fell into uncreated region - create new child
+					creations++
+					if creations > maxCreations {
+						// Too many creations - force pick from existing
+						if len(subIndices) > 0 {
+							// Pick the first represented one, or first available
+							picked := -1
+							for _, si := range subIndices {
+								if represented[si] {
+									picked = si
+									break
+								}
+							}
+							if picked == -1 && len(subIndices) > 0 {
+								picked = subIndices[0]
+							}
+							if picked >= 0 {
+								newOrder = append(newOrder, picked)
+								delete(represented, picked)
+							}
+						}
+						break
+					}
+					
+					newStick := boundBeta(1, t.DPGamma, rng)
+					root.Sticks = append(root.Sticks, newStick)
+					newChild := t.spawnChild(root, depth, rng)
+					root.Children = append(root.Children, newChild)
+					
+					// Recompute weights
+					edges = sticksToEdges(root.Sticks)
+					allWeights = make([]float64, len(edges))
+					if len(edges) > 0 {
+						allWeights[0] = edges[0]
+						for i := 1; i < len(edges); i++ {
+							allWeights[i] = edges[i] - edges[i-1]
+						}
+					}
+				} else {
+					index = subIndices[index]
+					newOrder = append(newOrder, index)
+					delete(represented, index)
+					break
+				}
+			}
+		}
+		
+		// Build new children list and recurse
+		newChildren := make([]*TSSBNode, len(newOrder))
+		for i, k := range newOrder {
+			newChildren[i] = root.Children[k]
+			descend(root.Children[k], depth+1)
+		}
+		
+		// Kill children not in new order (no data)
+		inNewOrder := make(map[int]bool)
+		for _, k := range newOrder {
+			inNewOrder[k] = true
+		}
+		for k := 0; k < len(root.Children); k++ {
+			if !inNewOrder[k] {
+				// Remove from parent's children list
+				child := root.Children[k]
+				for i, c := range root.Node.Children {
+					if c == child.Node {
+						root.Node.Children = append(root.Node.Children[:i], root.Node.Children[i+1:]...)
+						break
+					}
+				}
+			}
+		}
+		
+		root.Children = newChildren
+		root.Sticks = make([]float64, len(newChildren))
+	}
+	
+	descend(t.Root, 0)
+	
+	// Immediately resample sticks after reordering
+	t.resampleSticks(rng)
+}
+
+// findOrCreateNode traverses the stick-breaking tree for position u,
+// creating new nodes as needed (lazy instantiation).
+// Equivalent to original tssb.find_node()
+func (t *TSSB) findOrCreateNode(u float64, rng *rand.Rand) (*Node, []int) {
+	var descend func(*TSSBNode, float64, int) (*Node, []int)
+	descend = func(root *TSSBNode, u float64, depth int) (*Node, []int) {
+		// Check max depth
+		if depth >= t.MaxDepth {
+			return root.Node, []int{}
+		}
+		
+		// Stop at this node?
+		if u < root.Main {
+			return root.Node, []int{}
+		}
+		
+		// Rescale u to remaining interval
+		u = (u - root.Main) / (1.0 - root.Main)
+		
+		if depth > 0 {
+			// Create children as needed until u falls within existing stick space
+			// Safeguard: limit number of children to prevent infinite loops
+			maxChildCreations := 20
+			creations := 0
+			for {
+				if len(root.Children) == 0 {
+					// No children yet - create first one
+					newStick := boundBeta(1, t.DPGamma, rng)
+					root.Sticks = append(root.Sticks, newStick)
+					newChild := t.spawnChild(root, depth, rng)
+					root.Children = append(root.Children, newChild)
+					creations++
+				}
+				
+				// Compute edge = 1 - prod(1 - sticks)
+				prod := 1.0
+				for _, s := range root.Sticks {
+					prod *= (1.0 - s)
+				}
+				edge := 1.0 - prod
+				
+				if u < edge || creations >= maxChildCreations {
+					break // u falls within existing sticks OR we've created enough
+				}
+				
+				// u falls beyond existing sticks - create new child
+				newStick := boundBeta(1, t.DPGamma, rng)
+				root.Sticks = append(root.Sticks, newStick)
+				newChild := t.spawnChild(root, depth, rng)
+				root.Children = append(root.Children, newChild)
+				creations++
+			}
+			
+			// Find which child u falls into
+			edges := make([]float64, len(root.Sticks))
+			prod := 1.0
+			for i, s := range root.Sticks {
+				prod *= (1.0 - s)
+				edges[i] = 1.0 - prod
+			}
+			
+			// Find index where u <= edges[index]
+			index := 0
+			for i, e := range edges {
+				if u <= e {
+					index = i
+					break
+				}
+				index = i
+			}
+			
+			// Rescale u for the child
+			edgeLower := 0.0
+			if index > 0 {
+				edgeLower = edges[index-1]
+			}
+			edgeUpper := edges[index]
+			if edgeUpper > edgeLower {
+				u = (u - edgeLower) / (edgeUpper - edgeLower)
+			} else {
+				u = 0
+			}
+			
+			node, path := descend(root.Children[index], u, depth+1)
+			return node, append([]int{index}, path...)
+		} else {
+			// At root (depth 0) - always go to first child
+			if len(root.Children) == 0 {
+				// Should not happen in normal use, but handle gracefully
+				return root.Node, []int{}
+			}
+			index := 0
+			node, path := descend(root.Children[index], u, depth+1)
+			return node, append([]int{index}, path...)
+		}
+	}
+	
+	return descend(t.Root, u, 0)
 }
 
 func (t *TSSB) resampleHypers(rng *rand.Rand) {
@@ -1253,6 +1927,7 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 
 		// Resample tree structure
 		tssb.resampleSticks(rng)
+		tssb.resampleStickOrders(rng) // Reorder children and prune empty branches
 		tssb.resampleHypers(rng)
 
 		// Compute likelihood
@@ -1364,8 +2039,22 @@ func main() {
 	mhIters := flag.Int("i", 5000, "MH iterations per MCMC iteration")
 	seed := flag.Int64("r", 0, "Random seed (0 = use time)")
 	noGPU := flag.Bool("no-gpu", false, "Disable GPU acceleration")
+	cpuProfile := flag.String("cpuprofile", "", "Write CPU profile to file")
 	
 	flag.Parse()
+	
+	// CPU profiling
+	if *cpuProfile != "" {
+		f, err := os.Create(*cpuProfile)
+		if err != nil {
+			log.Fatalf("Could not create CPU profile: %v", err)
+		}
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatalf("Could not start CPU profile: %v", err)
+		}
+		defer pprof.StopCPUProfile()
+	}
 	args := flag.Args()
 
 	if len(args) < 2 {
