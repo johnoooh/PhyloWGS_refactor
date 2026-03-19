@@ -16,10 +16,16 @@ Key optimizations vs original:
 5. Python 3 compatible.
 """
 
+import builtins as _builtins
 from numpy import *
 import scipy.stats as stat
 from scipy.special import gammaln
 import util2 as u
+
+# numpy's star import shadows Python's max/min with numpy versions that
+# interpret positional args as axis. Restore builtins for scalar use.
+_pymax = _builtins.max
+_pymin = _builtins.min
 
 
 class Datum(object):
@@ -204,8 +210,8 @@ class Datum(object):
                 self.nr4 += pi * total
             elif ssm_in_ancestors and has_cnv:
                 total = mr_cnv[1] + mr_cnv[2]
-                self.nr3 += pi * max(0, total - 1);  self.nv3 += pi * min(1, total)
-                self.nr4 += pi * max(0, total - 1);  self.nv4 += pi * min(1, total)
+                self.nr3 += pi * _pymax(0, total - 1);  self.nv3 += pi * _pymin(1, total)
+                self.nr4 += pi * _pymax(0, total - 1);  self.nv4 += pi * _pymin(1, total)
 
                 cnv_node_ancestors = (
                     mr_cnv[0].node.path
@@ -216,8 +222,8 @@ class Datum(object):
                     self.nr1 += pi * mr_cnv[1];  self.nv1 += pi * mr_cnv[2]
                     self.nr2 += pi * mr_cnv[2];  self.nv2 += pi * mr_cnv[1]
                 else:
-                    self.nr1 += pi * max(0, total - 1);  self.nv1 += pi * min(1, total)
-                    self.nr2 += pi * max(0, total - 1);  self.nv2 += pi * min(1, total)
+                    self.nr1 += pi * _pymax(0, total - 1);  self.nv1 += pi * _pymin(1, total)
+                    self.nr2 += pi * _pymax(0, total - 1);  self.nv2 += pi * _pymin(1, total)
             else:
                 print("PANIC: unexpected case in compute_n_genomes")
 
