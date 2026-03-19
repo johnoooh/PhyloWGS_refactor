@@ -137,11 +137,12 @@ def facets_to_cnv(facets_path, ssms, out_path, purity=None):
                 cf_val = float(cf) if cf not in ('NA', '', 'NaN') else 0.5
                 cf_val = max(EPSILON, min(1.0 - EPSILON, cf_val))
 
-                # Find overlapping SSMs
-                overlapping = [
-                    s['id'] for s in ssm_index.get(chrom, [])
-                    if start <= s['pos'] <= end
-                ]
+                # Find overlapping SSMs — format: ssm_id,maternal_cn,paternal_cn
+                # maternal = major allele copies, paternal = minor allele copies
+                overlapping = []
+                for s in ssm_index.get(chrom, []):
+                    if start <= s['pos'] <= end:
+                        overlapping.append(f"{s['id']},{major},{lcn}")
 
                 cnvs.append({
                     'cnv_id': f"c{len(cnvs)}",
@@ -159,7 +160,7 @@ def facets_to_cnv(facets_path, ssms, out_path, purity=None):
     with open(out_path, 'w') as f:
         f.write("cnv\ta\td\tssms\tphysical_cnvs\n")
         for c in cnvs:
-            ssm_str = ','.join(c['ssms']) if c['ssms'] else ''
+            ssm_str = ';'.join(c['ssms']) if c['ssms'] else ''
             # physical_cnvs: key=value pairs expected by parse_physical_cnvs
             # Multiple physical CNVs per logical CNV separated by ';'
             phys = (
