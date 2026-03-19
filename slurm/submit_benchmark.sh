@@ -134,7 +134,8 @@ run_job() {
 
 set -euo pipefail
 source "$WORKDIR/env.sh" 2>/dev/null || true
-source "$WORKDIR/impls/original-python/.venv/bin/activate"
+# NOTE: do NOT activate .venv here — original-python is Python 2
+# and $PY2_CMD (conda run) handles the environment
 
 echo "START: \$(date) | $impl | $sid"
 START=\$(date +%s)
