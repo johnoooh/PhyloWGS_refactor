@@ -187,7 +187,7 @@ def write_data_state(tssb, fname):
                     state3_parts.append(seg)
                     state4_parts.append(seg)
                 elif ssm_in_anc and has_cnv:
-                    total = mr_cnv[1] + mr_cnv[2]
+                    total = int(mr_cnv[1] + mr_cnv[2])
                     seg34 = '%d,%d,%d' % (node.id, max(0, total - 1), min(1, total))
                     state3_parts.append(seg34)
                     state4_parts.append(seg34)
@@ -200,7 +200,7 @@ def write_data_state(tssb, fname):
                         state1_parts.append('%d,%d,%d' % (node.id, mr_cnv[1], mr_cnv[2]))
                         state2_parts.append('%d,%d,%d' % (node.id, mr_cnv[2], mr_cnv[1]))
                     else:
-                        seg12 = '%d,%d,%d' % (node.id, max(0, total - 1), min(1, total))
+                        seg12 = '%d,%d,%d' % (node.id, max(0, total - 1), min(1, total))  # total already int from above
                         state1_parts.append(seg12)
                         state2_parts.append(seg12)
                 else:
