@@ -160,12 +160,20 @@ def facets_to_cnv(facets_path, ssms, out_path, purity=None):
         f.write("cnv\ta\td\tssms\tphysical_cnvs\n")
         for c in cnvs:
             ssm_str = ','.join(c['ssms']) if c['ssms'] else ''
+            # physical_cnvs: key=value pairs expected by parse_physical_cnvs
+            # Multiple physical CNVs per logical CNV separated by ';'
+            phys = (
+                f"chrom={c['chrom']},"
+                f"start={c['start']},"
+                f"end={c['end']},"
+                f"major_cn={c['major_cn']},"
+                f"minor_cn={c['minor_cn']},"
+                f"cell_prev={c['cellular_prevalence']:.4f}"
+            )
             # a = major_cn copies, d = total copies (approximation for PhyloWGS format)
             f.write(
                 f"{c['cnv_id']}\t{c['major_cn']}\t{c['major_cn'] + c['minor_cn']}\t"
-                f"{ssm_str}\t"
-                f"({c['chrom']},{c['start']},{c['end']},"
-                f"{c['major_cn']},{c['minor_cn']},{c['cellular_prevalence']:.4f})\n"
+                f"{ssm_str}\t{phys}\n"
             )
 
     print(f"[convert] {len(cnvs)} CNV segments written to {out_path}", file=sys.stderr)
