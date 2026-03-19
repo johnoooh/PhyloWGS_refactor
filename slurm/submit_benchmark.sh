@@ -29,7 +29,7 @@ GPU_TIME_LIMIT="4:00:00"
 MEM_MB=8000
 DRY_RUN=false
 CSV_FILE=""
-PY2_CMD="conda run --no-banner -n phylo_py2 python"
+PY2_CMD="conda run -n phylo_py2 python"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
