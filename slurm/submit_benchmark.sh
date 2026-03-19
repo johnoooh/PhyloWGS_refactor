@@ -15,6 +15,7 @@
 #   --time HH:MM:SS     Wall time limit CPU jobs (default: 6:00:00)
 #   --gpu-time HH:MM:SS Wall time limit GPU job (default: 4:00:00)
 #   --mem MB            Memory per job in MB (default: 8000)
+#   --py2 CMD           Python 2 command for original impl (default: conda run -n phylo_py2 python)
 #   --dry-run           Print jobs without submitting
 
 set -euo pipefail
@@ -28,6 +29,7 @@ GPU_TIME_LIMIT="4:00:00"
 MEM_MB=8000
 DRY_RUN=false
 CSV_FILE=""
+PY2_CMD="conda run --no-banner -n phylo_py2 python"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -38,6 +40,7 @@ while [[ $# -gt 0 ]]; do
         --time)      TIME_LIMIT="$2";    shift 2 ;;
         --gpu-time)  GPU_TIME_LIMIT="$2";shift 2 ;;
         --mem)       MEM_MB="$2";        shift 2 ;;
+        --py2)       PY2_CMD="$2";       shift 2 ;;
         --dry-run)   DRY_RUN=true;       shift ;;
         *.csv|*.tsv) CSV_FILE="$1";      shift ;;
         *) echo "Unknown arg: $1"; exit 1 ;;
@@ -137,7 +140,7 @@ echo "START: \$(date) | $impl | $sid"
 START=\$(date +%s)
 
 cd "$WORKDIR/impls/original-python"
-python3 evolve.py \
+$PY2_CMD evolve.py \
     -B $BURNIN -s $SAMPLES \
     -O "$out_dir" \
     "$INPUTS_DIR/$sid/ssm_data.txt" \
