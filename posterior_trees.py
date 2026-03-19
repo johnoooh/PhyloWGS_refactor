@@ -1,12 +1,15 @@
-#!/usr/bin/env python2
-import cPickle
+#!/usr/bin/env python3
+import pickle
 
 from numpy	  import *
 from numpy.random import *
 from tssb		import *
 from util2 import *
 
-from ete2 import *
+try:
+	from ete3 import *
+except ImportError:
+	from ete2 import *
 import heapq
 
 from subprocess import call
@@ -15,7 +18,7 @@ import argparse
 import sys
 
 def compute_lineages(archive_fn, num_trees, fin1, fin2):
-	codes, n_ssms, n_cnvs = load_data(fin1,fin2)	
+	codes, n_ssms, n_cnvs, _ = load_data(fin1,fin2)	
 	m = len(codes) # number of SSMs+CNVs
 	tree_reader = TreeReader(archive_fn)
 	ns = tree_reader.num_trees() #number of MCMC samples
@@ -64,7 +67,7 @@ def compute_lineages(archive_fn, num_trees, fin1, fin2):
 	# print the trees in latex format
 	try:
 		os.mkdir('posterior_trees')
-	except OSError, e:
+	except OSError as e:
 		if e.errno == 17: # Directory exists
 			pass
 		else:
@@ -110,7 +113,7 @@ def compute_lineages(archive_fn, num_trees, fin1, fin2):
 		try:
 			call(['pdflatex', '-interaction=nonstopmode', '-output-directory=%s/posterior_trees/' % old_wd, '%s/%s' % (old_wd, tex_fn)])
 		except OSError:  # pdflatex not available, do not die
-			print >> sys.stderr, 'pdflatex not available'
+			print('pdflatex not available', file=sys.stderr)
 		os.chdir(old_wd)
 
 		fidx+=1
@@ -244,9 +247,9 @@ def print_tree_latex(tssb,fout,score,freqs):
 	count=-1
 	#tree_file='\documentclass{article}\n'
 	tree_file='\documentclass{standalone}\n'	
-	tree_file+='\usepackage{tikz}\n'
-	tree_file+='\usepackage{multicol}\n'
-	tree_file+='\usetikzlibrary{fit,positioning}\n'
+	tree_file+='\\usepackage{tikz}\n'
+	tree_file+='\\usepackage{multicol}\n'
+	tree_file+='\\usetikzlibrary{fit,positioning}\n'
 	tree_file+='\\begin{document}\n'
 	tree_file+='\\begin{tikzpicture}\n'
 	tree_file+='\\node (a) at (0,0){\n'

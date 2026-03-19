@@ -659,7 +659,7 @@ class MultisampleCnvCombiner(object):
 
   def _reformat_segments_as_cnvs(self, segments):
     reformatted = defaultdict(list)
-    _retrieve_val = lambda idx: np.array(zip(*open_samples)[idx])
+    _retrieve_val = lambda idx: np.array(list(zip(*open_samples))[idx])
 
     for chrom, chrom_cnvs in segments.items():
         for start, end, open_samples in chrom_cnvs:
@@ -1050,21 +1050,101 @@ class CnvParser(object):
   def __init__(self, cn_filename):
     self._cn_filename = cn_filename
 
+  def _detect_format(self, fieldnames):
+    """Auto-detect input format: 'standard' (PhyloWGS) or 'facets'."""
+    facets_cols = {'chrom', 'tcn.em', 'lcn.em', 'cf.em'}
+    standard_cols = {'chromosome', 'major_cn', 'minor_cn', 'cellular_prevalence'}
+    fields = set(fieldnames)
+    if facets_cols.issubset(fields):
+      return 'facets'
+    elif standard_cols.issubset(fields):
+      return 'standard'
+    else:
+      raise ValueError(
+        'CNV file columns not recognized. Expected either standard PhyloWGS format '
+        '(chromosome, start, end, major_cn, minor_cn, cellular_prevalence) or '
+        'FACETS format (chrom, start/loc.start, end/loc.end, tcn.em, lcn.em, cf.em). '
+        'Found: %s' % ', '.join(sorted(fields))
+      )
+
+  def _parse_facets_record(self, record):
+    """Convert a FACETS record to standard PhyloWGS format."""
+    chrom = record['chrom'].upper().replace('CHR', '')
+
+    # Handle both 'start'/'end' and 'loc.start'/'loc.end' column names
+    if 'loc.start' in record:
+      start = int(float(record['loc.start']))
+      end = int(float(record['loc.end']))
+    else:
+      start = int(float(record['start']))
+      end = int(float(record['end']))
+
+    tcn = record['tcn.em']
+    lcn = record['lcn.em']
+    cf = record['cf.em']
+
+    # Skip rows with NA values (diploid segments without clonal fraction)
+    if tcn in ('', 'NA', 'nan') or lcn in ('', 'NA', 'nan') or cf in ('', 'NA', 'nan'):
+      return None, None
+
+    tcn = int(float(tcn))
+    lcn = int(float(lcn))
+    cf = float(cf)
+
+    major_cn = tcn - lcn
+    minor_cn = lcn
+
+    # Sanity checks
+    if major_cn < 0:
+      log('WARNING: Negative major_cn (%s) for %s:%s-%s, skipping' % (major_cn, chrom, start, end))
+      return None, None
+    if cf <= 0 or cf > 1:
+      log('WARNING: Invalid cellular_prevalence (%s) for %s:%s-%s, skipping' % (cf, chrom, start, end))
+      return None, None
+
+    converted = {
+      'start': start,
+      'end': end,
+      'major_cn': major_cn,
+      'minor_cn': minor_cn,
+      'cellular_prevalence': cf,
+    }
+    return chrom, converted
+
+  def _parse_standard_record(self, record):
+    """Parse a standard PhyloWGS-format record."""
+    chrom = record['chromosome'].upper()
+    del record['chromosome']
+    for key in ('start', 'end', 'major_cn', 'minor_cn'):
+      # Some records from Battenberg have major and minor listed as, e.g.,
+      # "1.0", so cast to float before int.
+      assert float(record[key]) == int(float(record[key]))
+      record[key] = int(float(record[key]))
+    record['cellular_prevalence'] = float(record['cellular_prevalence'])
+    return chrom, record
+
   def parse(self):
     cn_regions = defaultdict(list)
 
     with open(self._cn_filename) as cnf:
       reader = csv.DictReader(cnf, delimiter='\t')
+      fmt = self._detect_format(reader.fieldnames)
+      skipped = 0
+
       for record in reader:
-        chrom = record['chromosome'].upper()
-        del record['chromosome']
-        for key in ('start', 'end', 'major_cn', 'minor_cn'):
-          # Some records from Battenberg have major and minor listed as, e.g.,
-          # "1.0", so cast to float before int.
-          assert float(record[key]) == int(float(record[key]))
-          record[key] = int(float(record[key]))
-        record['cellular_prevalence'] = float(record['cellular_prevalence'])
-        cn_regions[chrom].append(record)
+        if fmt == 'facets':
+          chrom, parsed = self._parse_facets_record(record)
+        else:
+          chrom, parsed = self._parse_standard_record(record)
+
+        if chrom is None:
+          skipped += 1
+          continue
+        cn_regions[chrom].append(parsed)
+
+      if fmt == 'facets':
+        log('Parsed FACETS input: %s regions across %s chroms (%s skipped)' % (
+          sum(len(v) for v in cn_regions.values()), len(cn_regions), skipped))
 
     # Ensure CN regions are properly sorted, which we later rely on when
     # filtering out regions with multiple abnormal CN states.

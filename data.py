@@ -100,10 +100,11 @@ class Datum(object):
             return self._log_likelihood_no_cnv_vectorised(phi)
 
         # CNV path: still per-time-point (logic is too branchy to vectorise easily)
-        return sum(
-            self.__log_complete_likelihood__(phi[tp], self.mu_r, self.mu_v, tp, new_state)
-            for tp in range(len(phi))
-        )
+        # Use Python builtin sum to avoid numpy deprecation warning
+        total = 0.0
+        for tp in range(len(phi)):
+            total += self.__log_complete_likelihood__(phi[tp], self.mu_r, self.mu_v, tp, new_state)
+        return total
 
     def _log_likelihood_no_cnv_vectorised(self, phi):
         """
@@ -122,10 +123,10 @@ class Datum(object):
 
     def _log_complete_likelihood(self, phi, mu_r, mu_v):
         """Convenience wrapper summing across all time points."""
-        return sum(
-            self.__log_complete_likelihood__(phi, mu_r, mu_v, tp)
-            for tp in range(len(self.a))
-        )
+        total = 0.0
+        for tp in range(len(self.a)):
+            total += self.__log_complete_likelihood__(phi, mu_r, mu_v, tp)
+        return total
 
     def __log_complete_likelihood__(self, phi, mu_r, mu_v, tp, new_state=0):
         if self.cnv:

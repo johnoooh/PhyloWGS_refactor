@@ -79,7 +79,7 @@ def knng(X):
 	m,n = X.shape
 	k = int(ceil(log2(m)))
 	XX = dot(X,X.T)
-    	D = outer(diag(XX),ones(m))+outer(ones(m),diag(XX))-2*XX
+	D = outer(diag(XX),ones(m))+outer(ones(m),diag(XX))-2*XX
 	D = D*1./D.max()
 	W = zeros((m,m))
 	for i in arange(m):
