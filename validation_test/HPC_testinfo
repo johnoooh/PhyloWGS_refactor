@@ -1,0 +1,40 @@
+Traceback (most recent call last):
+  File "/home/orgeraj/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/threading.py", line 1016, in _bootstrap_inner
+    self.run()
+  File "/home/orgeraj/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/threading.py", line 953, in run
+    self._target(*self._args, **self._kwargs)
+  File "/data1/core005/ccs/orgeraj/phylowgs_testing/rundir/phylowgs_benchmark/impls/optimized-python/evolve.py", line 376, in run
+    start_new_run(
+  File "/data1/core005/ccs/orgeraj/phylowgs_testing/rundir/phylowgs_benchmark/impls/optimized-python/evolve.py", line 139, in start_new_run
+    do_mcmc(state_manager, backup_manager, safe_to_exit, run_succeeded,
+  File "/data1/core005/ccs/orgeraj/phylowgs_testing/rundir/phylowgs_benchmark/impls/optimized-python/evolve.py", line 191, in do_mcmc
+    tssb.resample_assignments()
+  File "/data1/core005/ccs/orgeraj/phylowgs_testing/rundir/phylowgs_benchmark/impls/optimized-python/tssb.py", line 114, in resample_assignments
+    old_llh = self.assignments[n].logprob(self.data[n:n + 1])
+  File "/data1/core005/ccs/orgeraj/phylowgs_testing/rundir/phylowgs_benchmark/impls/optimized-python/alleles.py", line 76, in logprob
+    return x[0]._log_likelihood(self.params, update_tree=False)
+  File "/data1/core005/ccs/orgeraj/phylowgs_testing/rundir/phylowgs_benchmark/impls/optimized-python/data.py", line 106, in _log_likelihood
+    total += self.__log_complete_likelihood__(phi[tp], self.mu_r, self.mu_v, tp, new_state)
+  File "/data1/core005/ccs/orgeraj/phylowgs_testing/rundir/phylowgs_benchmark/impls/optimized-python/data.py", line 133, in __log_complete_likelihood__
+    poss_n_genomes = self.compute_n_genomes(tp, new_state)
+  File "/data1/core005/ccs/orgeraj/phylowgs_testing/rundir/phylowgs_benchmark/impls/optimized-python/data.py", line 207, in compute_n_genomes
+    self.nr3 += pi * max(0, total - 1);  self.nv3 += pi * min(1, total)
+  File "/data1/core005/ccs/orgeraj/phylowgs_testing/rundir/phylowgs_benchmark/impls/optimized-python/.venv/lib/python3.10/site-packages/numpy/_core/fromnumeric.py", line 3164, in max
+    return _wrapreduction(a, np.maximum, 'max', axis, None, out,
+  File "/data1/core005/ccs/orgeraj/phylowgs_testing/rundir/phylowgs_benchmark/impls/optimized-python/.venv/lib/python3.10/site-packages/numpy/_core/fromnumeric.py", line 86, in _wrapreduction
+    return ufunc.reduce(obj, axis, dtype, out, **passkwargs)
+numpy.exceptions.AxisError: axis 2 is out of bounds for array of dimension 0
+
+An example CNV file: 
+cnv     a       d       ssms    physical_cnvs
+c0      2       3       s0,2,1;s1,2,1   chrom=1,start=14700,end=12677377,major_cn=2,minor_cn=1,cell_prev=0.7097
+c1      2       3               chrom=1,start=14076000,end=16891365,major_cn=2,minor_cn=1,cell_prev=0.7097
+c2      2       3               chrom=1,start=16891963,end=17742926,major_cn=2,minor_cn=1,cell_prev=0.6942
+c3      2       3       s2,2,1;s3,2,1;s4,2,1;s5,2,1     chrom=1,start=17743150,end=40041650,major_cn=2,minor_cn=1,cell_prev=0.7097
+
+
+id      gene    a       d       mu_r    mu_v
+s0      KCNAB2  82      127     0.001   0.5
+s1      VPS13D  196     351     0.001   0.5
+s2      HSPG2   226     330     0.001   0.5
+s3      ZNF683  131     235     0.001   0.5
