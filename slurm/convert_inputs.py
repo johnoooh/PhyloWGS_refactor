@@ -101,7 +101,18 @@ def facets_to_cnv(facets_path, ssms, out_path, purity=None):
     cf.em = cellular fraction (tumor purity × local CCF)
     tcn.em = total copy number
     lcn.em = lesser (minor) copy number
+    
+    CNV read counts (a, d) are synthesized to match PhyloWGS conventions:
+      d (total reads) = region_size × het_snp_rate × avg_read_depth
+      a (ref reads)   = (1 - cellular_prevalence/2) × d
+    This follows the original create_phylowgs_inputs.py logic.
     """
+    # Estimate average read depth from SSMs
+    ssm_depths = [s['total'] for s in ssms]
+    avg_read_depth = sum(ssm_depths) / len(ssm_depths) if ssm_depths else 100
+    het_snp_rate = 7.0 / 10000  # 7 het SNPs per 10 kb (PhyloWGS default)
+    max_equiv_ssms = 3000  # cap per CNA region (PhyloWGS default)
+
     # Index SSMs by (chrom, pos) for overlap detection
     ssm_index = defaultdict(list)
     for s in ssms:
@@ -144,6 +155,13 @@ def facets_to_cnv(facets_path, ssms, out_path, purity=None):
                     if start <= s['pos'] <= end:
                         overlapping.append(f"{s['id']},{major},{lcn}")
 
+                # Synthesize read counts (matching PhyloWGS create_phylowgs_inputs.py)
+                region_size = end - start
+                equiv_ssms = region_size * het_snp_rate
+                total_reads = int(round(equiv_ssms * avg_read_depth))
+                total_reads = max(1, min(int(round(max_equiv_ssms * avg_read_depth)), total_reads))
+                ref_reads = int((1 - cf_val / 2) * total_reads)
+
                 cnvs.append({
                     'cnv_id': f"c{len(cnvs)}",
                     'chrom': chrom,
@@ -152,6 +170,8 @@ def facets_to_cnv(facets_path, ssms, out_path, purity=None):
                     'major_cn': major,
                     'minor_cn': lcn,
                     'cellular_prevalence': cf_val,
+                    'ref_reads': ref_reads,
+                    'total_reads': total_reads,
                     'ssms': overlapping,
                 })
             except (ValueError, IndexError, KeyError):
@@ -171,9 +191,9 @@ def facets_to_cnv(facets_path, ssms, out_path, purity=None):
                 f"minor_cn={c['minor_cn']},"
                 f"cell_prev={c['cellular_prevalence']:.4f}"
             )
-            # a = major_cn copies, d = total copies (approximation for PhyloWGS format)
+            # a = ref reads, d = total reads (synthesized from region size + read depth)
             f.write(
-                f"{c['cnv_id']}\t{c['major_cn']}\t{c['major_cn'] + c['minor_cn']}\t"
+                f"{c['cnv_id']}\t{c['ref_reads']}\t{c['total_reads']}\t"
                 f"{ssm_str}\t{phys}\n"
             )
 
