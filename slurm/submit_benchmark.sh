@@ -30,6 +30,7 @@ MEM_MB=8000
 DRY_RUN=false
 CSV_FILE=""
 PY2_CMD="conda run -n phylo_py2 python"
+PHYLOWGS_SIF="${NXF_SINGULARITY_CACHEDIR:-$HOME/.singularity/cache}/ghcr.io-mskcc-omics-workflows-phylowgs-v1.5-msk.img"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -98,7 +99,8 @@ source "$WORKDIR/env.sh" 2>/dev/null || true
 python3 "$WORKDIR/facets_to_phylowgs_cnv.py" "$facets" -o "$outdir/cnv_for_phylowgs.txt"
 
 # Step 2: Run MSK create_phylowgs_inputs.py (handles MAF + CNV → ssm_data.txt + cnv_data.txt)
-$PY2_CMD "$WORKDIR/create_phylowgs_inputs_msk.py" \
+singularity exec --bind /data1 "$PHYLOWGS_SIF" \
+    python2 /usr/bin/create_phylowgs_inputs.py \
     --cnvs S1="$outdir/cnv_for_phylowgs.txt" \
     --output-cnvs "$outdir/cnv_data.txt" \
     --output-variants "$outdir/ssm_data.txt" \
@@ -144,14 +146,12 @@ run_job() {
 
 set -euo pipefail
 source "$WORKDIR/env.sh" 2>/dev/null || true
-# NOTE: do NOT activate .venv here — original-python is Python 2
-# and $PY2_CMD (conda run) handles the environment
 
 echo "START: \$(date) | $impl | $sid"
 START=\$(date +%s)
 
-cd "$WORKDIR/impls/original-python"
-$PY2_CMD evolve.py \
+singularity exec --bind /data1 "$PHYLOWGS_SIF" \
+    python2 /opt/phylowgs/evolve.py \
     -B $BURNIN -s $SAMPLES \
     -O "$out_dir" \
     "$INPUTS_DIR/$sid/ssm_data.txt" \
