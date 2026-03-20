@@ -30,7 +30,7 @@ MEM_MB=8000
 DRY_RUN=false
 CSV_FILE=""
 PY2_CMD="conda run -n phylo_py2 python"
-PHYLOWGS_SIF="${NXF_SINGULARITY_CACHEDIR:-$HOME/.singularity/cache}/ghcr.io-mskcc-omics-workflows-phylowgs-v1.5-msk.img"
+PHYLOWGS_SIF=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -42,6 +42,7 @@ while [[ $# -gt 0 ]]; do
         --gpu-time)  GPU_TIME_LIMIT="$2";shift 2 ;;
         --mem)       MEM_MB="$2";        shift 2 ;;
         --py2)       PY2_CMD="$2";       shift 2 ;;
+        --sif)       PHYLOWGS_SIF="$2";  shift 2 ;;
         --dry-run)   DRY_RUN=true;       shift ;;
         *.csv|*.tsv) CSV_FILE="$1";      shift ;;
         *) echo "Unknown arg: $1"; exit 1 ;;
@@ -51,6 +52,20 @@ done
 [[ -z "$CSV_FILE" ]]   && { echo "Usage: $0 samples.csv [options]"; exit 1; }
 [[ ! -f "$CSV_FILE" ]] && { echo "CSV not found: $CSV_FILE"; exit 1; }
 [[ ! -d "$WORKDIR" ]]  && { echo "Workdir not found: $WORKDIR — run setup.sh first"; exit 1; }
+
+# Find Singularity image
+if [[ -z "$PHYLOWGS_SIF" ]]; then
+    # Check workdir first, then NXF cache
+    if [[ -f "$WORKDIR/phylowgs_v1.5-msk.sif" ]]; then
+        PHYLOWGS_SIF="$WORKDIR/phylowgs_v1.5-msk.sif"
+    elif [[ -n "${NXF_SINGULARITY_CACHEDIR:-}" ]] && ls "${NXF_SINGULARITY_CACHEDIR}"/*phylowgs* &>/dev/null; then
+        PHYLOWGS_SIF=$(ls "${NXF_SINGULARITY_CACHEDIR}"/*phylowgs* | head -1)
+    else
+        echo "ERROR: PhyloWGS Singularity image not found. Provide --sif /path/to/phylowgs.sif"; exit 1
+    fi
+fi
+[[ ! -f "$PHYLOWGS_SIF" ]] && { echo "SIF not found: $PHYLOWGS_SIF"; exit 1; }
+echo "SIF image: $PHYLOWGS_SIF"
 
 RESULTS_DIR="$WORKDIR/results"
 LOGS_DIR="$WORKDIR/logs"
