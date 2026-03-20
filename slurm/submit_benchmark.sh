@@ -93,8 +93,18 @@ for i in "${!SAMPLE_IDS[@]}"; do
 #SBATCH --error=${LOGS_DIR}/convert_${sid}.err
 set -euo pipefail
 source "$WORKDIR/env.sh" 2>/dev/null || true
-python3 "$WORKDIR/convert_inputs.py" \
-    --sample-id "$sid" --maf "$maf" --facets "$facets" --outdir "$outdir"
+
+# Step 1: Convert FACETS cncf to PhyloWGS CNV format
+python3 "$WORKDIR/facets_to_phylowgs_cnv.py" "$facets" -o "$outdir/cnv_for_phylowgs.txt"
+
+# Step 2: Run MSK create_phylowgs_inputs.py (handles MAF + CNV → ssm_data.txt + cnv_data.txt)
+$PY2_CMD "$WORKDIR/create_phylowgs_inputs_msk.py" \
+    --cnvs S1="$outdir/cnv_for_phylowgs.txt" \
+    --output-cnvs "$outdir/cnv_data.txt" \
+    --output-variants "$outdir/ssm_data.txt" \
+    --output-params "$outdir/params.json" \
+    --vcf-type S1=maf \
+    S1="$maf"
 echo "DONE convert: $sid"
 EOF
 )
