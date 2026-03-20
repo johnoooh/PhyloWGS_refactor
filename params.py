@@ -180,7 +180,7 @@ def write_data_state(tssb, fname):
                     state3_parts.append(seg)
                     state4_parts.append(seg)
                 elif not ssm_in_anc and has_cnv:
-                    total = mr_cnv[1] + mr_cnv[2]
+                    total = int(mr_cnv[1] + mr_cnv[2])
                     seg = '%d,%d,%d' % (node.id, total, 0)
                     state1_parts.append(seg)
                     state2_parts.append(seg)
@@ -197,8 +197,8 @@ def write_data_state(tssb, fname):
                         else mr_cnv[0].node.get_ancestors()
                     )
                     if ssm_node in set(cnv_anc_path):
-                        state1_parts.append('%d,%d,%d' % (node.id, mr_cnv[1], mr_cnv[2]))
-                        state2_parts.append('%d,%d,%d' % (node.id, mr_cnv[2], mr_cnv[1]))
+                        state1_parts.append('%d,%d,%d' % (node.id, int(mr_cnv[1]), int(mr_cnv[2])))
+                        state2_parts.append('%d,%d,%d' % (node.id, int(mr_cnv[2]), int(mr_cnv[1])))
                     else:
                         seg12 = '%d,%d,%d' % (node.id, max(0, total - 1), min(1, total))  # total already int from above
                         state1_parts.append(seg12)
