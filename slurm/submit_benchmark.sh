@@ -179,6 +179,13 @@ set -euo pipefail
 source "$WORKDIR/env.sh" 2>/dev/null || true
 source "$WORKDIR/impls/optimized-python/.venv/bin/activate"
 
+# Extract mh.o from container if not already present
+if [[ ! -f "$WORKDIR/impls/optimized-python/mh.o" ]]; then
+    MH_SRC=\$(singularity exec "$PHYLOWGS_SIF" find / -name "mh.o" 2>/dev/null | head -1)
+    singularity exec "$PHYLOWGS_SIF" cat "\$MH_SRC" > "$WORKDIR/impls/optimized-python/mh.o"
+    chmod +x "$WORKDIR/impls/optimized-python/mh.o"
+fi
+
 echo "START: \$(date) | $impl | $sid"
 START=\$(date +%s)
 
