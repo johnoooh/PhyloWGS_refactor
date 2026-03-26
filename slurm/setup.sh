@@ -117,9 +117,8 @@ source "$WORKDIR/env.sh" 2>/dev/null || true
 
 # ── Build: Go CPU binary ──────────────────────────────────────────────────────
 echo "[go-cpu] Building CPU binary"
-cd "$WORKDIR/impls/go-src"
-go build -o "$WORKDIR/impls/go-cpu/phylowgs-cpu" . 2>&1
 mkdir -p "$WORKDIR/impls/go-cpu"
+cd "$WORKDIR/impls/go-src"
 go build -o "$WORKDIR/impls/go-cpu/phylowgs-cpu" . 2>&1
 echo "[go-cpu] Built: $(ls -lh $WORKDIR/impls/go-cpu/phylowgs-cpu | awk '{print $5, $9}')"
 

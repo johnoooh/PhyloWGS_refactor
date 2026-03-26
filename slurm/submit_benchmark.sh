@@ -328,7 +328,7 @@ source "$WORKDIR/env.sh" 2>/dev/null || true
 source "$WORKDIR/impls/optimized-python/.venv/bin/activate"
 
 echo "START analysis: \$(date)"
-python3 "$WORKDIR/impls/go-cpu/slurm/analyze_benchmark.py" \
+python3 "$WORKDIR/impls/go-src/slurm/analyze_benchmark.py" \
     --results-dir "$RESULTS_DIR" \
     --outdir "$WORKDIR/analysis" \
     --implementations original-python optimized-python go-cpu go-gpu
