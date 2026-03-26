@@ -94,14 +94,13 @@ def maf_to_ssm(maf_path, sample_id, out_path):
 
 def facets_to_cnv(facets_path, ssms, out_path, purity=None):
     """
-    Parse FACETS hisens.cncf.txt and write cnv_data.txt for PhyloWGS.
-    
-    FACETS columns: ID chrom loc.start loc.end seg cnlr.median mafR mafR.clust
-                    cf.em tcn.em lcn.em
-    cf.em = cellular fraction (tumor purity × local CCF)
-    tcn.em = total copy number
-    lcn.em = lesser (minor) copy number
-    
+    Parse FACETS cncf.txt or gene_level.txt and write cnv_data.txt for PhyloWGS.
+
+    Supports two FACETS formats:
+      cncf:       columns include loc.start / loc.end
+      gene_level: columns include seg_start / seg_end (one row per gene;
+                  deduplicated to one row per segment)
+
     CNV read counts (a, d) are synthesized to match PhyloWGS conventions:
       d (total reads) = region_size × het_snp_rate × avg_read_depth
       a (ref reads)   = (1 - cellular_prevalence/2) × d
@@ -119,9 +118,22 @@ def facets_to_cnv(facets_path, ssms, out_path, purity=None):
         ssm_index[s['chrom']].append(s)
 
     cnvs = []
+    seen_segments = set()  # (chrom, start, end) — dedup for gene-level format
     with open(facets_path) as f:
         header = f.readline().strip().split('\t')
         col = {h: i for i, h in enumerate(header)}
+
+        # Detect format from header
+        if 'loc.start' in col:
+            start_col, end_col = 'loc.start', 'loc.end'
+        elif 'seg_start' in col:
+            start_col, end_col = 'seg_start', 'seg_end'
+        else:
+            raise ValueError(
+                f"Cannot determine segment coordinates from FACETS header. "
+                f"Expected 'loc.start'/'loc.end' (cncf) or 'seg_start'/'seg_end' (gene_level). "
+                f"Found: {list(col.keys())}"
+            )
 
         for line in f:
             row = line.strip().split('\t')
@@ -129,14 +141,20 @@ def facets_to_cnv(facets_path, ssms, out_path, purity=None):
                 continue
             try:
                 chrom = row[col['chrom']].lstrip('chr')
-                start = int(row[col['loc.start']])
-                end = int(row[col['loc.end']])
+                start = int(row[col[start_col]])
+                end = int(row[col[end_col]])
                 tcn = row[col.get('tcn.em', col.get('tcn', -1))]
                 lcn = row[col.get('lcn.em', col.get('lcn', -1))]
                 cf = row[col.get('cf.em', col.get('cf', -1))]
 
                 if tcn in ('NA', '', 'NaN') or lcn in ('NA', '', 'NaN'):
                     continue
+
+                # Gene-level files repeat the same segment once per gene — dedup
+                seg_key = (chrom, start, end)
+                if seg_key in seen_segments:
+                    continue
+                seen_segments.add(seg_key)
 
                 tcn = int(float(tcn))
                 lcn = int(float(lcn))
