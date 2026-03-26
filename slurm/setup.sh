@@ -140,6 +140,7 @@ fi
 # ── Copy conversion helper ────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cp "$SCRIPT_DIR/convert_inputs.py" "$WORKDIR/convert_inputs.py"
+cp "$SCRIPT_DIR/facets_to_phylowgs_cnv.py" "$WORKDIR/facets_to_phylowgs_cnv.py"
 
 # ── Write implementation manifest ────────────────────────────────────────────
 cat > "$WORKDIR/implementations.tsv" << EOF
