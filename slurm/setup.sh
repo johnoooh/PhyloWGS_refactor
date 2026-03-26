@@ -87,11 +87,7 @@ if [[ -d "$WORKDIR/impls/original-python" ]]; then
 else
     git clone --depth=1 "$ORIGINAL_REPO" "$WORKDIR/impls/original-python" 2>&1 | tail -3
 fi
-echo "[original-python] Building uv environment (Python 2 compat via Python 3)"
-cd "$WORKDIR/impls/original-python"
-uv venv --python 3.10 .venv
-# Original PhyloWGS deps
-uv pip install --quiet numpy scipy ete3 pyvcf3 2>&1 | tail -2
+# original-python runs entirely via the Singularity container — no venv needed
 
 # ── Clone: optimized Python (refactor main branch) ───────────────────────────
 echo "[optimized-python] Cloning from PhyloWGS_refactor:main"
@@ -102,7 +98,7 @@ else
 fi
 echo "[optimized-python] Building uv environment"
 cd "$WORKDIR/impls/optimized-python"
-uv venv --python 3.10 .venv
+uv venv .venv  # uses Python 3 from PATH — no network download needed
 uv pip install --quiet numpy scipy 2>&1 | tail -2
 
 # ── Clone: Go implementation (go/main — single source for cpu + gpu) ─────────
