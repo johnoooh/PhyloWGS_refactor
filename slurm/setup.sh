@@ -143,6 +143,7 @@ fi
 # ── Copy conversion helper ────────────────────────────────────────────────────
 cp "$SCRIPT_DIR/convert_inputs.py" "$WORKDIR/convert_inputs.py"
 cp "$SCRIPT_DIR/facets_to_phylowgs_cnv.py" "$WORKDIR/facets_to_phylowgs_cnv.py"
+cp "$SCRIPT_DIR/../parser/create_phylowgs_inputs.py" "$WORKDIR/create_phylowgs_inputs.py"
 
 # ── Write implementation manifest ────────────────────────────────────────────
 cat > "$WORKDIR/implementations.tsv" << EOF
