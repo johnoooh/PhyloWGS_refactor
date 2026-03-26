@@ -113,9 +113,9 @@ source "$WORKDIR/env.sh" 2>/dev/null || true
 # Step 1: Convert FACETS cncf to PhyloWGS CNV format
 python3 "$WORKDIR/facets_to_phylowgs_cnv.py" "$facets" -o "$outdir/cnv_for_phylowgs.txt"
 
-# Step 2: Run MSK create_phylowgs_inputs.py (handles MAF + CNV → ssm_data.txt + cnv_data.txt)
+# Step 2: Run create_phylowgs_inputs.py via container Python 2 (file deployed by setup.sh)
 singularity exec --bind /data1 "$PHYLOWGS_SIF" \
-    python2 /usr/bin/create_phylowgs_inputs.py \
+    python2 "$WORKDIR/create_phylowgs_inputs.py" \
     --cnvs S1="$outdir/cnv_for_phylowgs.txt" \
     --output-cnvs "$outdir/cnv_data.txt" \
     --output-variants "$outdir/ssm_data.txt" \
