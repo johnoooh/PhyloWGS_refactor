@@ -6,6 +6,9 @@
 
 set -euo pipefail
 
+# Capture script directory before any cd commands change the working directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 REPO="https://github.com/johnoooh/PhyloWGS_refactor.git"
 ORIGINAL_REPO="https://github.com/morrislab/phylowgs.git"
 WORKDIR="${PHYLOWGS_WORKDIR:-$(pwd)/phylowgs_benchmark}"
@@ -138,7 +141,6 @@ else
 fi
 
 # ── Copy conversion helper ────────────────────────────────────────────────────
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cp "$SCRIPT_DIR/convert_inputs.py" "$WORKDIR/convert_inputs.py"
 cp "$SCRIPT_DIR/facets_to_phylowgs_cnv.py" "$WORKDIR/facets_to_phylowgs_cnv.py"
 
