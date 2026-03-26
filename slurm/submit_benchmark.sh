@@ -165,7 +165,7 @@ source "$WORKDIR/env.sh" 2>/dev/null || true
 echo "START: \$(date) | $impl | $sid"
 START=\$(date +%s)
 
-singularity exec --bind /data1 "$PHYLOWGS_SIF" \
+singularity exec --bind /data1,"$WORKDIR/impls/original-python:/opt/phylowgs" "$PHYLOWGS_SIF" \
     python2 /opt/phylowgs/evolve.py \
     -B $BURNIN -s $SAMPLES \
     -O "$out_dir" \
