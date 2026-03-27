@@ -101,6 +101,15 @@ cd "$WORKDIR/impls/optimized-python"
 uv venv .venv  # uses Python 3 from PATH — no network download needed
 uv pip install --quiet numpy scipy 2>&1 | tail -2
 
+echo "[optimized-python] Compiling mh.o from source"
+if command -v gsl-config &>/dev/null; then
+    g++ -O2 -o mh.o mh.cpp util.cpp $(gsl-config --cflags --libs)
+    echo "[optimized-python] mh.o compiled OK"
+else
+    echo "[optimized-python] WARNING: gsl-config not found — try: module load gsl"
+    echo "[optimized-python] mh.o will be extracted from container at job runtime (may fail if GSL not on host)"
+fi
+
 # ── Clone: Go implementation (go/main — single source for cpu + gpu) ─────────
 echo "[go] Cloning from PhyloWGS_refactor:go/main"
 if [[ -d "$WORKDIR/impls/go-src" ]]; then

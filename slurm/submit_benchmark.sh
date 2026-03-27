@@ -197,16 +197,20 @@ EOF
 #SBATCH --output=${LOGS_DIR}/optimized-python_${sid}.out
 #SBATCH --error=${LOGS_DIR}/optimized-python_${sid}.err
 
+echo "JOB STARTED: \$(date) | $impl | $sid | host: \$(hostname)"
 set -euo pipefail
 source "$WORKDIR/env.sh" 2>/dev/null || true
 source "$WORKDIR/impls/optimized-python/.venv/bin/activate"
 
-# Extract mh.o from container if not already present
+# mh.o should be compiled by setup.sh; fall back to container extraction if missing
 if [[ ! -f "$WORKDIR/impls/optimized-python/mh.o" ]]; then
+    echo "WARNING: mh.o not found — extracting from container (GSL must be on host)"
     MH_SRC=\$(singularity exec "$PHYLOWGS_SIF" find / -name "mh.o" 2>/dev/null | head -1)
+    [[ -z "\$MH_SRC" ]] && { echo "ERROR: mh.o not found in container"; exit 1; }
     singularity exec "$PHYLOWGS_SIF" cat "\$MH_SRC" > "$WORKDIR/impls/optimized-python/mh.o"
     chmod +x "$WORKDIR/impls/optimized-python/mh.o"
 fi
+echo "mh.o OK: \$(ls -lh $WORKDIR/impls/optimized-python/mh.o)"
 
 echo "START: \$(date) | $impl | $sid"
 START=\$(date +%s)
