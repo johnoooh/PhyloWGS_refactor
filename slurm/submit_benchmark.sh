@@ -162,6 +162,13 @@ run_job() {
 set -euo pipefail
 source "$WORKDIR/env.sh" 2>/dev/null || true
 
+# params.py looks for mh.o in its own directory (/opt/phylowgs → our clone)
+if [[ ! -f "$WORKDIR/impls/original-python/mh.o" ]]; then
+    MH_SRC=\$(singularity exec "$PHYLOWGS_SIF" find / -name "mh.o" 2>/dev/null | head -1)
+    singularity exec "$PHYLOWGS_SIF" cat "\$MH_SRC" > "$WORKDIR/impls/original-python/mh.o"
+    chmod +x "$WORKDIR/impls/original-python/mh.o"
+fi
+
 echo "START: \$(date) | $impl | $sid"
 START=\$(date +%s)
 
