@@ -75,13 +75,7 @@ mkdir -p "$RESULTS_DIR" "$LOGS_DIR" "$INPUTS_DIR"
 # ── Pre-flight: ensure mh.o is ready for Python impls ────────────────────────
 # Container installs PhyloWGS at /usr/bin/phylowgs/ — mh.o lives there.
 
-# original-python: extract binary; runs inside container via bind-mount so container GSL is available
-if [[ ! -f "$WORKDIR/impls/original-python/mh.o" ]]; then
-    echo "  [mh.o] Extracting for original-python from container..."
-    singularity exec "$PHYLOWGS_SIF" cat /usr/bin/phylowgs/mh.o > "$WORKDIR/impls/original-python/mh.o"
-    chmod +x "$WORKDIR/impls/original-python/mh.o"
-    echo "  [mh.o] original-python OK"
-fi
+# original-python: uses the container's own /usr/bin/phylowgs/ directly — no extraction needed.
 
 # optimized-python: container has no Python 3, so evolve.py runs on host.
 # Wrap mh.o as a shell script that delegates into the container where GSL is available.
@@ -189,7 +183,7 @@ source "$WORKDIR/env.sh" 2>/dev/null || true
 echo "START: \$(date) | $impl | $sid"
 START=\$(date +%s)
 
-singularity exec --bind /data1,"$WORKDIR/impls/original-python:/usr/bin/phylowgs" "$PHYLOWGS_SIF" \
+singularity exec --bind /data1 "$PHYLOWGS_SIF" \
     python2 /usr/bin/phylowgs/evolve.py \
     -B $BURNIN -s $SAMPLES \
     -O "$out_dir" \
