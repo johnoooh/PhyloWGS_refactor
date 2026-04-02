@@ -125,7 +125,10 @@ singularity exec --bind /data1 "$PHYLOWGS_SIF" \
 echo "DONE convert: $sid"
 EOF
 )
-    if [[ "$DRY_RUN" == true ]]; then
+    if [[ -f "$outdir/ssm_data.txt" && -f "$outdir/cnv_data.txt" ]]; then
+        echo "  [convert] $sid → skipped (inputs exist)"
+        CONVERT_JIDS+=("")
+    elif [[ "$DRY_RUN" == true ]]; then
         echo "[dry-run] convert: $sid"
         CONVERT_JIDS+=("DRY_$i")
     else
@@ -307,7 +310,9 @@ ${script_body}"
         echo "[dry-run] run: $impl × $sid"
     else
         local JID
-        JID=$(echo "$full_script" | sbatch --parsable --dependency="afterok:${convert_jid}")
+        local dep_flag=""
+        [[ -n "$convert_jid" ]] && dep_flag="--dependency=afterok:${convert_jid}"
+        JID=$(echo "$full_script" | sbatch --parsable $dep_flag)
         echo "  [run] $impl × $sid → job $JID"
         ALL_RUN_JIDS+=("$JID")
     fi
