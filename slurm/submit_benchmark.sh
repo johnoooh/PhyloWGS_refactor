@@ -72,6 +72,25 @@ LOGS_DIR="$WORKDIR/logs"
 INPUTS_DIR="$WORKDIR/inputs"
 mkdir -p "$RESULTS_DIR" "$LOGS_DIR" "$INPUTS_DIR"
 
+# ── Pre-flight: ensure mh.o is ready for Python impls ────────────────────────
+# original-python: extract container binary (runs inside container via bind-mount, so container GSL is fine)
+if [[ ! -f "$WORKDIR/impls/original-python/mh.o" ]]; then
+    echo "  [mh.o] Extracting for original-python from container..."
+    singularity exec "$PHYLOWGS_SIF" cat /opt/phylowgs/mh.o > "$WORKDIR/impls/original-python/mh.o"
+    chmod +x "$WORKDIR/impls/original-python/mh.o"
+    echo "  [mh.o] original-python OK"
+fi
+
+# optimized-python: create a wrapper that delegates to container binary at runtime
+# (avoids needing host GSL; container provides it)
+if [[ ! -f "$WORKDIR/impls/optimized-python/mh.o" ]]; then
+    echo "  [mh.o] Creating singularity wrapper for optimized-python..."
+    printf '#!/usr/bin/env bash\nexec singularity exec --bind /data1 "%s" /opt/phylowgs/mh.o "$@"\n' \
+        "$PHYLOWGS_SIF" > "$WORKDIR/impls/optimized-python/mh.o"
+    chmod +x "$WORKDIR/impls/optimized-python/mh.o"
+    echo "  [mh.o] optimized-python OK"
+fi
+
 # ── Read samples CSV ──────────────────────────────────────────────────────────
 declare -a SAMPLE_IDS MAFS FACETS_FILES
 while IFS=',' read -r sample_id maf facets; do
@@ -165,13 +184,6 @@ run_job() {
 set -euo pipefail
 source "$WORKDIR/env.sh" 2>/dev/null || true
 
-# params.py looks for mh.o in its own directory (/opt/phylowgs → our clone)
-# mh.o runs inside the container (bind-mounted), so container GSL is available
-if [[ ! -f "$WORKDIR/impls/original-python/mh.o" ]]; then
-    singularity exec "$PHYLOWGS_SIF" cat /opt/phylowgs/mh.o > "$WORKDIR/impls/original-python/mh.o"
-    chmod +x "$WORKDIR/impls/original-python/mh.o"
-fi
-
 echo "START: \$(date) | $impl | $sid"
 START=\$(date +%s)
 
@@ -204,17 +216,6 @@ echo "JOB STARTED: \$(date) | $impl | $sid | host: \$(hostname)"
 set -euo pipefail
 source "$WORKDIR/env.sh" 2>/dev/null || true
 source "$WORKDIR/impls/optimized-python/.venv/bin/activate"
-
-# mh.o should be compiled by setup.sh; fall back to a singularity wrapper if missing.
-# The wrapper delegates to the container's own mh.o where GSL is available,
-# so the host does not need GSL installed.
-if [[ ! -f "$WORKDIR/impls/optimized-python/mh.o" ]]; then
-    echo "WARNING: mh.o not found — creating singularity wrapper"
-    printf '#!/usr/bin/env bash\nexec singularity exec --bind /data1 "%s" /opt/phylowgs/mh.o "$@"\n' \
-        "$PHYLOWGS_SIF" > "$WORKDIR/impls/optimized-python/mh.o"
-    chmod +x "$WORKDIR/impls/optimized-python/mh.o"
-fi
-echo "mh.o OK: \$(ls -lh $WORKDIR/impls/optimized-python/mh.o)"
 
 echo "START: \$(date) | $impl | $sid"
 START=\$(date +%s)
