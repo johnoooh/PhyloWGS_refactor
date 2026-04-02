@@ -81,12 +81,10 @@ if [[ ! -f "$WORKDIR/impls/original-python/mh.o" ]]; then
     echo "  [mh.o] original-python OK"
 fi
 
-# optimized-python: create a wrapper that delegates to container binary at runtime
-# (avoids needing host GSL; container provides it)
+# optimized-python: same extraction — runs inside container via bind-mount
 if [[ ! -f "$WORKDIR/impls/optimized-python/mh.o" ]]; then
-    echo "  [mh.o] Creating singularity wrapper for optimized-python..."
-    printf '#!/usr/bin/env bash\nexec singularity exec --bind /data1 "%s" /opt/phylowgs/mh.o "$@"\n' \
-        "$PHYLOWGS_SIF" > "$WORKDIR/impls/optimized-python/mh.o"
+    echo "  [mh.o] Extracting for optimized-python from container..."
+    singularity exec "$PHYLOWGS_SIF" cat /opt/phylowgs/mh.o > "$WORKDIR/impls/optimized-python/mh.o"
     chmod +x "$WORKDIR/impls/optimized-python/mh.o"
     echo "  [mh.o] optimized-python OK"
 fi
@@ -215,13 +213,17 @@ EOF
 echo "JOB STARTED: \$(date) | $impl | $sid | host: \$(hostname)"
 set -euo pipefail
 source "$WORKDIR/env.sh" 2>/dev/null || true
-source "$WORKDIR/impls/optimized-python/.venv/bin/activate"
 
 echo "START: \$(date) | $impl | $sid"
 START=\$(date +%s)
 
-cd "$WORKDIR/impls/optimized-python"
-python3 evolve.py \
+# Inject host venv's packages so container python3 can import numpy/scipy
+VENV_SITE=\$(ls -d "$WORKDIR/impls/optimized-python/.venv/lib/python"*/site-packages 2>/dev/null | head -1)
+singularity exec \
+    --bind /data1,"$WORKDIR/impls/optimized-python:/opt/phylowgs" \
+    --env "PYTHONPATH=\$VENV_SITE" \
+    "$PHYLOWGS_SIF" \
+    python3 /opt/phylowgs/evolve.py \
     -B $BURNIN -s $SAMPLES \
     -O "$out_dir" \
     "$INPUTS_DIR/$sid/ssm_data.txt" \
