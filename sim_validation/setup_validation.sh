@@ -79,7 +79,7 @@ fi
 echo "[python] Creating venv"
 uv venv "$WORKDIR/.venv"
 source "$WORKDIR/.venv/bin/activate"
-uv pip install --quiet numpy 2>&1 | tail -2
+uv pip install --quiet numpy matplotlib 2>&1 | tail -2
 echo "source \"$WORKDIR/.venv/bin/activate\"" >> env.sh
 
 # ── Clone / update Go source ────────────────────────────────────────────────
@@ -119,6 +119,7 @@ fi
 # ── Copy scripts ─────────────────────────────────────────────────────────────
 cp "$SCRIPT_DIR/generate_fixtures.py" "$WORKDIR/"
 cp "$SCRIPT_DIR/score_results.py"     "$WORKDIR/"
+cp "$SCRIPT_DIR/plot_results.py"      "$WORKDIR/"
 
 # ── Generate fixtures ────────────────────────────────────────────────────────
 echo ""

@@ -166,7 +166,14 @@ python3 "$WORKDIR/score_results.py" \
     --result-base "$RESULTS_DIR" \
     --outdir "$WORKDIR/analysis"
 
-echo "END scoring: \$(date)"
+echo "START plotting: \$(date)"
+
+python3 "$WORKDIR/plot_results.py" \
+    --analysis-dir "$WORKDIR/analysis" \
+    --result-base "$RESULTS_DIR" \
+    --fixture-base "$FIXTURES_DIR"
+
+echo "END scoring + plotting: \$(date)"
 EOF
 )
 
@@ -182,17 +189,22 @@ EOF
         echo ""
         echo "Monitor:  squeue -u \$USER -n simval_%"
         echo "Results:  $WORKDIR/analysis/scores.tsv"
+        echo "Plots:    $WORKDIR/analysis/plots/"
     fi
 elif [[ "$DRY_RUN" == true ]]; then
     echo ""
     echo "  [dry-run] $N_FIXTURES fixtures would be submitted"
 else
     echo ""
-    echo "All fixtures already completed. Running scoring directly:"
+    echo "All fixtures already completed. Running scoring + plotting directly:"
     source "$WORKDIR/env.sh" 2>/dev/null || true
     python3 "$WORKDIR/score_results.py" \
         --all \
         --fixture-base "$FIXTURES_DIR" \
         --result-base "$RESULTS_DIR" \
         --outdir "$WORKDIR/analysis"
+    python3 "$WORKDIR/plot_results.py" \
+        --analysis-dir "$WORKDIR/analysis" \
+        --result-base "$RESULTS_DIR" \
+        --fixture-base "$FIXTURES_DIR"
 fi
