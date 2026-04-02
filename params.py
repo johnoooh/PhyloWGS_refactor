@@ -13,6 +13,9 @@ Optimizations vs original:
 
 import numpy
 from numpy import *
+import builtins
+max = builtins.max  # restore Python builtins shadowed by numpy wildcard import
+min = builtins.min
 import pickle
 import zipfile
 import shutil
