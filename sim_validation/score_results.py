@@ -57,7 +57,8 @@ def compute_auprc(true_matrix, pred_matrix):
     precision = tp / (tp + fp)
     recall = tp / y_true.sum()
 
-    auprc = np.trapz(precision, recall)
+    trapz = getattr(np, 'trapezoid', getattr(np, 'trapz', None))
+    auprc = trapz(precision, recall)
     return float(auprc)
 
 
@@ -143,6 +144,15 @@ def load_chain_traces(result_dir):
     return traces
 
 
+def load_best_tree(result_dir):
+    """Load best_tree.json if present (from Go port post-MCMC output)."""
+    path = Path(result_dir) / "best_tree.json"
+    if path.exists():
+        with open(path) as f:
+            return json.load(f)
+    return None
+
+
 def load_timing(result_dir):
     """Load timing.json if present (written by SLURM job wrapper)."""
     path = Path(result_dir) / "timing.json"
@@ -188,38 +198,30 @@ def score_fixture(fixture_dir, result_dir):
     if summary:
         scores["best_llh"] = summary.get("best_llh", None)
 
-    # ── Population count from chain NumNodes ─────────────────────────────
-    # Use the NumNodes at the best LLH iteration across all chains
-    if traces:
-        best_llh = float("-inf")
-        best_nodes = None
-        all_final_nodes = []
+    # ── Load best_tree.json (from Go port post-MCMC output) ────────────
+    best_tree = load_best_tree(result_dir)
 
-        for chain_id, trace in traces.items():
+    # ── Population count ─────────────────────────────────────────────────
+    if best_tree and "num_populations" in best_tree:
+        inferred_K = best_tree["num_populations"]
+        scores["inferred_K"] = inferred_K
+        scores["K_error"] = abs(inferred_K - true_K)
+    elif traces:
+        # Fallback: use NumNodes from chain files (less accurate, includes
+        # structural TSSB nodes — see INVESTIGATION_NumNodes.md)
+        best_llh_val = float("-inf")
+        best_nodes = None
+        for trace in traces.values():
             llhs = trace["llhs"]
             nodes = trace["num_nodes"]
-
             if llhs and nodes and len(llhs) == len(nodes):
-                # Best LLH in this chain
                 max_idx = int(np.argmax(llhs))
-                if llhs[max_idx] > best_llh:
-                    best_llh = llhs[max_idx]
+                if llhs[max_idx] > best_llh_val:
+                    best_llh_val = llhs[max_idx]
                     best_nodes = nodes[max_idx]
-
-                # Final iteration nodes (for median estimate)
-                all_final_nodes.append(nodes[-1])
-
-            elif nodes:
-                all_final_nodes.append(nodes[-1])
-
         if best_nodes is not None:
-            # NumNodes includes root, so subtract 1 for clone count
-            inferred_K = best_nodes - 1 if best_nodes > 0 else 0
-            scores["inferred_K"] = inferred_K
-            scores["K_error"] = abs(inferred_K - true_K)
-
-        if all_final_nodes:
-            scores["median_final_nodes"] = float(np.median(all_final_nodes))
+            scores["inferred_K_tssb"] = best_nodes
+            scores["K_error_tssb"] = abs(best_nodes - 1 - true_K)
 
     # ── Median LLH (from post-burnin samples) ────────────────────────────
     if traces:
@@ -245,17 +247,18 @@ def score_fixture(fixture_dir, result_dir):
             scores["llh_chain_std"] = float(np.std(final_llhs))
             scores["llh_chain_mean"] = float(np.mean(final_llhs))
 
-    # ── Co-clustering AUPRC (only if Go port exports assignments) ────────
-    if summary:
+    # ── Co-clustering AUPRC (from best_tree.json mut_assignments) ────────
+    if best_tree and "mut_assignments" in best_tree:
         true_assignments = np.array(truth["assignments"])
-        inferred = None
-        if "trees" in summary:
-            best_tree = max(summary["trees"],
-                           key=lambda t: t.get("llh", float("-inf")))
-            if "assignments" in best_tree:
-                inferred = np.array(best_tree["assignments"])
+        # Build inferred assignment: ssm_id -> population_id
+        inferred_map = {}
+        for pop_id, muts in best_tree["mut_assignments"].items():
+            for ssm_id in muts.get("ssms", []):
+                inferred_map[ssm_id] = int(pop_id)
 
-        if inferred is not None:
+        if len(inferred_map) == M:
+            # Convert to array matching SSM order (s0, s1, s2, ...)
+            inferred = np.array([inferred_map[f"s{m}"] for m in range(M)])
             true_C = build_cocluster_matrix(true_assignments, M)
             pred_C = build_cocluster_matrix(inferred, M)
             scores["cocluster_auprc"] = compute_auprc(true_C, pred_C)
