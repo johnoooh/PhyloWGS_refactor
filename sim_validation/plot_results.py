@@ -414,6 +414,114 @@ def plot_summary_dashboard(scores, failures, outdir):
     print("  [saved] dashboard.png")
 
 
+# ── Plot 7: CNV vs SSM-only comparison ────────────────────────────────────────
+
+def plot_cnv_comparison(scores, outdir):
+    """Side-by-side box plots comparing AUPRC for SSM-only vs. SSM+CNV fixtures."""
+    filtered = [s for s in scores if "cocluster_auprc" in s and "has_cnvs" in s]
+    if not filtered:
+        print("  [skip] CNV comparison — no data")
+        return
+
+    ssm_only = [s for s in filtered if not s["has_cnvs"]]
+    with_cnv = [s for s in filtered if s["has_cnvs"]]
+
+    if not ssm_only or not with_cnv:
+        print("  [skip] CNV comparison — need both SSM-only and CNV fixtures")
+        return
+
+    Ks = sorted(set(s["K"] for s in filtered))
+
+    fig, ax = plt.subplots(figsize=(max(6, len(Ks) * 2), 5))
+    width = 0.3
+
+    for ki, K in enumerate(Ks):
+        ssm_vals = [s["cocluster_auprc"] for s in ssm_only if s["K"] == K]
+        cnv_vals = [s["cocluster_auprc"] for s in with_cnv if s["K"] == K]
+
+        if ssm_vals:
+            bp1 = ax.boxplot([ssm_vals], positions=[ki - width/2], widths=width * 0.8,
+                            patch_artist=True, showfliers=True,
+                            medianprops={"color": "black", "linewidth": 1.5})
+            bp1["boxes"][0].set_facecolor("#66bb6a")
+            bp1["boxes"][0].set_alpha(0.7)
+
+        if cnv_vals:
+            bp2 = ax.boxplot([cnv_vals], positions=[ki + width/2], widths=width * 0.8,
+                            patch_artist=True, showfliers=True,
+                            medianprops={"color": "black", "linewidth": 1.5})
+            bp2["boxes"][0].set_facecolor("#ef5350")
+            bp2["boxes"][0].set_alpha(0.7)
+
+    ax.set_xticks(range(len(Ks)))
+    ax.set_xticklabels([f"K={k}" for k in Ks])
+    ax.set_ylabel("Co-clustering AUPRC")
+    ax.set_title("Clustering Accuracy: SSM-only vs. SSM+CNV")
+    ax.set_ylim(-0.05, 1.05)
+
+    from matplotlib.patches import Patch
+    ax.legend(handles=[
+        Patch(facecolor="#66bb6a", alpha=0.7, label="SSM-only"),
+        Patch(facecolor="#ef5350", alpha=0.7, label="With CNVs"),
+    ], loc="lower left")
+
+    fig.savefig(os.path.join(outdir, "cnv_comparison.png"))
+    plt.close(fig)
+    print("  [saved] cnv_comparison.png")
+
+
+def plot_cnv_impact_heatmap(scores, outdir):
+    """Heatmap of mean AUPRC with axes (K, N_cnv)."""
+    filtered = [s for s in scores if "cocluster_auprc" in s and "N_cnv" in s]
+    if not filtered:
+        print("  [skip] CNV impact heatmap — no data")
+        return
+
+    Ks = sorted(set(s["K"] for s in filtered))
+    Ncnvs = sorted(set(s["N_cnv"] for s in filtered))
+
+    if len(Ncnvs) < 2:
+        print("  [skip] CNV impact heatmap — need multiple N_cnv values")
+        return
+
+    groups = {}
+    for s in filtered:
+        key = (s["K"], s["N_cnv"])
+        groups.setdefault(key, []).append(s["cocluster_auprc"])
+
+    matrix = np.full((len(Ks), len(Ncnvs)), np.nan)
+    for i, K in enumerate(Ks):
+        for j, nc in enumerate(Ncnvs):
+            vals = groups.get((K, nc), [])
+            if vals:
+                matrix[i, j] = np.mean(vals)
+
+    fig, ax = plt.subplots(figsize=(max(5, len(Ncnvs) * 1.5), max(4, len(Ks) * 1.2)))
+    im = ax.imshow(matrix, cmap="RdYlGn", aspect="auto", vmin=0, vmax=1)
+
+    ax.set_xticks(range(len(Ncnvs)))
+    ax.set_xticklabels([str(nc) for nc in Ncnvs])
+    ax.set_yticks(range(len(Ks)))
+    ax.set_yticklabels([str(k) for k in Ks])
+    ax.set_xlabel("Number of CNVs")
+    ax.set_ylabel("True Clones (K)")
+    ax.set_title("Mean AUPRC by Clone Count and CNV Count")
+
+    for i in range(len(Ks)):
+        for j in range(len(Ncnvs)):
+            val = matrix[i, j]
+            if not np.isnan(val):
+                n = len(groups.get((Ks[i], Ncnvs[j]), []))
+                color = "white" if val < 0.4 else "black"
+                ax.text(j, i, f"{val:.2f}\n(n={n})", ha="center", va="center",
+                        fontsize=9, color=color)
+
+    plt.colorbar(im, ax=ax, label="Mean AUPRC")
+    fig.savefig(os.path.join(outdir, "cnv_impact_heatmap.png"))
+    plt.close(fig)
+    print("  [saved] cnv_impact_heatmap.png")
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
@@ -441,6 +549,13 @@ def main():
     plot_auprc(scores, outdir)
     plot_runtime(scores, outdir)
     plot_chain_convergence(scores, outdir)
+
+    # CNV-specific plots (only if mixed SSM-only and CNV fixtures exist)
+    has_cnv_data = any(s.get("has_cnvs") for s in scores)
+    has_ssm_only = any(not s.get("has_cnvs") for s in scores)
+    if has_cnv_data and has_ssm_only:
+        plot_cnv_comparison(scores, outdir)
+        plot_cnv_impact_heatmap(scores, outdir)
 
     # Trace plots if result-base provided
     if args.result_base:

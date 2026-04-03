@@ -152,6 +152,8 @@ def score_fixture(fixture_dir, result_dir):
         "S": params["S"],
         "T": params["T"],
         "M": M,
+        "has_cnvs": params.get("has_cnvs", False),
+        "N_cnv": params.get("N_cnv", 0),
     }
 
     # Best log-likelihood
