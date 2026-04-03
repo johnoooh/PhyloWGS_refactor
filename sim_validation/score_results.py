@@ -2,16 +2,14 @@
 """
 score_results.py — Score PhyloWGS Go port results against simulation ground truth.
 
-Metrics:
-  1. Population count error: |inferred_K - true_K|
-  2. Co-clustering AUPRC: do SSMs from the same clone cluster together?
-  3. Phi MSE: mean squared error of inferred vs. true cellular prevalences
-  4. Best log-likelihood: convergence quality
+Metrics (extracted from actual Go port output):
+  1. Population count error: |inferred_K - true_K| (from chain NumNodes column)
+  2. Best log-likelihood and median LLH (from chain traces)
+  3. Chain convergence: inter-chain LLH std
+  4. Runtime (from summary.json total_time or timing.json)
 
-Reads:
-  - truth.json                (from generate_fixtures.py)
-  - summary.json              (from PhyloWGS Go port)
-  - chain_*_samples.txt       (MCMC trace for convergence)
+Note: Co-clustering AUPRC requires the Go port to export SSM assignments,
+which it does not currently do. That metric is computed when available.
 
 Usage:
     python score_results.py --fixture-dir fixtures/K5_S3_T1000_M50_rep0 \
@@ -23,6 +21,7 @@ Usage:
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -32,10 +31,7 @@ import numpy as np
 # ── Co-clustering matrix ─────────────────────────────────────────────────────
 
 def build_cocluster_matrix(assignments, M):
-    """Build binary co-clustering matrix from SSM assignments.
-
-    C[i,j] = 1 if SSM i and SSM j are in the same clone.
-    """
+    """Build binary co-clustering matrix from SSM assignments."""
     C = np.zeros((M, M), dtype=float)
     for i in range(M):
         for j in range(M):
@@ -44,19 +40,15 @@ def build_cocluster_matrix(assignments, M):
 
 
 def compute_auprc(true_matrix, pred_matrix):
-    """Compute area under the precision-recall curve for co-clustering.
-
-    Uses the upper triangle only (symmetric matrix, diagonal is trivial).
-    """
+    """Compute area under the precision-recall curve for co-clustering."""
     M = true_matrix.shape[0]
     idx = np.triu_indices(M, k=1)
     y_true = true_matrix[idx]
     y_score = pred_matrix[idx]
 
     if y_true.sum() == 0 or y_true.sum() == len(y_true):
-        return 1.0  # trivial case
+        return 1.0
 
-    # sort by score descending
     order = np.argsort(-y_score)
     y_true_sorted = y_true[order]
 
@@ -65,7 +57,6 @@ def compute_auprc(true_matrix, pred_matrix):
     precision = tp / (tp + fp)
     recall = tp / y_true.sum()
 
-    # AUPRC via trapezoidal rule
     auprc = np.trapz(precision, recall)
     return float(auprc)
 
@@ -89,47 +80,75 @@ def load_go_summary(result_dir):
     return None
 
 
+def parse_go_duration(s):
+    """Parse Go duration string (e.g. '38.69s', '725.97ms', '1m30.5s') to seconds."""
+    if not s:
+        return None
+    s = s.strip()
+    # Try simple float ending in 's' (not 'ms')
+    m = re.match(r'^([\d.]+)s$', s)
+    if m:
+        return float(m.group(1))
+    # Milliseconds
+    m = re.match(r'^([\d.]+)ms$', s)
+    if m:
+        return float(m.group(1)) / 1000.0
+    # Minutes + seconds: "1m30.5s"
+    m = re.match(r'^(?:(\d+)m)?([\d.]+)s$', s)
+    if m:
+        mins = int(m.group(1)) if m.group(1) else 0
+        secs = float(m.group(2))
+        return mins * 60 + secs
+    # Hours
+    m = re.match(r'^(?:(\d+)h)?(?:(\d+)m)?([\d.]+)s$', s)
+    if m:
+        hrs = int(m.group(1)) if m.group(1) else 0
+        mins = int(m.group(2)) if m.group(2) else 0
+        secs = float(m.group(3))
+        return hrs * 3600 + mins * 60 + secs
+    # Microseconds
+    m = re.match(r'^([\d.]+)[µu]s$', s)
+    if m:
+        return float(m.group(1)) / 1e6
+    return None
+
+
 def load_chain_traces(result_dir):
-    """Load MCMC log-likelihood traces from chain output files."""
+    """Load MCMC traces from chain files.
+
+    Returns dict: chain_id -> {"llhs": [...], "num_nodes": [...]}
+    """
     traces = {}
     result_path = Path(result_dir)
     for chain_file in sorted(result_path.glob("chain_*_samples.txt")):
         chain_id = chain_file.stem.split("_")[1]
         llhs = []
+        num_nodes = []
         with open(chain_file) as f:
-            header = f.readline()
+            header = f.readline().strip().split("\t")
+            llh_col = 1  # default
+            nodes_col = 2 if len(header) > 2 else None
+
             for line in f:
                 parts = line.strip().split("\t")
                 if len(parts) >= 2:
-                    llhs.append(float(parts[1]))
-        traces[chain_id] = llhs
+                    llhs.append(float(parts[llh_col]))
+                if nodes_col is not None and len(parts) > nodes_col:
+                    try:
+                        num_nodes.append(int(parts[nodes_col]))
+                    except ValueError:
+                        pass
+
+        traces[chain_id] = {"llhs": llhs, "num_nodes": num_nodes}
     return traces
 
 
-def infer_assignments_from_summary(summary, M):
-    """Extract SSM-to-cluster assignments from Go port summary.
-
-    The Go port outputs tree structure in summary.json. We parse the
-    best tree's node assignments.
-    """
-    # The Go port stores per-chain results. Extract best tree.
-    if "trees" in summary:
-        # Find tree with best LLH
-        best_tree = max(summary["trees"], key=lambda t: t.get("llh", float("-inf")))
-        if "assignments" in best_tree:
-            return np.array(best_tree["assignments"])
-
-    # Fallback: try to extract from chain files
-    return None
-
-
-def count_populations_from_summary(summary):
-    """Count the number of non-empty populations inferred."""
-    if "trees" in summary:
-        best_tree = max(summary["trees"], key=lambda t: t.get("llh", float("-inf")))
-        return best_tree.get("num_nodes", None)
-    if "num_chains" in summary:
-        return summary.get("avg_nodes", None)
+def load_timing(result_dir):
+    """Load timing.json if present (written by SLURM job wrapper)."""
+    path = Path(result_dir) / "timing.json"
+    if path.exists():
+        with open(path) as f:
+            return json.load(f)
     return None
 
 
@@ -140,11 +159,11 @@ def score_fixture(fixture_dir, result_dir):
     truth = load_truth(fixture_dir)
     summary = load_go_summary(result_dir)
     traces = load_chain_traces(result_dir)
+    timing = load_timing(result_dir)
 
     params = truth["params"]
     true_K = params["K"]
     M = params["M"]
-    true_assignments = np.array(truth["assignments"])
 
     scores = {
         "fixture": os.path.basename(fixture_dir),
@@ -156,33 +175,90 @@ def score_fixture(fixture_dir, result_dir):
         "N_cnv": params.get("N_cnv", 0),
     }
 
-    # Best log-likelihood
+    # ── Runtime ──────────────────────────────────────────────────────────
+    # Try timing.json first (SLURM wrapper), then summary.json
+    if timing and "wall_seconds" in timing:
+        scores["total_time_s"] = float(timing["wall_seconds"])
+    elif summary and "total_time" in summary:
+        parsed = parse_go_duration(summary["total_time"])
+        if parsed is not None:
+            scores["total_time_s"] = parsed
+
+    # ── Best log-likelihood ──────────────────────────────────────────────
     if summary:
         scores["best_llh"] = summary.get("best_llh", None)
-        scores["total_time_s"] = summary.get("total_time", "").rstrip("s")
 
-    # Population count
-    if summary:
-        inferred_K = count_populations_from_summary(summary)
-        if inferred_K is not None:
-            # subtract 1 for root node
-            scores["inferred_K"] = inferred_K - 1 if inferred_K > 0 else inferred_K
-            scores["K_error"] = abs(scores["inferred_K"] - true_K)
-
-    # Co-clustering AUPRC (if assignments available)
-    if summary:
-        inferred_assignments = infer_assignments_from_summary(summary, M)
-        if inferred_assignments is not None:
-            true_C = build_cocluster_matrix(true_assignments, M)
-            pred_C = build_cocluster_matrix(inferred_assignments, M)
-            scores["cocluster_auprc"] = compute_auprc(true_C, pred_C)
-
-    # Chain convergence: variance of final LLH across chains
+    # ── Population count from chain NumNodes ─────────────────────────────
+    # Use the NumNodes at the best LLH iteration across all chains
     if traces:
-        final_llhs = [trace[-1] for trace in traces.values() if trace]
+        best_llh = float("-inf")
+        best_nodes = None
+        all_final_nodes = []
+
+        for chain_id, trace in traces.items():
+            llhs = trace["llhs"]
+            nodes = trace["num_nodes"]
+
+            if llhs and nodes and len(llhs) == len(nodes):
+                # Best LLH in this chain
+                max_idx = int(np.argmax(llhs))
+                if llhs[max_idx] > best_llh:
+                    best_llh = llhs[max_idx]
+                    best_nodes = nodes[max_idx]
+
+                # Final iteration nodes (for median estimate)
+                all_final_nodes.append(nodes[-1])
+
+            elif nodes:
+                all_final_nodes.append(nodes[-1])
+
+        if best_nodes is not None:
+            # NumNodes includes root, so subtract 1 for clone count
+            inferred_K = best_nodes - 1 if best_nodes > 0 else 0
+            scores["inferred_K"] = inferred_K
+            scores["K_error"] = abs(inferred_K - true_K)
+
+        if all_final_nodes:
+            scores["median_final_nodes"] = float(np.median(all_final_nodes))
+
+    # ── Median LLH (from post-burnin samples) ────────────────────────────
+    if traces:
+        all_llhs = []
+        for trace in traces.values():
+            llhs = trace["llhs"]
+            if llhs:
+                # Use last half as post-burnin
+                n = len(llhs)
+                post_burnin = llhs[n // 2:]
+                all_llhs.extend(post_burnin)
+        if all_llhs:
+            scores["median_llh"] = float(np.median(all_llhs))
+
+    # ── Chain convergence ────────────────────────────────────────────────
+    if traces:
+        final_llhs = []
+        for trace in traces.values():
+            llhs = trace["llhs"]
+            if llhs:
+                final_llhs.append(llhs[-1])
         if len(final_llhs) > 1:
             scores["llh_chain_std"] = float(np.std(final_llhs))
             scores["llh_chain_mean"] = float(np.mean(final_llhs))
+
+    # ── Co-clustering AUPRC (only if Go port exports assignments) ────────
+    if summary:
+        true_assignments = np.array(truth["assignments"])
+        inferred = None
+        if "trees" in summary:
+            best_tree = max(summary["trees"],
+                           key=lambda t: t.get("llh", float("-inf")))
+            if "assignments" in best_tree:
+                inferred = np.array(best_tree["assignments"])
+
+        if inferred is not None:
+            true_C = build_cocluster_matrix(true_assignments, M)
+            pred_C = build_cocluster_matrix(inferred, M)
+            scores["cocluster_auprc"] = compute_auprc(true_C, pred_C)
 
     return scores
 
@@ -229,11 +305,18 @@ def score_all(fixture_base, result_base, outdir):
     # Write TSV summary
     tsv_path = os.path.join(outdir, "scores.tsv")
     if all_scores:
-        cols = list(all_scores[0].keys())
+        # Collect all keys across all scores
+        all_keys = []
+        seen = set()
+        for row in all_scores:
+            for k in row:
+                if k not in seen:
+                    all_keys.append(k)
+                    seen.add(k)
         with open(tsv_path, "w") as f:
-            f.write("\t".join(cols) + "\n")
+            f.write("\t".join(all_keys) + "\n")
             for row in all_scores:
-                f.write("\t".join(str(row.get(c, "")) for c in cols) + "\n")
+                f.write("\t".join(str(row.get(c, "")) for c in all_keys) + "\n")
 
     # Print summary
     print(f"\n{'='*60}")
@@ -245,9 +328,11 @@ def score_all(fixture_base, result_base, outdir):
     if all_scores:
         k_errors = [s["K_error"] for s in all_scores if "K_error" in s]
         auprcs = [s["cocluster_auprc"] for s in all_scores if "cocluster_auprc" in s]
+        times = [s["total_time_s"] for s in all_scores if "total_time_s" in s]
+        best_llhs = [s["best_llh"] for s in all_scores if s.get("best_llh") is not None]
 
         if k_errors:
-            print(f"\nPopulation count error:")
+            print(f"\nPopulation count error (from chain NumNodes):")
             print(f"  Mean: {np.mean(k_errors):.2f}")
             print(f"  Exact: {sum(1 for e in k_errors if e == 0)}/{len(k_errors)}")
 
@@ -257,10 +342,22 @@ def score_all(fixture_base, result_base, outdir):
             print(f"  Median: {np.median(auprcs):.3f}")
             print(f"  Min:    {np.min(auprcs):.3f}")
 
+        if times:
+            print(f"\nRuntime:")
+            print(f"  Mean:  {np.mean(times):.1f}s")
+            print(f"  Max:   {np.max(times):.1f}s")
+
+        if best_llhs:
+            print(f"\nBest LLH:")
+            print(f"  Mean:   {np.mean(best_llhs):.1f}")
+            print(f"  Median: {np.median(best_llhs):.1f}")
+
     if failures:
         print(f"\nFailures:")
-        for fail in failures:
+        for fail in failures[:10]:
             print(f"  {fail['fixture']}: {fail['error']}")
+        if len(failures) > 10:
+            print(f"  ... and {len(failures) - 10} more")
 
     print(f"\nDetailed results: {results_path}")
     print(f"TSV summary:      {tsv_path}")

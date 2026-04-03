@@ -316,69 +316,113 @@ def plot_traces(result_base, fixture_names, outdir, max_fixtures=6):
 # ── Plot 6: Summary dashboard ────────────────────────────────────────────────
 
 def plot_summary_dashboard(scores, failures, outdir):
-    """Single-page overview with key metrics."""
-    fig = plt.figure(figsize=(12, 8))
+    """Single-page overview with key metrics.
+
+    Adapts panels based on what data is available — always shows useful
+    content from chain files (K error, LLH, runtime, convergence) even
+    when the Go port doesn't export assignments (no AUPRC).
+    """
+    fig = plt.figure(figsize=(14, 9))
     gs = gridspec.GridSpec(2, 3, figure=fig, hspace=0.4, wspace=0.35)
+
+    n_scored = len(scores)
+    n_failed = len(failures)
+
+    k_errors = [s["K_error"] for s in scores if "K_error" in s]
+    auprcs = [s["cocluster_auprc"] for s in scores if "cocluster_auprc" in s]
+    times = [s["total_time_s"] for s in scores
+             if isinstance(s.get("total_time_s"), (int, float))]
+    best_llhs = [s["best_llh"] for s in scores if s.get("best_llh") is not None]
+    chain_stds = [s["llh_chain_std"] for s in scores if "llh_chain_std" in s]
 
     # Panel A: pass/fail pie
     ax_pie = fig.add_subplot(gs[0, 0])
-    n_scored = len(scores)
-    n_failed = len(failures)
     if n_scored + n_failed > 0:
-        ax_pie.pie([n_scored, n_failed], labels=["Scored", "Failed"],
-                   colors=["#66bb6a", "#ef5350"], autopct="%1.0f%%", startangle=90)
+        sizes = [n_scored, n_failed]
+        labels = [f"Scored ({n_scored})", f"Failed ({n_failed})"]
+        colors_pie = ["#66bb6a", "#ef5350"] if n_failed > 0 else ["#66bb6a", "#e0e0e0"]
+        ax_pie.pie(sizes, labels=labels, colors=colors_pie,
+                   autopct="%1.0f%%", startangle=90)
     ax_pie.set_title(f"Fixture Results ({n_scored + n_failed} total)")
 
-    # Panel B: K error distribution
+    # Panel B: K error distribution (from chain NumNodes)
     ax_kerr = fig.add_subplot(gs[0, 1])
-    k_errors = [s["K_error"] for s in scores if "K_error" in s]
     if k_errors:
         unique_errs = sorted(set(k_errors))
         counts = [k_errors.count(e) for e in unique_errs]
-        bar_colors = ["#66bb6a" if e == 0 else "#ffa726" if e <= 1 else "#ef5350" for e in unique_errs]
+        bar_colors = ["#66bb6a" if e == 0 else "#ffa726" if e <= 1 else "#ef5350"
+                      for e in unique_errs]
         ax_kerr.bar(unique_errs, counts, color=bar_colors, edgecolor="white")
         ax_kerr.set_xlabel("|K error|")
         ax_kerr.set_ylabel("Count")
-    ax_kerr.set_title("Population Count Error")
+        exact = sum(1 for e in k_errors if e == 0)
+        ax_kerr.set_title(f"Pop Count Error ({exact}/{len(k_errors)} exact)")
+    else:
+        ax_kerr.text(0.5, 0.5, "No K data\n(chain files needed)",
+                    ha="center", va="center", transform=ax_kerr.transAxes, color="gray")
+        ax_kerr.set_title("Population Count Error")
 
-    # Panel C: AUPRC distribution
-    ax_auprc = fig.add_subplot(gs[0, 2])
-    auprcs = [s["cocluster_auprc"] for s in scores if "cocluster_auprc" in s]
+    # Panel C: AUPRC or Best LLH distribution (adaptive)
+    ax_c = fig.add_subplot(gs[0, 2])
     if auprcs:
-        ax_auprc.hist(auprcs, bins=20, color="#42a5f5", edgecolor="white", alpha=0.8)
-        ax_auprc.axvline(np.median(auprcs), color="red", linestyle="--", label=f"median={np.median(auprcs):.3f}")
-        ax_auprc.legend(fontsize=8)
-        ax_auprc.set_xlabel("AUPRC")
-        ax_auprc.set_ylabel("Count")
-    ax_auprc.set_title("Co-clustering AUPRC")
+        ax_c.hist(auprcs, bins=20, color="#42a5f5", edgecolor="white", alpha=0.8)
+        ax_c.axvline(np.median(auprcs), color="red", linestyle="--",
+                    label=f"median={np.median(auprcs):.3f}")
+        ax_c.legend(fontsize=8)
+        ax_c.set_xlabel("AUPRC")
+        ax_c.set_ylabel("Count")
+        ax_c.set_title("Co-clustering AUPRC")
+    elif best_llhs:
+        ax_c.hist(best_llhs, bins=20, color="#ab47bc", edgecolor="white", alpha=0.8)
+        ax_c.axvline(np.median(best_llhs), color="red", linestyle="--",
+                    label=f"median={np.median(best_llhs):.0f}")
+        ax_c.legend(fontsize=8)
+        ax_c.set_xlabel("Best Log-Likelihood")
+        ax_c.set_ylabel("Count")
+        ax_c.set_title("Best LLH Distribution")
+    else:
+        ax_c.text(0.5, 0.5, "No LLH data", ha="center", va="center",
+                 transform=ax_c.transAxes, color="gray")
+        ax_c.set_title("Log-Likelihood")
 
-    # Panel D: AUPRC vs read depth
-    ax_depth = fig.add_subplot(gs[1, 0])
-    filtered = [s for s in scores if "cocluster_auprc" in s]
-    if filtered:
-        Ts = [s["T"] for s in filtered]
-        auprc_vals = [s["cocluster_auprc"] for s in filtered]
-        ax_depth.scatter(Ts, auprc_vals, c="#42a5f5", s=30, alpha=0.6, edgecolors="white")
-        # Mean line per T
-        for T in sorted(set(Ts)):
-            vals = [a for t, a in zip(Ts, auprc_vals) if t == T]
-            ax_depth.plot(T, np.mean(vals), "rv", markersize=8)
-        ax_depth.set_xlabel("Read Depth (T)")
-        ax_depth.set_ylabel("AUPRC")
-    ax_depth.set_title("AUPRC vs Read Depth")
-
-    # Panel E: AUPRC vs K
-    ax_k = fig.add_subplot(gs[1, 1])
-    if filtered:
-        Ks_plot = [s["K"] for s in filtered]
-        auprc_vals = [s["cocluster_auprc"] for s in filtered]
-        ax_k.scatter(Ks_plot, auprc_vals, c="#ab47bc", s=30, alpha=0.6, edgecolors="white")
+    # Panel D: K error by true K (or runtime by M)
+    ax_d = fig.add_subplot(gs[1, 0])
+    if k_errors:
+        k_with_errors = [s for s in scores if "K_error" in s]
+        Ks_plot = [s["K"] for s in k_with_errors]
+        errs = [s["K_error"] for s in k_with_errors]
+        ax_d.scatter(Ks_plot, errs, c="#ef5350", s=40, alpha=0.6, edgecolors="white")
         for K in sorted(set(Ks_plot)):
-            vals = [a for k, a in zip(Ks_plot, auprc_vals) if k == K]
-            ax_k.plot(K, np.mean(vals), "rv", markersize=8)
-        ax_k.set_xlabel("True Clones (K)")
-        ax_k.set_ylabel("AUPRC")
-    ax_k.set_title("AUPRC vs Clone Count")
+            vals = [e for k, e in zip(Ks_plot, errs) if k == K]
+            ax_d.plot(K, np.mean(vals), "kv", markersize=10)
+        ax_d.set_xlabel("True Clones (K)")
+        ax_d.set_ylabel("|K error|")
+        ax_d.set_title("K Error vs Clone Count")
+    elif times:
+        Ms = [s["M"] for s in scores if isinstance(s.get("total_time_s"), (int, float))]
+        ax_d.scatter(Ms, times, c="#42a5f5", s=40, alpha=0.6, edgecolors="white")
+        ax_d.set_xlabel("Number of SSMs (M)")
+        ax_d.set_ylabel("Wall Time (s)")
+        ax_d.set_title("Runtime vs Fixture Size")
+    else:
+        ax_d.text(0.5, 0.5, "No data", ha="center", va="center",
+                 transform=ax_d.transAxes, color="gray")
+        ax_d.set_title("K Error / Runtime")
+
+    # Panel E: Chain convergence (LLH std)
+    ax_e = fig.add_subplot(gs[1, 1])
+    if chain_stds:
+        ax_e.hist(chain_stds, bins=20, color="#ffa726", edgecolor="white", alpha=0.8)
+        ax_e.axvline(np.median(chain_stds), color="red", linestyle="--",
+                    label=f"median={np.median(chain_stds):.1f}")
+        ax_e.legend(fontsize=8)
+        ax_e.set_xlabel("Std Dev of Final LLH")
+        ax_e.set_ylabel("Count")
+        ax_e.set_title("Chain Convergence (lower=better)")
+    else:
+        ax_e.text(0.5, 0.5, "No multi-chain data", ha="center", va="center",
+                 transform=ax_e.transAxes, color="gray")
+        ax_e.set_title("Chain Convergence")
 
     # Panel F: text summary
     ax_text = fig.add_subplot(gs[1, 2])
@@ -387,22 +431,27 @@ def plot_summary_dashboard(scores, failures, outdir):
     lines.append(f"Fixtures scored: {n_scored}")
     lines.append(f"Fixtures failed: {n_failed}")
     if k_errors:
-        lines.append(f"K exact match: {sum(1 for e in k_errors if e == 0)}/{len(k_errors)}")
+        exact = sum(1 for e in k_errors if e == 0)
+        lines.append(f"K exact match: {exact}/{len(k_errors)}")
         lines.append(f"Mean |K error|: {np.mean(k_errors):.2f}")
     if auprcs:
         lines.append(f"AUPRC mean: {np.mean(auprcs):.3f}")
         lines.append(f"AUPRC median: {np.median(auprcs):.3f}")
-        lines.append(f"AUPRC min: {np.min(auprcs):.3f}")
-
-    times = []
-    for s in scores:
-        try:
-            times.append(float(s.get("total_time_s", 0)))
-        except (ValueError, TypeError):
-            pass
+    else:
+        lines.append("AUPRC: N/A (no assignments)")
+    if best_llhs:
+        lines.append(f"Best LLH median: {np.median(best_llhs):.0f}")
     if times:
         lines.append(f"Mean runtime: {np.mean(times):.1f}s")
         lines.append(f"Max runtime: {np.max(times):.1f}s")
+    if chain_stds:
+        lines.append(f"Chain std median: {np.median(chain_stds):.1f}")
+
+    # CNV breakdown if present
+    cnv_count = sum(1 for s in scores if s.get("has_cnvs"))
+    ssm_count = sum(1 for s in scores if not s.get("has_cnvs"))
+    if cnv_count > 0:
+        lines.append(f"SSM-only: {ssm_count} | With CNV: {cnv_count}")
 
     ax_text.text(0.05, 0.95, "\n".join(lines), transform=ax_text.transAxes,
                 fontsize=10, verticalalignment="top", fontfamily="monospace",
