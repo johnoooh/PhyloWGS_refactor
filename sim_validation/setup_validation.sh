@@ -117,9 +117,10 @@ else
 fi
 
 # ── Copy scripts ─────────────────────────────────────────────────────────────
-cp "$SCRIPT_DIR/generate_fixtures.py" "$WORKDIR/"
-cp "$SCRIPT_DIR/score_results.py"     "$WORKDIR/"
-cp "$SCRIPT_DIR/plot_results.py"      "$WORKDIR/"
+cp "$SCRIPT_DIR/generate_fixtures.py"        "$WORKDIR/"
+cp "$SCRIPT_DIR/score_results.py"            "$WORKDIR/"
+cp "$SCRIPT_DIR/plot_results.py"             "$WORKDIR/"
+cp "$SCRIPT_DIR/compare_implementations.py"  "$WORKDIR/"
 
 # ── Generate fixtures ────────────────────────────────────────────────────────
 echo ""

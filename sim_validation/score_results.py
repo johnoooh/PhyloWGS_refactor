@@ -117,17 +117,20 @@ def parse_go_duration(s):
 def load_chain_traces(result_dir):
     """Load MCMC traces from chain files.
 
+    Supports both Go format (chain_*_samples.txt) and Python format (mcmc_samples.txt).
     Returns dict: chain_id -> {"llhs": [...], "num_nodes": [...]}
     """
     traces = {}
     result_path = Path(result_dir)
+
+    # Go format: chain_N_samples.txt with Iteration/LLH/NumNodes
     for chain_file in sorted(result_path.glob("chain_*_samples.txt")):
         chain_id = chain_file.stem.split("_")[1]
         llhs = []
         num_nodes = []
         with open(chain_file) as f:
             header = f.readline().strip().split("\t")
-            llh_col = 1  # default
+            llh_col = 1
             nodes_col = 2 if len(header) > 2 else None
 
             for line in f:
@@ -141,15 +144,75 @@ def load_chain_traces(result_dir):
                         pass
 
         traces[chain_id] = {"llhs": llhs, "num_nodes": num_nodes}
+
+    # Python format: mcmc_samples.txt with iteration/llh/time (single chain)
+    if not traces:
+        mcmc_path = result_path / "mcmc_samples.txt"
+        if mcmc_path.exists():
+            llhs = []
+            with open(mcmc_path) as f:
+                for line in f:
+                    parts = line.strip().split("\t")
+                    if len(parts) >= 2:
+                        try:
+                            llhs.append(float(parts[1]))
+                        except ValueError:
+                            pass
+            if llhs:
+                traces["0"] = {"llhs": llhs, "num_nodes": []}
+
     return traces
 
 
 def load_best_tree(result_dir):
-    """Load best_tree.json if present (from Go port post-MCMC output)."""
-    path = Path(result_dir) / "best_tree.json"
-    if path.exists():
-        with open(path) as f:
+    """Load best tree output — supports Go (best_tree.json) and Python (tree_summaries.json.gz).
+
+    Returns a normalized dict with: num_populations, populations, mut_assignments, llh
+    """
+    result_path = Path(result_dir)
+
+    # Go port format
+    go_path = result_path / "best_tree.json"
+    if go_path.exists():
+        with open(go_path) as f:
             return json.load(f)
+
+    # Original Python format (from write_results.py)
+    py_path = result_path / "tree_summaries.json.gz"
+    if py_path.exists():
+        import gzip
+        with gzip.open(py_path, "rt") as f:
+            summaries = json.load(f)
+        # summaries["trees"] is a dict of tree_idx -> {llh, structure, populations}
+        trees = summaries.get("trees", {})
+        if not trees:
+            return None
+        # Pick tree with best LLH
+        best_idx = max(trees.keys(), key=lambda k: trees[k].get("llh", float("-inf")))
+        best = trees[best_idx]
+        # Load mutation assignments from mutass.zip
+        mutass_path = result_path / "mutass.zip"
+        mut_assignments = {}
+        if mutass_path.exists():
+            import zipfile
+            with zipfile.ZipFile(mutass_path) as zf:
+                try:
+                    with zf.open(f"{best_idx}.json") as mf:
+                        mutdata = json.loads(mf.read())
+                        mut_assignments = mutdata.get("mut_assignments", {})
+                except KeyError:
+                    pass
+
+        num_pops = len([p for p in best.get("populations", {}).values()
+                       if p.get("num_ssms", 0) > 0 or p.get("num_cnvs", 0) > 0])
+        return {
+            "num_populations": num_pops,
+            "llh": best.get("llh"),
+            "populations": best.get("populations", {}),
+            "structure": best.get("structure", {}),
+            "mut_assignments": mut_assignments,
+        }
+
     return None
 
 
