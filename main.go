@@ -2038,16 +2038,15 @@ func (t *TSSB) findOrCreateNode(u float64, rng *rand.Rand) (*Node, []int) {
 			return node, append([]int{index}, path...)
 		} else {
 			// At root (depth 0) - always go to first child.
-			// Python's find_node at depth=0 does NOT prepend the root-child index to the path
-			// (the path starts from depth-1 children). Match that behavior here.
+			// Python's find_node unconditionally does path.insert(0, index) after
+			// both the depth>0 and depth==0 branches. So root-level index IS included.
 			if len(root.Children) == 0 {
 				// Should not happen in normal use, but handle gracefully
 				return root.Node, []int{}
 			}
 			index := 0
 			node, path := descend(root.Children[index], u, depth+1)
-			// Do NOT prepend index=0 here; Python doesn't include root-level index in path
-			return node, path
+			return node, append([]int{index}, path...)
 		}
 	}
 
