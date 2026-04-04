@@ -531,10 +531,15 @@ func newTSSB(ssms []*SSM, cnvs []*CNV, dpAlpha, dpGamma, alphaDecay float64, rng
 	tssb.NodeIDCounter++
 	childNode.ID = tssb.NodeIDCounter
 	childNode.Height = 1
-	// Initialize child params
+	// Initialize child params via pi conservation (Python evolve.py hack section):
+	// root node spawns the initial child which takes a random fraction of root's pi.
+	// Here we replicate alleles.__init__ with parent=root: pi = rand() * parent.pi
+	// For simplicity at initialization, use rand() per time point.
 	for i := range childNode.Params {
-		childNode.Params[i] = 0.5
-		childNode.Pi[i] = 0.5
+		frac := rng.Float64()
+		childNode.Pi[i] = frac * rootNode.Pi[i]
+		rootNode.Pi[i] -= childNode.Pi[i]
+		childNode.Params[i] = childNode.Pi[i]
 	}
 
 	childTSSB := &TSSBNode{
@@ -1176,8 +1181,11 @@ func (t *TSSB) resampleAssignments(rng *rand.Rand) {
 				break
 			}
 
-			// Path comparison for slice shrinking
-			pathComp := comparePaths(currentIndices, newPath)
+			// Slice bracket shrinking: exact match to Python's tssb.py:
+			// path_comp = path_lt(indices, new_path)
+			// if path_comp < 0: min_u = new_u
+			// elif path_comp >= 0: max_u = new_u
+			pathComp := pathLT(currentIndices, newPath)
 			if pathComp < 0 {
 				minU = newU
 			} else {
@@ -1188,6 +1196,38 @@ func (t *TSSB) resampleAssignments(rng *rand.Rand) {
 
 	// Invalidate caches since tree structure may have changed
 	t.invalidateWeightsCache()
+}
+
+// pathLT implements Python's path_lt(path1, path2) from tssb.py.
+// Encodes paths as zero-padded 3-digit strings and compares lexicographically.
+// Returns: 1 if path2 > path1, -1 if path2 < path1, 0 if equal.
+// (Mirrors Python: (s2 > s1) - (s2 < s1))
+func pathLT(path1, path2 []int) int {
+	if len(path1) == 0 && len(path2) == 0 {
+		return 0
+	}
+	if len(path1) == 0 {
+		return 1 // Python: elif len(path1)==0: return 1
+	}
+	if len(path2) == 0 {
+		return -1 // Python: elif len(path2)==0: return -1
+	}
+	// Build strings: each index formatted as %03d
+	s1 := ""
+	for _, v := range path1 {
+		s1 += fmt.Sprintf("%03d", v)
+	}
+	s2 := ""
+	for _, v := range path2 {
+		s2 += fmt.Sprintf("%03d", v)
+	}
+	if s2 > s1 {
+		return 1
+	}
+	if s2 < s1 {
+		return -1
+	}
+	return 0
 }
 
 // comparePaths compares two paths lexicographically
@@ -1451,6 +1491,22 @@ func countData(node *TSSBNode) int {
 	return count
 }
 
+// killNode removes a child from its parent, returning the child's pi to the parent.
+// Matches Python's alleles.kill().
+func killNode(child *Node, parent *Node) {
+	// Return pi to parent
+	for i := range parent.Pi {
+		parent.Pi[i] += child.Pi[i]
+	}
+	// Remove from parent's Node.Children
+	for i, c := range parent.Children {
+		if c == child {
+			parent.Children = append(parent.Children[:i], parent.Children[i+1:]...)
+			break
+		}
+	}
+}
+
 func (t *TSSB) cullTree() {
 	var descend func(*TSSBNode) int
 	descend = func(root *TSSBNode) int {
@@ -1468,8 +1524,11 @@ func (t *TSSB) cullTree() {
 			}
 		}
 
-		// Remove empty trailing children
+		// Remove empty trailing children -- return pi to parent (like Python's kill())
 		if keep < len(root.Children) {
+			for i := keep; i < len(root.Children); i++ {
+				killNode(root.Children[i].Node, root.Node)
+			}
 			root.Children = root.Children[:keep]
 			if keep < len(root.Sticks) {
 				root.Sticks = root.Sticks[:keep]
@@ -1495,10 +1554,16 @@ func (t *TSSB) spawnChild(parent *TSSBNode, depth int, rng *rand.Rand) *TSSBNode
 	childNode.ID = t.NodeIDCounter
 	childNode.Height = depth + 1
 
-	// Initialize params from parent (copy parent phi as starting point)
-	for i := range childNode.Params {
-		childNode.Params[i] = parent.Node.Params[i] * 0.5 // Start at half parent's phi
-		childNode.Pi[i] = childNode.Params[i]
+	// Pi conservation: child takes a random fraction of parent's pi,
+	// parent gives up that fraction. Matches Python alleles.__init__:
+	//   self.pi = rand(1) * parent.pi
+	//   parent.pi = parent.pi - self.pi
+	//   self.params = self.pi
+	for i := range childNode.Pi {
+		frac := rng.Float64()
+		childNode.Pi[i] = frac * parent.Node.Pi[i]
+		parent.Node.Pi[i] -= childNode.Pi[i]
+		childNode.Params[i] = childNode.Pi[i]
 	}
 
 	// Compute main stick break
@@ -1677,21 +1742,15 @@ func (t *TSSB) resampleStickOrders(rng *rand.Rand) {
 			descend(root.Children[k], depth+1)
 		}
 
-		// Kill children not in new order (no data)
+		// Kill children not in new order (no data) -- return pi to parent
 		inNewOrder := make(map[int]bool)
 		for _, k := range newOrder {
 			inNewOrder[k] = true
 		}
 		for k := 0; k < len(root.Children); k++ {
 			if !inNewOrder[k] {
-				// Remove from parent's children list
-				child := root.Children[k]
-				for i, c := range root.Node.Children {
-					if c == child.Node {
-						root.Node.Children = append(root.Node.Children[:i], root.Node.Children[i+1:]...)
-						break
-					}
-				}
+				// Kill node: return pi to parent and remove from Node.Children
+				killNode(root.Children[k].Node, root.Node)
 			}
 		}
 
@@ -1791,14 +1850,17 @@ func (t *TSSB) findOrCreateNode(u float64, rng *rand.Rand) (*Node, []int) {
 			node, path := descend(root.Children[index], u, depth+1)
 			return node, append([]int{index}, path...)
 		} else {
-			// At root (depth 0) - always go to first child
+			// At root (depth 0) - always go to first child.
+			// Python's find_node at depth=0 does NOT prepend the root-child index to the path
+			// (the path starts from depth-1 children). Match that behavior here.
 			if len(root.Children) == 0 {
 				// Should not happen in normal use, but handle gracefully
 				return root.Node, []int{}
 			}
 			index := 0
 			node, path := descend(root.Children[index], u, depth+1)
-			return node, append([]int{index}, path...)
+			// Do NOT prepend index=0 here; Python doesn't include root-level index in path
+			return node, path
 		}
 	}
 
@@ -1863,6 +1925,41 @@ func (t *TSSB) resampleHypers(rng *rand.Rand) {
 			lower = newDecay
 		} else {
 			upper = newDecay
+		}
+	}
+
+	// Resample dp_gamma (stick concentration for children)
+	// Matches Python's tssb.resample_hypers(dp_gamma=True)
+	minDPGamma := 1.0
+	maxDPGamma := 10.0
+	dpGammaLLH := func(gamma float64) float64 {
+		var descend func(*TSSBNode) float64
+		descend = func(root *TSSBNode) float64 {
+			llh := 0.0
+			for i, child := range root.Children {
+				if i < len(root.Sticks) {
+					llh += betaPDFLn(root.Sticks[i], 1.0, gamma)
+				}
+				llh += descend(child)
+			}
+			return llh
+		}
+		return descend(t.Root)
+	}
+	llhSlice = math.Log(rng.Float64()) + dpGammaLLH(t.DPGamma)
+	lower = minDPGamma
+	upper = maxDPGamma
+	for iter := 0; iter < 100; iter++ {
+		newGamma := (upper-lower)*rng.Float64() + lower
+		newLLH := dpGammaLLH(newGamma)
+		if newLLH > llhSlice {
+			t.DPGamma = newGamma
+			break
+		}
+		if newGamma < t.DPGamma {
+			lower = newGamma
+		} else {
+			upper = newGamma
 		}
 	}
 }
@@ -2025,19 +2122,18 @@ func writeResults(outDir string, results []ChainResult) error {
 
 	// Write best_tree.json from the chain with best final LLH
 	bestChainIdx := 0
-	bestFinalLLH := math.Inf(-1)
+	bestOverallLLH := math.Inf(-1)
 	for i, r := range results {
-		if len(r.SampleLLH) > 0 {
-			final := r.SampleLLH[len(r.SampleLLH)-1]
-			if final > bestFinalLLH {
-				bestFinalLLH = final
+		for _, llhVal := range r.SampleLLH {
+			if llhVal > bestOverallLLH {
+				bestOverallLLH = llhVal
 				bestChainIdx = i
 			}
 		}
 	}
 	if tssb := results[bestChainIdx].FinalTree; tssb != nil {
 		removeEmptyNodes(tssb.Root, nil)
-		treeSummary := summarizePops(tssb, bestFinalLLH, results[bestChainIdx].ChainID)
+		treeSummary := summarizePops(tssb, bestOverallLLH, results[bestChainIdx].ChainID)
 		treeData, _ := json.MarshalIndent(treeSummary, "", "  ")
 		treePath := filepath.Join(outDir, "best_tree.json")
 		if err := os.WriteFile(treePath, treeData, 0644); err != nil {
@@ -2208,10 +2304,18 @@ func summarizePops(tssb *TSSB, llh float64, chainID int) map[string]interface{} 
 
 	traverse(tssb.Root, -1)
 
+	// Count only non-empty populations (with SSMs or CNVs), matching Python
+	nonEmpty := 0
+	for _, p := range pops {
+		if p.NumSSMs > 0 || p.NumCNVs > 0 {
+			nonEmpty++
+		}
+	}
+
 	return map[string]interface{}{
 		"chain_id":        chainID,
 		"llh":             llh,
-		"num_populations": len(pops) - 1, // exclude root
+		"num_populations": nonEmpty, // non-empty pops only, matching Python convention
 		"populations":     pops,
 		"structure":       structure,
 		"mut_assignments": mutAss,
