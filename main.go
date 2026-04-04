@@ -827,15 +827,19 @@ func computeNGenomes(ssm *SSM, tssb *TSSB, tp int, newState bool) [][2]float64 {
 
 			// Cases 1 and 2: Check timing relationship
 			// If SSM node is ancestor of CNV node, SSM occurred first (variant amplified)
+			// Python: nr1 = pi * mr_cnv[1] where mr_cnv[1] = tok[1] = minor_cn = MaternalCN = cm
+			//         nv1 = pi * mr_cnv[2] where mr_cnv[2] = tok[2] = major_cn = PaternalCN = cp
+			//         nr2 = pi * mr_cnv[2] = cp (major/paternal)
+			//         nv2 = pi * mr_cnv[1] = cm (minor/maternal)
 			cnvNode := mrCNV.CNV.Node
 			if cnvNode != nil && isAncestorOfCached(ssmNode, cnvNode) {
 				// SSM occurred before CNV - variant gets amplified/deleted by CNV
-				// Case 1: variant on paternal allele
-				nr1 += pi * float64(cp)
-				nv1 += pi * float64(cm)
-				// Case 2: variant on maternal allele
-				nr2 += pi * float64(cm)
-				nv2 += pi * float64(cp)
+				// Case 1 (maternal): nr1 = minor_cn (MaternalCN=cm), nv1 = major_cn (PaternalCN=cp)
+				nr1 += pi * float64(cm) // was cp - FIXED to match Python mr_cnv[1]=minor
+				nv1 += pi * float64(cp) // was cm - FIXED to match Python mr_cnv[2]=major
+				// Case 2 (paternal): nr2 = major_cn, nv2 = minor_cn
+				nr2 += pi * float64(cp) // was cm - FIXED
+				nv2 += pi * float64(cm) // was cp - FIXED
 			} else {
 				// CNV occurred before or same node as SSM - variant not amplified
 				nr1 += pi * math.Max(0, totalCN-1)
@@ -1008,6 +1012,12 @@ func (t *TSSB) completeDataLogLikelihood() float64 {
 		// Fall through to CPU path on error
 	}
 
+	// Build node → weight map for CNV datum contribution
+	nodeWeightMap := make(map[*Node]float64)
+	for i, node := range nodes {
+		nodeWeightMap[node] = weights[i]
+	}
+
 	// CPU path - use tree traversal for CNV SSMs
 	for i, node := range nodes {
 		if len(node.Data) > 0 {
@@ -1024,6 +1034,49 @@ func (t *TSSB) completeDataLogLikelihood() float64 {
 			}
 		}
 	}
+
+	// Include CNV datum likelihoods (matching Python: CNVs are data in the tree too)
+	// Python treats CNV datums identically to SSMs without their own CNV context.
+	// Each CNV datum contributes: log(weight_of_its_node) + binomial_llh(a, d, mu)
+	// where mu = (1-phi)*0.999 + phi*0.5 and phi = cnv.Node.Params
+	cnvNodeCounts := make(map[*Node]int)
+	for _, cnv := range t.CNVData {
+		if cnv.Node != nil {
+			cnvNodeCounts[cnv.Node]++
+		}
+	}
+	for nd, count := range cnvNodeCounts {
+		if w, ok := nodeWeightMap[nd]; ok && w > 0 {
+			llh += float64(count) * math.Log(w)
+		}
+	}
+	for _, cnv := range t.CNVData {
+		if cnv.Node == nil {
+			continue
+		}
+		phi := cnv.Node.Params
+		cnvLLH := 0.0
+		for tp := range cnv.A {
+			p := phi[tp]
+			if p < 0 {
+				p = 0
+			}
+			if p > 1 {
+				p = 1
+			}
+			// CNV datums use same formula: mu = (1-phi)*muR + phi*muV
+			mu := (1-p)*0.999 + p*0.5
+			if mu < 1e-15 {
+				mu = 1e-15
+			}
+			if mu > 1-1e-15 {
+				mu = 1 - 1e-15
+			}
+			cnvLLH += logBinomialLikelihood(cnv.A[tp], cnv.D[tp], mu) + cnv.LogBinNormConst[tp]
+		}
+		llh += cnvLLH
+	}
+
 	return llh
 }
 
@@ -1140,7 +1193,14 @@ func (t *TSSB) resampleAssignments(rng *rand.Rand) {
 			}
 		}
 
-		oldLLH := t.Data[n].logLikelihood(oldNode.Params)
+		// Compute old likelihood. For CNV SSMs, use full tree-traversal (like Python).
+		var oldLLH float64
+		ssm := t.Data[n]
+		if len(ssm.CNVs) > 0 {
+			oldLLH = logLikelihoodWithCNVTree(ssm, t)
+		} else {
+			oldLLH = ssm.logLikelihoodNoCNV(oldNode.Params)
+		}
 		llhSlice := math.Log(rng.Float64()) + oldLLH
 
 		maxU := 1.0
@@ -1158,21 +1218,29 @@ func (t *TSSB) resampleAssignments(rng *rand.Rand) {
 				newPath = []int{0}
 			}
 
-			newLLH := t.Data[n].logLikelihood(newNode.Params)
+			// Compute new likelihood. For CNV SSMs, temporarily update node assignment
+			// to compute correct tree-traversal likelihood (matching Python behavior).
+			var newLLH float64
+			if len(ssm.CNVs) > 0 {
+				// Temporarily move SSM to new node for likelihood evaluation
+				oldNode.Data = removeFromSlice(oldNode.Data, n)
+				newNode.Data = append(newNode.Data, n)
+				ssm.Node = newNode
+				newLLH = logLikelihoodWithCNVTree(ssm, t)
+				// Restore to old node (proposal not yet accepted)
+				newNode.Data = removeFromSlice(newNode.Data, n)
+				oldNode.Data = append(oldNode.Data, n)
+				ssm.Node = oldNode
+			} else {
+				newLLH = ssm.logLikelihoodNoCNV(newNode.Params)
+			}
 
 			if newLLH > llhSlice {
 				// Accept move
-				// Remove from old node
-				for i, idx := range oldNode.Data {
-					if idx == n {
-						oldNode.Data = append(oldNode.Data[:i], oldNode.Data[i+1:]...)
-						break
-					}
-				}
-				// Add to new node
+				oldNode.Data = removeFromSlice(oldNode.Data, n)
 				newNode.Data = append(newNode.Data, n)
 				t.Assignments[n] = newNode
-				t.Data[n].Node = newNode
+				ssm.Node = newNode
 				break
 			}
 
@@ -1194,8 +1262,98 @@ func (t *TSSB) resampleAssignments(rng *rand.Rand) {
 		}
 	}
 
+	// Resample CNV datum assignments (matching Python: CNVs are data in the tree too).
+	// CNV datums have simple binomial likelihood: mu = (1-phi)*0.999 + phi*0.5
+	// They use the same slice sampler as SSMs without CNV context.
+	for _, cnv := range t.CNVData {
+		if cnv.Node == nil {
+			continue
+		}
+		oldCNVNode := cnv.Node
+
+		// Compute current path for slice shrinking
+		cnvAncestors := oldCNVNode.getAncestors()
+		cnvCurrentIndices := make([]int, 0)
+		cnvCurrent := t.Root
+		for _, anc := range cnvAncestors[1:] {
+			for i, child := range cnvCurrent.Children {
+				if child.Node == anc {
+					cnvCurrentIndices = append(cnvCurrentIndices, i)
+					cnvCurrent = child
+					break
+				}
+			}
+		}
+
+		// Compute old LLH for this CNV datum
+		oldCNVLLH := t.cnvDatumLLH(cnv, oldCNVNode.Params)
+		llhSlice := math.Log(rng.Float64()) + oldCNVLLH
+
+		maxU := 1.0
+		minU := 0.0
+
+		for iter := 0; iter < 100; iter++ {
+			newU := (maxU-minU)*rng.Float64() + minU
+			newNode, newPath := t.findOrCreateNode(newU, rng)
+			if newNode.Parent == nil && len(t.Root.Children) > 0 {
+				newNode = t.Root.Children[0].Node
+				newPath = []int{0}
+			}
+
+			newLLH := t.cnvDatumLLH(cnv, newNode.Params)
+			if newLLH > llhSlice {
+				cnv.Node = newNode
+				break
+			}
+			if maxU-minU < eps {
+				break
+			}
+			// Path-based shrinking (same as SSMs)
+			pathComp := pathLT(cnvCurrentIndices, newPath)
+			if pathComp < 0 {
+				minU = newU
+			} else {
+				maxU = newU
+			}
+		}
+	}
+
 	// Invalidate caches since tree structure may have changed
 	t.invalidateWeightsCache()
+}
+
+// cnvDatumLLH computes the log-likelihood for a CNV datum at a given phi.
+// Matches Python: CNV datums use mu = (1-phi)*0.999 + phi*0.5 (no tree traversal).
+func (t *TSSB) cnvDatumLLH(cnv *CNV, phi []float64) float64 {
+	llh := 0.0
+	for tp := range cnv.A {
+		p := phi[tp]
+		if p < 0 {
+			p = 0
+		}
+		if p > 1 {
+			p = 1
+		}
+		mu := (1-p)*0.999 + p*0.5
+		if mu < 1e-15 {
+			mu = 1e-15
+		}
+		if mu > 1-1e-15 {
+			mu = 1 - 1e-15
+		}
+		llh += logBinomialLikelihood(cnv.A[tp], cnv.D[tp], mu) + cnv.LogBinNormConst[tp]
+	}
+	return llh
+}
+
+// removeFromSlice removes the first occurrence of val from a slice of ints.
+func removeFromSlice(s []int, val int) []int {
+	for i, v := range s {
+		if v == val {
+			return append(s[:i], s[i+1:]...)
+		}
+	}
+	return s
 }
 
 // pathLT implements Python's path_lt(path1, path2) from tssb.py.
@@ -1393,6 +1551,35 @@ func (t *TSSB) paramPost(nodes []*Node, useNew bool) float64 {
 			} else {
 				llh += ssm.logLikelihoodNoCNV(params)
 			}
+		}
+	}
+	// Add CNV datum likelihoods (matching Python: CNVs are data nodes too)
+	for _, cnv := range t.CNVData {
+		if cnv.Node == nil {
+			continue
+		}
+		var phi []float64
+		if useNew {
+			phi = cnv.Node.Params1
+		} else {
+			phi = cnv.Node.Params
+		}
+		for tp := range cnv.A {
+			p := phi[tp]
+			if p < 0 {
+				p = 0
+			}
+			if p > 1 {
+				p = 1
+			}
+			mu := (1-p)*0.999 + p*0.5
+			if mu < 1e-15 {
+				mu = 1e-15
+			}
+			if mu > 1-1e-15 {
+				mu = 1 - 1e-15
+			}
+			llh += logBinomialLikelihood(cnv.A[tp], cnv.D[tp], mu) + cnv.LogBinNormConst[tp]
 		}
 	}
 	return llh
