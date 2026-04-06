@@ -76,6 +76,26 @@ type CNVRef struct {
 	PaternalCN int
 }
 
+// PhysicalCNV holds genomic annotation for one physical CNV segment.
+// Parsed from the physical_cnvs column of cnv_data.txt.
+// Fields map directly to the Python cnv_logical_physical_mapping output.
+type PhysicalCNV struct {
+	Chrom    string `json:"chrom"`
+	Start    int    `json:"start"`
+	End      int    `json:"end"`
+	MajorCN  int    `json:"major_cn"`
+	MinorCN  int    `json:"minor_cn"`
+	CellPrev string `json:"cell_prev"` // raw "0.0|0.718" string, one value per timepoint
+}
+
+// CNVSSMLink holds the SSM ID and copy numbers for one SSM affected by a CNV.
+// Used when writing mutlist.json.
+type CNVSSMLink struct {
+	SSMID      string
+	MaternalCN int
+	PaternalCN int
+}
+
 // CNV represents a Copy Number Variation
 type CNV struct {
 	ID              string
@@ -83,7 +103,9 @@ type CNV struct {
 	D               []int
 	LogBinNormConst []float64
 	Node            *Node
-	AffectedSSMs    []string // SSM IDs affected by this CNV
+	AffectedSSMs    []string     // SSM IDs affected by this CNV
+	SSMLinks        []CNVSSMLink // SSM IDs with their CN values (for mutlist.json)
+	PhysicalCNVs    []PhysicalCNV
 }
 
 // Node represents a clone in the phylogenetic tree
@@ -144,11 +166,14 @@ type ChainResult struct {
 	ElapsedTime time.Duration
 }
 
-// TreeSample holds a sampled tree state
+// TreeSample holds a sampled tree state including a full population snapshot.
+// The Snapshot field is a pre-encoded JSON object suitable for writing directly
+// to the newline-delimited all_trees.ndjson output file.
 type TreeSample struct {
 	Iteration int
 	LLH       float64
 	NumNodes  int
+	Snapshot  json.RawMessage // full tree snapshot; nil during burnin
 }
 
 // ============================================================================
@@ -159,11 +184,11 @@ func logFactorial(n int) float64 {
 	if n <= 1 {
 		return 0
 	}
-	result := 0.0
-	for i := 2; i <= n; i++ {
-		result += math.Log(float64(i))
-	}
-	return result
+	// Use math.Lgamma for accuracy and O(1) performance, matching scipy.special.gammaln
+	// used by the Python original. The loop-sum alternative accumulates float rounding
+	// error at large n (typical WGS read depths).
+	lgamma, _ := math.Lgamma(float64(n + 1))
+	return lgamma
 }
 
 func logBinCoeff(n, k int) float64 {
@@ -1388,44 +1413,6 @@ func pathLT(path1, path2 []int) int {
 	return 0
 }
 
-// comparePaths compares two paths lexicographically
-// Returns -1 if path1 < path2, 0 if equal, 1 if path1 > path2
-func comparePaths(path1, path2 []int) int {
-	if len(path1) == 0 && len(path2) == 0 {
-		return 0
-	}
-	if len(path1) == 0 {
-		return 1
-	}
-	if len(path2) == 0 {
-		return -1
-	}
-
-	// Compare element by element
-	minLen := len(path1)
-	if len(path2) < minLen {
-		minLen = len(path2)
-	}
-
-	for i := 0; i < minLen; i++ {
-		if path1[i] < path2[i] {
-			return -1
-		}
-		if path1[i] > path2[i] {
-			return 1
-		}
-	}
-
-	// If all compared elements are equal, shorter path is "greater"
-	// (closer to root = earlier in traversal)
-	if len(path1) < len(path2) {
-		return 1
-	}
-	if len(path1) > len(path2) {
-		return -1
-	}
-	return 0
-}
 
 func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
 	// Get all nodes
@@ -2221,10 +2208,16 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 		} else {
 			sampleLLH = append(sampleLLH, llh)
 			_, nodes := tssb.getMixture()
+			// Capture a full tree snapshot for the posterior output file.
+			// snapshotTree does not call removeEmptyNodes so the live tree is
+			// unaffected; cullTree + resampleStickOrders already maintain a
+			// reasonably clean tree during the run.
+			snap := snapshotTree(tssb, llh, iter, chainID)
 			trees = append(trees, TreeSample{
 				Iteration: iter,
 				LLH:       llh,
 				NumNodes:  len(nodes),
+				Snapshot:  snap,
 			})
 		}
 
@@ -2292,7 +2285,7 @@ func writeResults(outDir string, results []ChainResult) error {
 		return err
 	}
 
-	// Write per-chain samples
+	// Write per-chain LLH trace (backward-compatible TSV format)
 	for _, r := range results {
 		chainPath := filepath.Join(outDir, fmt.Sprintf("chain_%d_samples.txt", r.ChainID))
 		f, err := os.Create(chainPath)
@@ -2302,6 +2295,32 @@ func writeResults(outDir string, results []ChainResult) error {
 		fmt.Fprintln(f, "Iteration\tLLH\tNumNodes")
 		for _, t := range r.Trees {
 			fmt.Fprintf(f, "%d\t%.6f\t%d\n", t.Iteration, t.LLH, t.NumNodes)
+		}
+		f.Close()
+	}
+
+	// Write per-chain full posterior tree snapshots as newline-delimited JSON.
+	// Each line is a self-contained JSON object with fields: iteration, chain_id,
+	// llh, num_populations, populations, structure, mut_assignments.
+	// This file replaces the Python original's trees.zip and can be consumed by
+	// downstream post-processing tools (e.g. write_results.py with a Go-aware
+	// adapter, or a future Go-native posterior analysis pipeline).
+	for _, r := range results {
+		ndjsonPath := filepath.Join(outDir, fmt.Sprintf("chain_%d_trees.ndjson", r.ChainID))
+		f, err := os.Create(ndjsonPath)
+		if err != nil {
+			return err
+		}
+		w := bufio.NewWriter(f)
+		for _, t := range r.Trees {
+			if t.Snapshot != nil {
+				w.Write(t.Snapshot)
+				w.WriteByte('\n')
+			}
+		}
+		if err := w.Flush(); err != nil {
+			f.Close()
+			return err
 		}
 		f.Close()
 	}
@@ -2506,6 +2525,22 @@ func summarizePops(tssb *TSSB, llh float64, chainID int) map[string]interface{} 
 		"structure":       structure,
 		"mut_assignments": mutAss,
 	}
+}
+
+// snapshotTree encodes the current TSSB state as a JSON object suitable for
+// one line of an all_trees.ndjson file.  It calls summarizePops directly (no
+// removeEmptyNodes) because cullTree + resampleStickOrders have already run and
+// the tree is sufficiently clean mid-run.  removeEmptyNodes is a post-processing
+// step; skipping it here preserves the live tree for the next MCMC iteration.
+func snapshotTree(tssb *TSSB, llh float64, iteration, chainID int) json.RawMessage {
+	summary := summarizePops(tssb, llh, chainID)
+	// Stamp iteration into the snapshot so each line is self-contained
+	summary["iteration"] = iteration
+	data, err := json.Marshal(summary)
+	if err != nil {
+		return nil
+	}
+	return data
 }
 
 // ============================================================================
