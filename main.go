@@ -105,7 +105,7 @@ type CNV struct {
 	Node            *Node
 	AffectedSSMs    []string     // SSM IDs affected by this CNV
 	SSMLinks        []CNVSSMLink // SSM IDs with their CN values (for mutlist.json)
-	PhysicalCNVs    []PhysicalCNV
+	PhysicalCNVs    []PhysicalCNV // physical segment annotations parsed from cnv_data.txt
 }
 
 // Node represents a clone in the phylogenetic tree
@@ -2293,6 +2293,78 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 // Output
 // ============================================================================
 
+// writeMutList writes mutlist.json to outDir, matching the Python
+// write_results.py / result_generator.py output format.
+// ssms and cnvs come from the best chain's FinalTree.
+func writeMutList(outDir string, ssms []*SSM, cnvs []*CNV) error {
+	// --- SSM section ---
+	type ssmEntry struct {
+		RefReads             []int   `json:"ref_reads"`
+		TotalReads           []int   `json:"total_reads"`
+		ExpectedRefInRef     float64 `json:"expected_ref_in_ref"`
+		ExpectedRefInVariant float64 `json:"expected_ref_in_variant"`
+		Name                 string  `json:"name,omitempty"`
+	}
+	ssmsOut := make(map[string]ssmEntry, len(ssms))
+	for _, s := range ssms {
+		ssmsOut[s.ID] = ssmEntry{
+			RefReads:             s.A,
+			TotalReads:           s.D,
+			ExpectedRefInRef:     s.MuR,
+			ExpectedRefInVariant: s.MuV,
+			Name:                 s.Name,
+		}
+	}
+
+	// --- CNV section ---
+	type cnvSSMEntry struct {
+		SSMID      string `json:"ssm_id"`
+		MaternalCN int    `json:"maternal_cn"`
+		PaternalCN int    `json:"paternal_cn"`
+	}
+	type cnvEntry struct {
+		RefReads     []int          `json:"ref_reads"`
+		TotalReads   []int          `json:"total_reads"`
+		PhysicalCNVs []PhysicalCNV  `json:"physical_cnvs"`
+		SSMs         []cnvSSMEntry  `json:"ssms"`
+	}
+	cnvsOut := make(map[string]cnvEntry, len(cnvs))
+	for _, c := range cnvs {
+		ssmLinks := make([]cnvSSMEntry, 0, len(c.SSMLinks))
+		for _, link := range c.SSMLinks {
+			ssmLinks = append(ssmLinks, cnvSSMEntry{
+				SSMID:      link.SSMID,
+				MaternalCN: link.MaternalCN,
+				PaternalCN: link.PaternalCN,
+			})
+		}
+		physCNVs := c.PhysicalCNVs
+		if physCNVs == nil {
+			physCNVs = []PhysicalCNV{} // emit [] not null
+		}
+		cnvsOut[c.ID] = cnvEntry{
+			RefReads:     c.A,
+			TotalReads:   c.D,
+			PhysicalCNVs: physCNVs,
+			SSMs:         ssmLinks,
+		}
+	}
+
+	out := struct {
+		SSMs map[string]ssmEntry `json:"ssms"`
+		CNVs map[string]cnvEntry `json:"cnvs"`
+	}{
+		SSMs: ssmsOut,
+		CNVs: cnvsOut,
+	}
+
+	data, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(outDir, "mutlist.json"), data, 0644)
+}
+
 func writeResults(outDir string, results []ChainResult) error {
 	if err := os.MkdirAll(outDir, 0755); err != nil {
 		return err
@@ -2391,6 +2463,9 @@ func writeResults(outDir string, results []ChainResult) error {
 		treeData, _ := json.MarshalIndent(treeSummary, "", "  ")
 		treePath := filepath.Join(outDir, "best_tree.json")
 		if err := os.WriteFile(treePath, treeData, 0644); err != nil {
+			return err
+		}
+		if err := writeMutList(outDir, tssb.Data, tssb.CNVData); err != nil {
 			return err
 		}
 	}
@@ -2587,6 +2662,8 @@ func snapshotTree(tssb *TSSB, llh float64, iteration, chainID int) json.RawMessa
 	summary["iteration"] = iteration
 	data, err := json.Marshal(summary)
 	if err != nil {
+		// This should not happen; summarizePops only uses serializable types.
+		// Return nil so the caller skips this snapshot rather than crashing.
 		return nil
 	}
 	return data
