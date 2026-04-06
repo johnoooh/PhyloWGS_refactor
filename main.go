@@ -402,6 +402,45 @@ func loadSSMData(filename string) ([]*SSM, error) {
 	return ssms, scanner.Err()
 }
 
+// parsePhysicalCNVs parses the physical_cnvs column from cnv_data.txt.
+// Format: "chrom=1,start=141500000,end=148899999,major_cn=2,minor_cn=1,cell_prev=0.0|0.718"
+// Multiple segments are separated by ";".
+func parsePhysicalCNVs(raw string) []PhysicalCNV {
+	var result []PhysicalCNV
+	segments := strings.Split(raw, ";")
+	for _, seg := range segments {
+		seg = strings.TrimSpace(seg)
+		if seg == "" {
+			continue
+		}
+		var p PhysicalCNV
+		for _, kv := range strings.Split(seg, ",") {
+			idx := strings.Index(kv, "=")
+			if idx < 0 {
+				continue
+			}
+			key := kv[:idx]
+			val := kv[idx+1:]
+			switch key {
+			case "chrom":
+				p.Chrom = val
+			case "start":
+				p.Start, _ = strconv.Atoi(val)
+			case "end":
+				p.End, _ = strconv.Atoi(val)
+			case "major_cn":
+				p.MajorCN, _ = strconv.Atoi(val)
+			case "minor_cn":
+				p.MinorCN, _ = strconv.Atoi(val)
+			case "cell_prev":
+				p.CellPrev = val
+			}
+		}
+		result = append(result, p)
+	}
+	return result
+}
+
 func loadCNVData(filename string, ssms []*SSM) ([]*CNV, error) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -461,6 +500,11 @@ func loadCNVData(filename string, ssms []*SSM) ([]*CNV, error) {
 					maternalCN, _ := strconv.Atoi(parts[1])
 					paternalCN, _ := strconv.Atoi(parts[2])
 					cnv.AffectedSSMs = append(cnv.AffectedSSMs, ssmID)
+					cnv.SSMLinks = append(cnv.SSMLinks, CNVSSMLink{
+						SSMID:      ssmID,
+						MaternalCN: maternalCN,
+						PaternalCN: paternalCN,
+					})
 					if ssm, ok := ssmMap[ssmID]; ok {
 						ssm.CNVs = append(ssm.CNVs, &CNVRef{
 							CNV:        cnv,
@@ -470,6 +514,11 @@ func loadCNVData(filename string, ssms []*SSM) ([]*CNV, error) {
 					}
 				}
 			}
+		}
+
+		// Parse physical_cnvs column (5th column, optional)
+		if len(fields) > 4 && fields[4] != "" {
+			cnv.PhysicalCNVs = parsePhysicalCNVs(fields[4])
 		}
 
 		cnvs = append(cnvs, cnv)
