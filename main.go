@@ -103,8 +103,8 @@ type CNV struct {
 	D               []int
 	LogBinNormConst []float64
 	Node            *Node
-	AffectedSSMs    []string     // SSM IDs affected by this CNV
-	SSMLinks        []CNVSSMLink // SSM IDs with their CN values (for mutlist.json)
+	AffectedSSMs    []string      // SSM IDs affected by this CNV
+	SSMLinks        []CNVSSMLink  // SSM IDs with their CN values (for mutlist.json)
 	PhysicalCNVs    []PhysicalCNV // physical segment annotations parsed from cnv_data.txt
 }
 
@@ -695,10 +695,14 @@ func (t *TSSB) invalidateWeightsCache() {
 
 // rebuildAncestorSets pre-computes ancestor sets for all nodes
 // This makes isAncestorOf() O(1) instead of O(depth)
+// IMPORTANT: includes the node itself, matching getAncestors() behavior.
+// isAncestorOfCached(nd, nd) must return true for computeNGenomes to correctly
+// identify when an SSM and its CNV are co-located on the same tree node.
 func (t *TSSB) rebuildAncestorSets() {
 	nodes := t.getNodes()
 	for _, n := range nodes {
 		n.AncestorSet = make(map[*Node]bool)
+		n.AncestorSet[n] = true // include self: a node is its own ancestor
 		cur := n.Parent
 		for cur != nil {
 			n.AncestorSet[cur] = true
@@ -1461,7 +1465,6 @@ func pathLT(path1, path2 []int) int {
 	}
 	return 0
 }
-
 
 func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
 	// Get all nodes
@@ -2323,10 +2326,10 @@ func writeMutList(outDir string, ssms []*SSM, cnvs []*CNV) error {
 		PaternalCN int    `json:"paternal_cn"`
 	}
 	type cnvEntry struct {
-		RefReads     []int          `json:"ref_reads"`
-		TotalReads   []int          `json:"total_reads"`
-		PhysicalCNVs []PhysicalCNV  `json:"physical_cnvs"`
-		SSMs         []cnvSSMEntry  `json:"ssms"`
+		RefReads     []int         `json:"ref_reads"`
+		TotalReads   []int         `json:"total_reads"`
+		PhysicalCNVs []PhysicalCNV `json:"physical_cnvs"`
+		SSMs         []cnvSSMEntry `json:"ssms"`
 	}
 	cnvsOut := make(map[string]cnvEntry, len(cnvs))
 	for _, c := range cnvs {
