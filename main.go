@@ -2197,15 +2197,41 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 	start := time.Now()
 	rng := rand.New(rand.NewSource(seed))
 
+	// Deep copy CNVs for this chain.
+	// CNV.Node is written on every MCMC iteration (resampleAssignments). All
+	// chains run concurrently, so each chain must own its own *CNV objects to
+	// avoid data races and cross-chain corruption of node assignments.
+	chainCNVs := make([]*CNV, len(cnvs))
+	origToChainCNV := make(map[*CNV]*CNV, len(cnvs))
+	for i, cnv := range cnvs {
+		chainCNV := &CNV{
+			ID:              cnv.ID,
+			A:               append([]int{}, cnv.A...),
+			D:               append([]int{}, cnv.D...),
+			LogBinNormConst: append([]float64{}, cnv.LogBinNormConst...),
+			AffectedSSMs:    cnv.AffectedSSMs, // read-only during MCMC
+			SSMLinks:        cnv.SSMLinks,      // read-only during MCMC
+			PhysicalCNVs:    cnv.PhysicalCNVs,  // read-only during MCMC
+			// Node is assigned by newTSSB and updated by resampleAssignments
+		}
+		chainCNVs[i] = chainCNV
+		origToChainCNV[cnv] = chainCNV
+	}
+
 	// Deep copy SSMs for this chain.
-	// NOTE: CNVs field contains *CNVRef pointers back to the shared CNV objects.
-	// We copy the slice of pointers (shallow copy of CNVRef) — each chain has
-	// its own SSM copy with independent Node/Data fields, but shares the CNV
-	// objects themselves (which hold the global CNV node assignment).
+	// Each SSM gets its own CNVRef slice pointing to chain-local *CNV copies so
+	// that findMostRecentCNV / computeNGenomes see the correct per-chain node
+	// assignment for each CNV.
 	ssmsCopy := make([]*SSM, len(ssms))
 	for i, ssm := range ssms {
-		cnvsCopy := make([]*CNVRef, len(ssm.CNVs))
-		copy(cnvsCopy, ssm.CNVs)
+		chainRefs := make([]*CNVRef, len(ssm.CNVs))
+		for j, ref := range ssm.CNVs {
+			chainRefs[j] = &CNVRef{
+				CNV:        origToChainCNV[ref.CNV],
+				MaternalCN: ref.MaternalCN,
+				PaternalCN: ref.PaternalCN,
+			}
+		}
 		ssmsCopy[i] = &SSM{
 			ID:              ssm.ID,
 			Name:            ssm.Name,
@@ -2214,12 +2240,12 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 			MuR:             ssm.MuR,
 			MuV:             ssm.MuV,
 			LogBinNormConst: append([]float64{}, ssm.LogBinNormConst...),
-			CNVs:            cnvsCopy,
+			CNVs:            chainRefs,
 		}
 	}
 
-	// Initialize TSSB
-	tssb := newTSSB(ssmsCopy, cnvs, 25.0, 1.0, 0.25, rng)
+	// Initialize TSSB with chain-local SSMs and CNVs
+	tssb := newTSSB(ssmsCopy, chainCNVs, 25.0, 1.0, 0.25, rng)
 
 	// Initialize GPU for this TSSB (uploads static SSM data)
 	if err := tssb.initGPUForTSSB(); err != nil {
