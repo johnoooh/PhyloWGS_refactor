@@ -2197,9 +2197,15 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 	start := time.Now()
 	rng := rand.New(rand.NewSource(seed))
 
-	// Deep copy SSMs for this chain
+	// Deep copy SSMs for this chain.
+	// NOTE: CNVs field contains *CNVRef pointers back to the shared CNV objects.
+	// We copy the slice of pointers (shallow copy of CNVRef) — each chain has
+	// its own SSM copy with independent Node/Data fields, but shares the CNV
+	// objects themselves (which hold the global CNV node assignment).
 	ssmsCopy := make([]*SSM, len(ssms))
 	for i, ssm := range ssms {
+		cnvsCopy := make([]*CNVRef, len(ssm.CNVs))
+		copy(cnvsCopy, ssm.CNVs)
 		ssmsCopy[i] = &SSM{
 			ID:              ssm.ID,
 			Name:            ssm.Name,
@@ -2208,6 +2214,7 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 			MuR:             ssm.MuR,
 			MuV:             ssm.MuV,
 			LogBinNormConst: append([]float64{}, ssm.LogBinNormConst...),
+			CNVs:            cnvsCopy,
 		}
 	}
 
