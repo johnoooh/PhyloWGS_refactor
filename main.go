@@ -43,6 +43,26 @@ type SSM struct {
 	LogBinNormConst []float64 // precomputed log binomial coefficients
 	Node            *Node     // assigned node in tree
 	CNVs            []*CNVRef // CNVs affecting this SSM
+
+	// Precomputed MH states for CNV-affected SSMs.
+	// Mirrors Python's write_data_state / mh.cpp precomputation (params.py:114-171,
+	// mh.hpp:80-163): per (SSM, node) the pi-independent (nr, nv) contribution
+	// factors for up to 4 timing cases. At MH time the inner loop becomes a
+	// plain O(K) dot product with node.Pi[tp] / node.Pi1[tp] instead of a full
+	// tree walk via computeNGenomes on every iteration.
+	MHStates      []SSMNodeState
+	UseFourStates bool // true iff ssm co-located with its CNV
+	MHStateValid  bool // cleared whenever tree topology / assignments change
+}
+
+// SSMNodeState holds the pi-independent (nr, nv) contribution of a single tree
+// node to an SSM's CNV-aware likelihood, for each of the (up to) four timing
+// states. The MH inner loop just needs nd.Pi[tp] * Nr_k and nd.Pi[tp] * Nv_k.
+type SSMNodeState struct {
+	Node               *Node
+	Nr1, Nv1           float64
+	Nr2, Nv2           float64
+	Nr3, Nv3, Nr4, Nv4 float64
 }
 
 // SSMDataInterface implementation for cuda.SSMDataInterface
@@ -1624,6 +1644,238 @@ func (t *TSSB) paramPost(nodes []*Node, useNew bool) float64 {
 	return llh
 }
 
+// precomputeMHStates fills in per-SSM pi-independent (nr, nv) factors for every
+// CNV-affected SSM. Must be called after mapDatumToNode() and before
+// metropolis(), and whenever the tree topology, SSM-to-node assignments, or
+// CNV-to-node assignments change. Matches Python's params.write_data_state
+// (params.py:114-171) semantically.
+//
+// Parallelized across SSMs with goroutines. The tree is read-only during this
+// pass so no locking is required.
+func (t *TSSB) precomputeMHStates() {
+	// Ensure ancestor sets are current so isAncestorOfCached is valid.
+	t.rebuildAncestorSets()
+	nodes := t.getNodes()
+
+	// Invalidate any non-CNV SSM precomp (they don't use it anyway, but keep flag tidy).
+	for _, ssm := range t.Data {
+		if len(ssm.CNVs) == 0 {
+			ssm.MHStates = nil
+			ssm.MHStateValid = false
+			ssm.UseFourStates = false
+			continue
+		}
+		ssm.MHStateValid = false
+	}
+
+	// Collect CNV SSMs
+	var work []*SSM
+	for _, ssm := range t.Data {
+		if len(ssm.CNVs) > 0 {
+			work = append(work, ssm)
+		}
+	}
+	if len(work) == 0 {
+		return
+	}
+
+	// Parallelize across SSMs. Each SSM is independent.
+	workers := runtime.NumCPU()
+	if workers > len(work) {
+		workers = len(work)
+	}
+	if workers < 1 {
+		workers = 1
+	}
+	var wg sync.WaitGroup
+	ch := make(chan *SSM, len(work))
+	for _, ssm := range work {
+		ch <- ssm
+	}
+	close(ch)
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ssm := range ch {
+				computeSSMStates(ssm, nodes)
+			}
+		}()
+	}
+	wg.Wait()
+}
+
+// computeSSMStates fills ssm.MHStates with per-node (nr, nv) coefficients for
+// each of the 4 timing cases. Matches computeNGenomes case-by-case exactly, but
+// stores the pi-independent coefficient rather than aggregating across nodes.
+func computeSSMStates(ssm *SSM, nodes []*Node) {
+	ssmNode := ssm.Node
+	if cap(ssm.MHStates) < len(nodes) {
+		ssm.MHStates = make([]SSMNodeState, len(nodes))
+	} else {
+		ssm.MHStates = ssm.MHStates[:len(nodes)]
+		for i := range ssm.MHStates {
+			ssm.MHStates[i] = SSMNodeState{}
+		}
+	}
+
+	for i, nd := range nodes {
+		mrCNV := findMostRecentCNV(ssm, nd)
+		ssmInAncestors := isAncestorOfCached(ssmNode, nd)
+		var cp, cm int
+		if mrCNV != nil {
+			cp = mrCNV.PaternalCN
+			cm = mrCNV.MaternalCN
+		}
+
+		s := SSMNodeState{Node: nd}
+
+		switch {
+		case !ssmInAncestors && mrCNV == nil:
+			// Case 1: no variant, no CNV -> diploid reference
+			s.Nr1 = 2
+			s.Nr2 = 2
+			s.Nr3 = 2
+			s.Nr4 = 2
+		case ssmInAncestors && mrCNV == nil:
+			// Case 2: variant, no CNV -> 1 ref, 1 var
+			s.Nr1, s.Nv1 = 1, 1
+			s.Nr2, s.Nv2 = 1, 1
+			s.Nr3, s.Nv3 = 1, 1
+			s.Nr4, s.Nv4 = 1, 1
+		case !ssmInAncestors && mrCNV != nil:
+			// Case 3: no variant, has CNV -> all reference, total copies
+			totalCN := float64(cp + cm)
+			s.Nr1 = totalCN
+			s.Nr2 = totalCN
+			s.Nr3 = totalCN
+			s.Nr4 = totalCN
+		case ssmInAncestors && mrCNV != nil:
+			// Case 4: variant + CNV -> timing-dependent
+			totalCN := float64(cp + cm)
+			// States 3,4: SSM occurred before CNV is not amplified (unamplified)
+			s.Nr3 = math.Max(0, totalCN-1)
+			s.Nv3 = math.Min(1, totalCN)
+			s.Nr4 = math.Max(0, totalCN-1)
+			s.Nv4 = math.Min(1, totalCN)
+
+			// States 1,2: depends on SSM-CNV timing
+			cnvNode := mrCNV.CNV.Node
+			if cnvNode != nil && isAncestorOfCached(ssmNode, cnvNode) {
+				// SSM before CNV: variant amplified
+				s.Nr1 = float64(cm)
+				s.Nv1 = float64(cp)
+				s.Nr2 = float64(cp)
+				s.Nv2 = float64(cm)
+			} else {
+				// CNV before or at SSM: variant not amplified
+				s.Nr1 = math.Max(0, totalCN-1)
+				s.Nv1 = math.Min(1, totalCN)
+				s.Nr2 = math.Max(0, totalCN-1)
+				s.Nv2 = math.Min(1, totalCN)
+			}
+		}
+
+		ssm.MHStates[i] = s
+	}
+
+	// Decide whether to return 2 or 4 pairs at runtime. Matches computeNGenomes.
+	ssm.UseFourStates = len(ssm.CNVs) == 1 && ssm.CNVs[0].CNV.Node == ssm.Node
+	ssm.MHStateValid = true
+}
+
+// logLikelihoodWithCNVTreeMHPrecomputed is the O(K) fast path used during MH
+// when ssm.MHStateValid is true. Mirrors Python's mh.cpp log_complete_ll inner
+// loop: a plain dot product of precomputed (nr, nv) factors with node.Pi[tp]
+// (or node.Pi1[tp] when newState=true).
+func logLikelihoodWithCNVTreeMHPrecomputed(ssm *SSM, newState bool) float64 {
+	llh := 0.0
+	states := ssm.MHStates
+	useFour := ssm.UseFourStates
+
+	for tp := range ssm.A {
+		var nr1, nv1, nr2, nv2, nr3, nv3, nr4, nv4 float64
+		if newState {
+			for k := range states {
+				s := &states[k]
+				pi := s.Node.Pi1[tp]
+				nr1 += pi * s.Nr1
+				nv1 += pi * s.Nv1
+				nr2 += pi * s.Nr2
+				nv2 += pi * s.Nv2
+				if useFour {
+					nr3 += pi * s.Nr3
+					nv3 += pi * s.Nv3
+					nr4 += pi * s.Nr4
+					nv4 += pi * s.Nv4
+				}
+			}
+		} else {
+			for k := range states {
+				s := &states[k]
+				pi := s.Node.Pi[tp]
+				nr1 += pi * s.Nr1
+				nv1 += pi * s.Nv1
+				nr2 += pi * s.Nr2
+				nv2 += pi * s.Nv2
+				if useFour {
+					nr3 += pi * s.Nr3
+					nv3 += pi * s.Nv3
+					nr4 += pi * s.Nr4
+					nv4 += pi * s.Nv4
+				}
+			}
+		}
+
+		// Build pairs and apply the same nv > 0 filter as computeNGenomes.
+		var pairs [4][2]float64
+		n := 0
+		if nv1 > 0 {
+			pairs[n] = [2]float64{nr1, nv1}
+			n++
+		}
+		if nv2 > 0 {
+			pairs[n] = [2]float64{nr2, nv2}
+			n++
+		}
+		if useFour {
+			if nv3 > 0 {
+				pairs[n] = [2]float64{nr3, nv3}
+				n++
+			}
+			if nv4 > 0 {
+				pairs[n] = [2]float64{nr4, nv4}
+				n++
+			}
+		}
+
+		if n == 0 {
+			llh += math.Log(1e-99)
+			continue
+		}
+
+		prior := math.Log(1.0 / float64(n))
+		var lls [4]float64
+		for i := 0; i < n; i++ {
+			nr, nv := pairs[i][0], pairs[i][1]
+			total := nr + nv
+			if total < 1e-15 {
+				total = 1e-15
+			}
+			mu := (nr*ssm.MuR + nv*(1-ssm.MuR)) / total
+			if mu < 1e-15 {
+				mu = 1e-15
+			}
+			if mu > 1-1e-15 {
+				mu = 1 - 1e-15
+			}
+			lls[i] = logBinomialLikelihood(ssm.A[tp], ssm.D[tp], mu) + prior + ssm.LogBinNormConst[tp]
+		}
+		llh += logsumexp(lls[:n])
+	}
+	return llh
+}
+
 // logLikelihoodWithCNVTreeMH is like logLikelihoodWithCNVTree but supports MH state
 func logLikelihoodWithCNVTreeMH(ssm *SSM, tssb *TSSB, newState bool) float64 {
 	if len(ssm.CNVs) == 0 {
@@ -1634,6 +1886,11 @@ func logLikelihoodWithCNVTreeMH(ssm *SSM, tssb *TSSB, newState bool) float64 {
 			params = ssm.Node.Params
 		}
 		return ssm.logLikelihoodNoCNV(params)
+	}
+
+	// Fast path: precomputed per-node (nr, nv) factors (mirrors Python mh.cpp).
+	if ssm.MHStateValid {
+		return logLikelihoodWithCNVTreeMHPrecomputed(ssm, newState)
 	}
 
 	llh := 0.0
@@ -2269,8 +2526,22 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 		tssb.setNodePaths()
 		tssb.mapDatumToNode()
 
+		// Precompute per-(SSM, node) (nr, nv) factors once per MH loop so the
+		// metropolis inner loop is an O(K) dot product instead of a full
+		// tree walk via computeNGenomes on every iteration. Mirrors Python's
+		// params.write_data_state() + mh.cpp precomputation.
+		tssb.precomputeMHStates()
+
 		// MH sampling for params
 		mhAcc := tssb.metropolis(mhIters, mhStd, rng)
+
+		// Invalidate precomputed states after MH: subsequent operations
+		// (resampleSticks, resampleStickOrders, resampleAssignments in the
+		// next iteration) may change tree topology or SSM-to-node
+		// assignments, so the cached (nr, nv) factors are no longer valid.
+		for _, ssm := range tssb.Data {
+			ssm.MHStateValid = false
+		}
 
 		// Adapt MH step size
 		if mhAcc < 0.08 && mhStd < 10000 {
