@@ -627,11 +627,12 @@ func newTSSB(ssms []*SSM, cnvs []*CNV, dpAlpha, dpGamma, alphaDecay float64, rng
 	childNode.Height = 1
 	// Initialize child params via pi conservation (Python evolve.py hack section):
 	// root node spawns the initial child which takes a random fraction of root's pi.
-	// Here we replicate alleles.__init__ with parent=root: pi = rand() * parent.pi
-	// For simplicity at initialization, use rand() per time point.
+	// Replicates alleles.__init__ with parent=root: pi = rand(1) * parent.pi.
+	// rand(1) is a length-1 numpy array, so broadcasting applies ONE scalar
+	// uniformly across all time-point dims — the draw must be hoisted.
+	initFrac := rng.Float64()
 	for i := range childNode.Params {
-		frac := rng.Float64()
-		childNode.Pi[i] = frac * rootNode.Pi[i]
+		childNode.Pi[i] = initFrac * rootNode.Pi[i]
 		rootNode.Pi[i] -= childNode.Pi[i]
 		childNode.Params[i] = childNode.Pi[i]
 	}
@@ -2028,6 +2029,62 @@ func (t *TSSB) cullTree() {
 	t.invalidateWeightsCache()
 }
 
+// stickOrderSubWeights builds the normalized sub-weight vector for one
+// iteration of resample_stick_orders. Matches Python (tssb.py:208-210):
+//
+//	sub_weights = hstack([all_weights[sub_indices], 1.0 - sum(all_weights)])
+//	sub_weights = sub_weights / sum(sub_weights)
+//
+// The "unallocated region" bucket is 1 - sum(ALL stick weights), i.e. the
+// true unallocated stick mass. Go previously (incorrectly) computed the
+// bucket as 1 - sum(NOT-yet-ordered weights), conflating already-ordered
+// children's mass with genuinely unallocated mass and inflating P(spawn).
+//
+// Returns a slice of length (len(allWeights) - len(newOrder) + 1), with the
+// remaining children first (in original index order) and the leftover bucket
+// last. All entries are normalized to sum to 1.
+func stickOrderSubWeights(allWeights []float64, newOrder []int) []float64 {
+	// Build subIndices: indices NOT yet in newOrder, in original order.
+	inOrder := make(map[int]bool, len(newOrder))
+	for _, k := range newOrder {
+		inOrder[k] = true
+	}
+	subIndices := make([]int, 0, len(allWeights)-len(newOrder))
+	for i := 0; i < len(allWeights); i++ {
+		if !inOrder[i] {
+			subIndices = append(subIndices, i)
+		}
+	}
+
+	subWeights := make([]float64, len(subIndices)+1)
+	for i, idx := range subIndices {
+		subWeights[i] = allWeights[idx]
+	}
+
+	// Leftover bucket = 1 - sum(ALL stick weights) (Python's formula).
+	totalAll := 0.0
+	for _, w := range allWeights {
+		totalAll += w
+	}
+	leftover := 1.0 - totalAll
+	if leftover < 0 {
+		leftover = 0
+	}
+	subWeights[len(subIndices)] = leftover
+
+	// Normalize.
+	sumW := 0.0
+	for _, w := range subWeights {
+		sumW += w
+	}
+	if sumW > 0 {
+		for i := range subWeights {
+			subWeights[i] /= sumW
+		}
+	}
+	return subWeights
+}
+
 // spawnChild creates a new child TSSBNode from a parent TSSBNode
 // Equivalent to Python's root['node'].spawn() pattern
 func (t *TSSB) spawnChild(parent *TSSBNode, depth int, rng *rand.Rand) *TSSBNode {
@@ -2042,8 +2099,11 @@ func (t *TSSB) spawnChild(parent *TSSBNode, depth int, rng *rand.Rand) *TSSBNode
 	//   self.pi = rand(1) * parent.pi
 	//   parent.pi = parent.pi - self.pi
 	//   self.params = self.pi
+	// NOTE: rand(1) returns a length-1 numpy array; broadcasting (1,) * (ntps,)
+	// applies ONE scalar uniformly across all time-point dims. The draw MUST
+	// be hoisted outside the per-dim loop to preserve this proportionality.
+	frac := rng.Float64()
 	for i := range childNode.Pi {
-		frac := rng.Float64()
 		childNode.Pi[i] = frac * parent.Node.Pi[i]
 		parent.Node.Pi[i] -= childNode.Pi[i]
 		childNode.Params[i] = childNode.Pi[i]
@@ -2110,17 +2170,17 @@ func (t *TSSB) resampleStickOrders(rng *rand.Rand) {
 			creations := 0
 
 			for {
+				// Rebuild subIndices (indices not yet in newOrder, in order).
 				subIndices := make([]int, 0)
-				for i := 0; i < len(root.Sticks); i++ {
-					inOrder := false
+				{
+					inOrder := make(map[int]bool, len(newOrder))
 					for _, k := range newOrder {
-						if k == i {
-							inOrder = true
-							break
-						}
+						inOrder[k] = true
 					}
-					if !inOrder {
-						subIndices = append(subIndices, i)
+					for i := 0; i < len(root.Sticks); i++ {
+						if !inOrder[i] {
+							subIndices = append(subIndices, i)
+						}
 					}
 				}
 
@@ -2129,29 +2189,16 @@ func (t *TSSB) resampleStickOrders(rng *rand.Rand) {
 					break
 				}
 
-				// Compute sub-weights including leftover mass
-				subWeights := make([]float64, len(subIndices)+1)
-				totalUsed := 0.0
-				for i, idx := range subIndices {
-					subWeights[i] = allWeights[idx]
-					totalUsed += allWeights[idx]
-				}
-				subWeights[len(subIndices)] = 1.0 - totalUsed // leftover
-				if subWeights[len(subIndices)] < 0 {
-					subWeights[len(subIndices)] = 0
-				}
+				// Compute sub-weights via Python-faithful helper (leftover
+				// bucket = 1 - sum(ALL weights), not 1 - sum(remaining)).
+				subWeights := stickOrderSubWeights(allWeights, newOrder)
 
-				// Normalize
+				// If all sub-weights are zero (degenerate), pick first remaining.
 				sumW := 0.0
 				for _, w := range subWeights {
 					sumW += w
 				}
-				if sumW > 0 {
-					for i := range subWeights {
-						subWeights[i] /= sumW
-					}
-				} else {
-					// All weights are zero - pick first remaining index
+				if sumW == 0 {
 					if len(subIndices) > 0 {
 						newOrder = append(newOrder, subIndices[0])
 						delete(represented, subIndices[0])
@@ -2349,33 +2396,42 @@ func (t *TSSB) findOrCreateNode(u float64, rng *rand.Rand) (*Node, []int) {
 	return descend(t.Root, u, 0)
 }
 
+// dpAlphaLLH computes the log-likelihood of the DP-alpha hyperparameter over
+// the current tree. Matches Python's TSSB.dp_alpha_llh (tssb.py:247-255):
+//
+//	if self.min_depth <= depth:
+//	    llh += betapdfln(root['main'], 1.0, (self.alpha_decay**depth)*dp_alpha)
+//
+// With the default min_depth=0, the root's main-stick beta term IS included;
+// it is NOT a constant that cancels in the slice sampler's LLH comparison
+// because it depends on alpha at depth 0.
+func (t *TSSB) dpAlphaLLH(alpha float64) float64 {
+	var descend func(*TSSBNode, int) float64
+	descend = func(root *TSSBNode, depth int) float64 {
+		llh := 0.0
+		if t.MinDepth <= depth {
+			llh = betaPDFLn(root.Main, 1.0, math.Pow(t.AlphaDecay, float64(depth))*alpha)
+		}
+		for _, child := range root.Children {
+			llh += descend(child, depth+1)
+		}
+		return llh
+	}
+	return descend(t.Root, 0)
+}
+
 func (t *TSSB) resampleHypers(rng *rand.Rand) {
 	// Resample dp_alpha using slice sampler
 	minDPAlpha := 1.0
 	maxDPAlpha := 50.0
 
-	dpAlphaLLH := func(alpha float64) float64 {
-		var descend func(*TSSBNode, int) float64
-		descend = func(root *TSSBNode, depth int) float64 {
-			llh := 0.0
-			if depth >= 1 {
-				llh = betaPDFLn(root.Main, 1.0, math.Pow(t.AlphaDecay, float64(depth))*alpha)
-			}
-			for _, child := range root.Children {
-				llh += descend(child, depth+1)
-			}
-			return llh
-		}
-		return descend(t.Root, 0)
-	}
-
 	// Slice sample for dp_alpha
-	llhSlice := math.Log(rng.Float64()) + dpAlphaLLH(t.DPAlpha)
+	llhSlice := math.Log(rng.Float64()) + t.dpAlphaLLH(t.DPAlpha)
 	lower := minDPAlpha
 	upper := maxDPAlpha
 	for iter := 0; iter < 100; iter++ {
 		newAlpha := (upper-lower)*rng.Float64() + lower
-		newLLH := dpAlphaLLH(newAlpha)
+		newLLH := t.dpAlphaLLH(newAlpha)
 		if newLLH > llhSlice {
 			t.DPAlpha = newAlpha
 			break
@@ -2390,14 +2446,14 @@ func (t *TSSB) resampleHypers(rng *rand.Rand) {
 	// Resample alpha_decay
 	minDecay := 0.05
 	maxDecay := 0.80
-	llhSlice = math.Log(rng.Float64()) + dpAlphaLLH(t.DPAlpha)
+	llhSlice = math.Log(rng.Float64()) + t.dpAlphaLLH(t.DPAlpha)
 	lower = minDecay
 	upper = maxDecay
 	for iter := 0; iter < 100; iter++ {
 		newDecay := (upper-lower)*rng.Float64() + lower
 		oldDecay := t.AlphaDecay
 		t.AlphaDecay = newDecay
-		newLLH := dpAlphaLLH(t.DPAlpha)
+		newLLH := t.dpAlphaLLH(t.DPAlpha)
 		t.AlphaDecay = oldDecay
 		if newLLH > llhSlice {
 			t.AlphaDecay = newDecay
