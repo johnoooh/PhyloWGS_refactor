@@ -248,5 +248,65 @@ Python `tssb.py:142-146` computes `path_lt(indices, new_path)` and shrinks `min_
 
 **No BLOCKER found in resampleAssignments or findOrCreateNode.** All divergences are either performance optimizations or cap/safety-net patterns whose removal would require fixing BLOCKER 2a first.
 
+---
+
+### 4. `cullTree` and `killNode`
+
+- **Python:** `phylowgs/tssb.py:152-166` (`TSSB.cull_tree`) + `phylowgs/alleles.py:45-50` (`alleles.kill`)
+- **Go:** `PhyloWGS_refactor/main.go:1993-2029` (`(*TSSB).cullTree`) + `main.go:1977-1991` (`killNode`)
+
+#### 4a. `cullTree` trim-trailing semantics — BENIGN
+
+Python uses `trim_zeros(counts, 'b')` which trims trailing zeros only (NOT arbitrary internal empty children). Go replicates with a reverse loop that finds the highest index with non-zero data and sets `keep = i + 1`. Traced through several cases: all-zero, mixed-trailing, single-survivor. Semantically equivalent. Previously flagged in Report 3 as "already verified" — reconfirmed. BENIGN.
+
+#### 4b. Recursion order — BENIGN
+
+Both Python and Go recurse into children BEFORE computing `keep`, so empty deepest descendants die first and a surviving grandchild's data is still counted in the parent's total (preventing a data-bearing subtree from being killed from above). Matches. BENIGN.
+
+#### 4c. `killNode` — pi return to parent — BENIGN
+
+Python `alleles.kill()` at `alleles.py:45-50`:
+```python
+def kill(self):
+    if self._parent is not None:
+        self._parent._children.remove(self)
+    self._parent.pi = self._parent.pi + self.pi
+    self._parent   = None
+    self._children = None
+```
+
+Go `killNode` at `main.go:1977-1991`:
+```go
+func killNode(child *Node, parent *Node) {
+    for i := range parent.Pi {
+        parent.Pi[i] += child.Pi[i]
+    }
+    for i, c := range parent.Children {
+        if c == child {
+            parent.Children = append(parent.Children[:i], parent.Children[i+1:]...)
+            break
+        }
+    }
+}
+```
+
+Both return the dead child's full `pi` to the parent and remove the child from the parent's children slice. Go does not null out `child._parent` and `child._children` since Go's GC handles the freed node, and no subsequent code paths should see a reference to the dead `child`. BENIGN.
+
+#### 4d. Sticks truncation on cull — BENIGN
+
+Python `tssb.py:161-162` truncates `sticks` and `children` to `keep`. Go `main.go:2016-2018` does the same with an extra length check. Note that after cullTree, both Python and Go rely on `resampleSticks` to repopulate any missing stick entries on the next iteration, so even a tiny off-by-one here would be corrected on the next loop. BENIGN.
+
+#### 4.R Summary
+
+| Sub-item | Severity | Fix in this plan |
+|---|---|---|
+| 4a trim-trailing | BENIGN | no |
+| 4b recursion order | BENIGN | no |
+| 4c killNode pi return | BENIGN | no |
+| 4d sticks truncation | BENIGN | no |
+
+**No BLOCKER in cullTree or killNode.**
+
+
 
 
