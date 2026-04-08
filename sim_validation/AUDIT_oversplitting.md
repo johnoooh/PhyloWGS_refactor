@@ -307,6 +307,85 @@ Python `tssb.py:161-162` truncates `sticks` and `children` to `keep`. Go `main.g
 
 **No BLOCKER in cullTree or killNode.**
 
+---
+
+### 5. Tree initialization — `newTSSB` / evolve.py startup
+
+- **Python:** `phylowgs/tssb.py:17-46` (`TSSB.__init__`) + `phylowgs/evolve.py:84-98` (hack block) + `phylowgs/alleles.py:17-37` (`alleles.__init__`)
+- **Go:** `PhyloWGS_refactor/main.go:589-661` (`newTSSB`) + `main.go:2031-2066` (`spawnChild`)
+
+#### 5a. Initial `root.Main` value — BENIGN (transient)
+
+- Python: root main is initialized to `boundbeta(1.0, dp_alpha)` in `TSSB.__init__` (tssb.py:30) and then overridden to `1e-30` on the first `resample_sticks` call (tssb.py:187). So Python's root main is non-trivial for a brief window before MCMC starts.
+- Go: root main is initialized directly to `1e-30` in `newTSSB` (main.go:602) and stays there.
+
+Net effect after the first MCMC iteration: identical (both `1e-30`). The "before-first-iteration" state is only observable if the code computes a likelihood before running any MCMC moves, which neither implementation does. BENIGN.
+
+#### 5b. Initial child's `pi` — **SUSPICIOUS** (broader scope than init alone)
+
+Python `alleles.__init__` at `alleles.py:35-37`:
+```python
+self.pi = rand(1)*parent.pi
+parent.pi = parent.pi - self.pi
+self.params = self.pi
+```
+
+`rand(1)` returns a length-1 array; broadcasting `(1,) * (ntps,)` produces a length-`ntps` vector where **every element is the same random scalar** times the corresponding parent pi. Verified with numpy REPL: `np.random.rand(1) * np.ones(5)` → `[0.374, 0.374, 0.374, 0.374, 0.374]`. So Python uses **one** random fraction per spawn, applied uniformly across all time-points.
+
+Go `spawnChild` at `main.go:2045-2050` (and the duplicated init block in `newTSSB` at `main.go:632-637`):
+```go
+for i := range childNode.Pi {
+    frac := rng.Float64()
+    childNode.Pi[i] = frac * parent.Node.Pi[i]
+    parent.Node.Pi[i] -= childNode.Pi[i]
+    childNode.Params[i] = childNode.Pi[i]
+}
+```
+
+Go draws a **fresh** `rng.Float64()` **per time-point**, so the child's pi vector is **not proportional** to the parent's pi — instead, each dimension has an independent random scaling factor.
+
+**Scope of divergence:** this applies every time `spawnChild` is called, which is: (a) the one-time initial child in `newTSSB`, (b) every new child in `resampleStickOrders`, (c) every new child in `findOrCreateNode`. So the bug is not limited to initialization; it fires every time the tree grows.
+
+**Impact on over-splitting:** indirect but real. Node params in PhyloWGS are used by the MH move to score phi-proposal acceptance, and more importantly by the CNV-aware tree-likelihood. If newly spawned children's pi vectors don't inherit the parent's across-sample structure proportionally, they get placed at arbitrary points in the pi-simplex and the MH move has to do extra work to pull them toward plausible values. This is a fidelity issue regardless of over-splitting impact.
+
+**Severity: SUSPICIOUS (BLOCKER-adjacent).** The magnitude for over-splitting is unclear without empirical testing, but per the "match Python's logic" directive this is a divergence and should be fixed. I'm marking it SUSPICIOUS (not BLOCKER) because it doesn't directly inflate node counts — it affects the *content* of newly spawned nodes, not their *creation rate*. But since fixing it is a trivial 2-line change and since we're already writing a Phase 5 fix commit for BLOCKER 2a and BLOCKER 1d, I recommend including this fix in the same commit.
+
+**Fix sketch:** In `spawnChild` and the duplicated `newTSSB` block, draw `frac` **once** outside the for-loop, apply the same value across all `i`. Matches Python's broadcast semantics exactly.
+
+#### 5c. Initial child stick value 0.999999 — BENIGN
+
+- Python evolve.py:89: `boundbeta(1, dp_gamma) if depth!=0 else .999999` — with depth=0, uses 0.999999.
+- Go main.go:646: `0.999999` directly.
+Match. BENIGN.
+
+#### 5d. Initial child `Main` — BENIGN
+
+- Python evolve.py:91: `boundbeta(1.0, (alpha_decay**(depth+1))*dp_alpha) if min_depth <= depth+1 else 0.0`, with depth=0 and min_depth=0: `boundbeta(1.0, alpha_decay * dp_alpha)`.
+- Go main.go:641: `boundBeta(1.0, alphaDecay*dpAlpha, rng)`.
+Match. BENIGN.
+
+#### 5e. Initial data assignment — BENIGN
+
+- Python evolve.py:95-98 moves all data from root to the new child.
+- Go main.go:649-653 directly assigns all SSMs to the new child (skipping the root-first-then-move indirection).
+Net effect: identical. BENIGN.
+
+#### 5f. CNV data assignment at init — BENIGN (Go-specific detail)
+
+Go explicitly assigns all CNVs to the initial child at `main.go:656-658`. Python treats CNVs as rows of the same `data` array and assigns them with the rest. Net effect: identical initial placement. BENIGN.
+
+#### 5.R Summary
+
+| Sub-item | Severity | Fix in this plan |
+|---|---|---|
+| 5a initial root.Main | BENIGN | no |
+| **5b child pi spawn (per-dim vs broadcast scalar)** | **SUSPICIOUS (include in fix)** | **yes** |
+| 5c initial stick | BENIGN | no |
+| 5d initial child Main | BENIGN | no |
+| 5e data assignment | BENIGN | no |
+| 5f CNV placement | BENIGN | no |
+
+
 
 
 
