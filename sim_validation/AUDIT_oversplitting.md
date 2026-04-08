@@ -421,6 +421,51 @@ Go uses `for iter := -burnin; iter < samples; iter++` and discards samples with 
 
 No BLOCKERs. MCMC loop ordering matches Python.
 
+---
+
+## Decision
+
+### Tally
+
+| Severity | Count | Items |
+|---|---:|---|
+| BLOCKER | 2 | 1d (dpAlphaLLH skips root main term), 2a (leftover-mass bucket wrong in resampleStickOrders) |
+| SUSPICIOUS | 5 | 1c (100-iter cap in resampleHypers), 2b (maxCreations=10 in stickOrders), 3a (100-iter cap in resampleAssignments), 3b (maxChildCreations=20 in findOrCreateNode), 5b (spawnChild per-dim random vs Python broadcast scalar) |
+| BENIGN | 17 | 1a 1b 1e 1f 2c 2d 2e 3c 3d 3e 3f 3g 4a 4b 4c 4d 5a 5c 5d 5e 5f 6a 6b |
+
+### Decision rule from the plan
+
+> If there is even one BLOCKER, the next step is "Phase 5: TDD fix" — skip Phases 2-4.
+
+Two BLOCKERs found. Skipping Phase 2 (diagnostic instrumentation), Phase 3 (comparative run), Phase 4 (targeted experiment). Proceeding directly to **Phase 5: TDD fix**.
+
+### What to fix in the Phase 5 commit
+
+Three changes, all small, all strictly tightening Go's fidelity to Python:
+
+1. **BLOCKER 1d** — `dpAlphaLLH` in `main.go:2357-2370`: replace `if depth >= 1` with a gate based on `t.MinDepth`. Since `t.MinDepth == 0` is always set in `newTSSB`, the condition simplifies to unconditionally including the root's `main` term, matching Python's default. Add a TSSB field `MinDepth int` if not already present (it IS present per `main.go:618`) and gate on `t.MinDepth <= depth`.
+
+2. **BLOCKER 2a** — leftover mass bucket in `resampleStickOrders` at `main.go:2133-2142`: change the computation from `1.0 - totalUsed` (sum of subIndices' weights) to `1.0 - sumAllWeights` (precomputed sum of all stick weights). Then the weights no longer pre-normalize to 1 trivially, and the existing `sumW` normalization step will do the right thing.
+
+3. **SUSPICIOUS 5b** — `spawnChild` at `main.go:2045-2050` and the duplicated init block in `newTSSB` at `main.go:632-637`: hoist `frac := rng.Float64()` out of the for-loop so one scalar is applied uniformly across all `ntps` dimensions. Matches Python's `rand(1) * parent.pi` broadcast semantics.
+
+### What NOT to fix in the Phase 5 commit (deferred)
+
+- **1c, 3a** (100-iter caps on slice samplers): leave in place. Not confirmed as a cause, and removing them requires confidence that the slice samplers will always converge — best done after 1d/2a are fixed and the trajectory traces in a subsequent session can empirically verify.
+- **2b, 3b** (maxCreations safety caps on spawn loops): leave in place. These are band-aids for bug 2a; removing them without an independent verification pass could expose infinite loops if 2a isn't fully fixed. Remove in a follow-up PR after Phase 6 validates the main fix.
+- **3c** (missing llhmap cache): performance optimization only, no correctness impact.
+
+### Tests to write in Phase 5
+
+1. **`TestDPAlphaLLHIncludesRootMain`** (for 1d): Build a minimal TSSB with a known root.Main, compute `dpAlphaLLH(alpha)` for two different `alpha` values. Independently compute `betaPDFLn(root.Main, 1.0, alpha)` for the depth-0 contribution and assert it's included in the sum. Before the fix, the test should FAIL because Go's function excludes the depth-0 term.
+
+2. **`TestResampleStickOrdersLeftoverMass`** (for 2a): Construct a parent with 3 children with known stick weights (e.g. [0.4, 0.3, 0.2]) and put child 0 into a simulated `new_order`. Compute both Python's and Go's leftover-bucket probability. Assert Go matches Python (0.167, not 0.5). This may be easier as a pure-function unit test of the leftover-weight computation extracted out of `resampleStickOrders`.
+
+3. **`TestSpawnChildBroadcastScalar`** (for 5b): Build a parent node with known pi vector (e.g. [0.3, 0.6, 0.9] for ntps=3). Seed the RNG, call `spawnChild`, assert `child.Pi[i] / parent.Pi[i]` is the same constant for all `i` (within float tolerance). Before the fix, this ratio will differ across dimensions.
+
+All three tests can live in a new file `oversplit_test.go` (rather than `mh_states_test.go`) per the Phase 5 plan instructions.
+
+
 
 
 
