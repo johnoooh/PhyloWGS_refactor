@@ -23,23 +23,23 @@ import (
 type GPULikelihoodEngine struct {
 	nSSM        int
 	nTimepoints int
-	
+
 	// C-allocated buffers (safe to pass to CGo)
-	cPhi        *C.double
-	cAlt        *C.int
-	cDepth      *C.int
-	cMuR        *C.double
-	cMuV        *C.double
+	cPhi         *C.double
+	cAlt         *C.int
+	cDepth       *C.int
+	cMuR         *C.double
+	cMuV         *C.double
 	cLogBinConst *C.double
-	cOutLLH     *C.double
-	
+	cOutLLH      *C.double
+
 	// CNV data buffers
-	cHasCNV     *C.int
-	cMajorCN    *C.int
-	cMinorCN    *C.int
-	
+	cHasCNV  *C.int
+	cMajorCN *C.int
+	cMinorCN *C.int
+
 	staticUploaded bool
-	mu sync.Mutex
+	mu             sync.Mutex
 }
 
 // SSMDataInterface defines the interface for SSM data access
@@ -52,8 +52,8 @@ type SSMDataInterface interface {
 	GetLogBinNormConst() []float64
 	// CNV data (optional - return false for HasCNV if no CNV)
 	HasCNV() bool
-	GetMajorCN() int  // paternal CN
-	GetMinorCN() int  // maternal CN
+	GetMajorCN() int // paternal CN
+	GetMinorCN() int // maternal CN
 }
 
 // Available returns true if CUDA is available on this system
@@ -68,20 +68,20 @@ func NewGPUEngine(nSSM, nTimepoints int) (*GPULikelihoodEngine, error) {
 	if !Available() {
 		return nil, fmt.Errorf("CUDA not available")
 	}
-	
+
 	ret := C.cuda_init(C.int(nSSM), C.int(nTimepoints))
 	if ret != 0 {
 		return nil, fmt.Errorf("failed to initialize CUDA")
 	}
-	
+
 	sizeSSMxTP := C.size_t(nSSM * nTimepoints)
 	sizeSSM := C.size_t(nSSM)
-	
+
 	e := &GPULikelihoodEngine{
-		nSSM:           nSSM,
-		nTimepoints:    nTimepoints,
+		nSSM:        nSSM,
+		nTimepoints: nTimepoints,
 	}
-	
+
 	// Allocate C memory for buffers
 	e.cPhi = (*C.double)(C.malloc(sizeSSMxTP * C.sizeof_double))
 	e.cAlt = (*C.int)(C.malloc(sizeSSMxTP * C.sizeof_int))
@@ -90,24 +90,24 @@ func NewGPUEngine(nSSM, nTimepoints int) (*GPULikelihoodEngine, error) {
 	e.cMuV = (*C.double)(C.malloc(sizeSSM * C.sizeof_double))
 	e.cLogBinConst = (*C.double)(C.malloc(sizeSSMxTP * C.sizeof_double))
 	e.cOutLLH = (*C.double)(C.malloc(sizeSSM * C.sizeof_double))
-	
+
 	// CNV buffers
 	e.cHasCNV = (*C.int)(C.malloc(sizeSSM * C.sizeof_int))
 	e.cMajorCN = (*C.int)(C.malloc(sizeSSM * C.sizeof_int))
 	e.cMinorCN = (*C.int)(C.malloc(sizeSSM * C.sizeof_int))
-	
-	if e.cPhi == nil || e.cAlt == nil || e.cDepth == nil || 
-	   e.cMuR == nil || e.cMuV == nil || e.cLogBinConst == nil || e.cOutLLH == nil ||
-	   e.cHasCNV == nil || e.cMajorCN == nil || e.cMinorCN == nil {
+
+	if e.cPhi == nil || e.cAlt == nil || e.cDepth == nil ||
+		e.cMuR == nil || e.cMuV == nil || e.cLogBinConst == nil || e.cOutLLH == nil ||
+		e.cHasCNV == nil || e.cMajorCN == nil || e.cMinorCN == nil {
 		e.Close()
 		return nil, fmt.Errorf("failed to allocate host buffers")
 	}
-	
+
 	// Set a finalizer to clean up if the engine is garbage collected
 	runtime.SetFinalizer(e, func(e *GPULikelihoodEngine) {
 		e.Close()
 	})
-	
+
 	return e, nil
 }
 
@@ -117,7 +117,7 @@ func NewGPUEngine(nSSM, nTimepoints int) (*GPULikelihoodEngine, error) {
 func (e *GPULikelihoodEngine) UploadStaticData(ssms []SSMDataInterface) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	
+
 	nSSM := len(ssms)
 	if nSSM > e.nSSM {
 		return fmt.Errorf("too many SSMs: %d > %d", nSSM, e.nSSM)
@@ -125,12 +125,12 @@ func (e *GPULikelihoodEngine) UploadStaticData(ssms []SSMDataInterface) error {
 	if nSSM == 0 {
 		return fmt.Errorf("no SSMs provided")
 	}
-	
+
 	nTP := len(ssms[0].GetA())
 	if nTP > e.nTimepoints {
 		return fmt.Errorf("too many timepoints: %d > %d", nTP, e.nTimepoints)
 	}
-	
+
 	// Convert C pointers to slices for easier access
 	// These are backed by C memory, not Go memory
 	altSlice := unsafe.Slice(e.cAlt, e.nSSM*e.nTimepoints)
@@ -141,17 +141,17 @@ func (e *GPULikelihoodEngine) UploadStaticData(ssms []SSMDataInterface) error {
 	hasCNVSlice := unsafe.Slice(e.cHasCNV, e.nSSM)
 	majorCNSlice := unsafe.Slice(e.cMajorCN, e.nSSM)
 	minorCNSlice := unsafe.Slice(e.cMinorCN, e.nSSM)
-	
+
 	// Pack static data
 	hasCNVData := false
 	for i, ssm := range ssms {
 		A := ssm.GetA()
 		D := ssm.GetD()
 		logBinConst := ssm.GetLogBinNormConst()
-		
+
 		muRSlice[i] = C.double(ssm.GetMuR())
 		muVSlice[i] = C.double(ssm.GetMuV())
-		
+
 		// CNV data
 		if ssm.HasCNV() {
 			hasCNVSlice[i] = C.int(1)
@@ -163,7 +163,7 @@ func (e *GPULikelihoodEngine) UploadStaticData(ssms []SSMDataInterface) error {
 			majorCNSlice[i] = C.int(1)
 			minorCNSlice[i] = C.int(1)
 		}
-		
+
 		base := i * e.nTimepoints
 		for tp := 0; tp < nTP; tp++ {
 			altSlice[base+tp] = C.int(A[tp])
@@ -171,7 +171,7 @@ func (e *GPULikelihoodEngine) UploadStaticData(ssms []SSMDataInterface) error {
 			logBinConstSlice[base+tp] = C.double(logBinConst[tp])
 		}
 	}
-	
+
 	// Create batch struct - include CNV data if any SSMs have CNVs
 	batch := C.LikelihoodBatch{
 		n_ssm:         C.int(nSSM),
@@ -186,18 +186,18 @@ func (e *GPULikelihoodEngine) UploadStaticData(ssms []SSMDataInterface) error {
 		major_cn:      nil,
 		minor_cn:      nil,
 	}
-	
+
 	if hasCNVData {
 		batch.has_cnv = e.cHasCNV
 		batch.major_cn = e.cMajorCN
 		batch.minor_cn = e.cMinorCN
 	}
-	
+
 	ret := C.cuda_upload_static(&batch)
 	if ret != 0 {
 		return fmt.Errorf("failed to upload static data to GPU")
 	}
-	
+
 	e.staticUploaded = true
 	return nil
 }
@@ -209,44 +209,44 @@ func (e *GPULikelihoodEngine) UploadStaticData(ssms []SSMDataInterface) error {
 func (e *GPULikelihoodEngine) ComputeBatchFast(phis []float64, nSSM, nTimepoints int) ([]float64, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	
+
 	if !e.staticUploaded {
 		return nil, fmt.Errorf("static data not uploaded - call UploadStaticData first")
 	}
-	
+
 	if nSSM > e.nSSM || nTimepoints > e.nTimepoints {
 		return nil, fmt.Errorf("batch size exceeds allocated buffers")
 	}
-	
+
 	expected := nSSM * nTimepoints
 	if len(phis) < expected {
 		return nil, fmt.Errorf("phi array too small: %d < %d", len(phis), expected)
 	}
-	
+
 	// Copy phi values to C buffer
 	phiSlice := unsafe.Slice(e.cPhi, e.nSSM*e.nTimepoints)
 	for i := 0; i < expected; i++ {
 		phiSlice[i] = C.double(phis[i])
 	}
-	
+
 	ret := C.cuda_compute_phi_only(
 		e.cPhi,
 		C.int(nSSM),
 		C.int(nTimepoints),
 		e.cOutLLH,
 	)
-	
+
 	if ret != 0 {
 		return nil, fmt.Errorf("CUDA computation failed")
 	}
-	
+
 	// Copy results to Go slice
 	result := make([]float64, nSSM)
 	outSlice := unsafe.Slice(e.cOutLLH, e.nSSM)
 	for i := 0; i < nSSM; i++ {
 		result[i] = float64(outSlice[i])
 	}
-	
+
 	return result, nil
 }
 
@@ -256,7 +256,7 @@ func (e *GPULikelihoodEngine) ComputeBatchFast(phis []float64, nSSM, nTimepoints
 func (e *GPULikelihoodEngine) ComputeBatch(phis [][]float64, ssms []SSMDataInterface) ([]float64, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	
+
 	nSSM := len(ssms)
 	if nSSM > e.nSSM {
 		return nil, fmt.Errorf("too many SSMs: %d > %d", nSSM, e.nSSM)
@@ -264,16 +264,16 @@ func (e *GPULikelihoodEngine) ComputeBatch(phis [][]float64, ssms []SSMDataInter
 	if nSSM == 0 {
 		return nil, fmt.Errorf("no SSMs provided")
 	}
-	
+
 	nTP := len(ssms[0].GetA())
 	if nTP > e.nTimepoints {
 		return nil, fmt.Errorf("too many timepoints: %d > %d", nTP, e.nTimepoints)
 	}
-	
+
 	if len(phis) != nSSM {
 		return nil, fmt.Errorf("phi count mismatch: %d != %d", len(phis), nSSM)
 	}
-	
+
 	// Get slices backed by C memory
 	phiSlice := unsafe.Slice(e.cPhi, e.nSSM*e.nTimepoints)
 	altSlice := unsafe.Slice(e.cAlt, e.nSSM*e.nTimepoints)
@@ -281,17 +281,17 @@ func (e *GPULikelihoodEngine) ComputeBatch(phis [][]float64, ssms []SSMDataInter
 	muRSlice := unsafe.Slice(e.cMuR, e.nSSM)
 	muVSlice := unsafe.Slice(e.cMuV, e.nSSM)
 	logBinConstSlice := unsafe.Slice(e.cLogBinConst, e.nSSM*e.nTimepoints)
-	
+
 	// Pack data into C buffers
 	for i, ssm := range ssms {
 		A := ssm.GetA()
 		D := ssm.GetD()
 		logBinConst := ssm.GetLogBinNormConst()
 		phi := phis[i]
-		
+
 		muRSlice[i] = C.double(ssm.GetMuR())
 		muVSlice[i] = C.double(ssm.GetMuV())
-		
+
 		base := i * e.nTimepoints
 		for tp := 0; tp < nTP; tp++ {
 			phiSlice[base+tp] = C.double(phi[tp])
@@ -300,7 +300,7 @@ func (e *GPULikelihoodEngine) ComputeBatch(phis [][]float64, ssms []SSMDataInter
 			logBinConstSlice[base+tp] = C.double(logBinConst[tp])
 		}
 	}
-	
+
 	// Create batch struct
 	batch := C.LikelihoodBatch{
 		n_ssm:         C.int(nSSM),
@@ -312,19 +312,19 @@ func (e *GPULikelihoodEngine) ComputeBatch(phis [][]float64, ssms []SSMDataInter
 		mu_v:          e.cMuV,
 		log_bin_const: e.cLogBinConst,
 	}
-	
+
 	ret := C.cuda_compute_batch(&batch, e.cOutLLH)
 	if ret != 0 {
 		return nil, fmt.Errorf("CUDA computation failed")
 	}
-	
+
 	// Copy results
 	result := make([]float64, nSSM)
 	outSlice := unsafe.Slice(e.cOutLLH, e.nSSM)
 	for i := 0; i < nSSM; i++ {
 		result[i] = float64(outSlice[i])
 	}
-	
+
 	return result, nil
 }
 
@@ -332,7 +332,7 @@ func (e *GPULikelihoodEngine) ComputeBatch(phis [][]float64, ssms []SSMDataInter
 func (e *GPULikelihoodEngine) Close() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	
+
 	// Free C-allocated memory
 	if e.cPhi != nil {
 		C.free(unsafe.Pointer(e.cPhi))
@@ -374,10 +374,10 @@ func (e *GPULikelihoodEngine) Close() {
 		C.free(unsafe.Pointer(e.cMinorCN))
 		e.cMinorCN = nil
 	}
-	
+
 	C.cuda_cleanup()
 	e.staticUploaded = false
-	
+
 	// Remove finalizer since we've cleaned up
 	runtime.SetFinalizer(e, nil)
 }
