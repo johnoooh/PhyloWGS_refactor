@@ -199,4 +199,54 @@ Net effect on `Main` value: identical (1e-30 at depth 0, boundBeta at depth > 0)
 | 2d resampleSticks call | BENIGN | no |
 | 2e depth-0 Main override | BENIGN | no |
 
+---
+
+### 3. `resampleAssignments` + `findOrCreateNode`
+
+- **Python:** `phylowgs/tssb.py:82-150` (`TSSB.resample_assignments`) + `tssb.py:340-377` (`TSSB.find_node`)
+- **Go:** `PhyloWGS_refactor/main.go:1268-1417` (`(*TSSB).resampleAssignments`) + `main.go:2253-2350` (`(*TSSB).findOrCreateNode`)
+
+#### 3a. Slice sampler 100-iter cap — SUSPICIOUS
+
+Python `tssb.py:115` uses `while True`. Go `main.go:1307` caps at 100 iterations. Same pattern as 1c. Python has an explicit escape at `tssb.py:132-137` when `abs(max_u - min_u) < epsilon` (reverts to old state and prints a warning). Go has the same epsilon escape at `main.go:1346-1348` but silently. Since in Go the move is either never made (non-CNV) or restored before the check (CNV), the "keep current assignment" behavior on collapse/timeout matches Python. Severity: SUSPICIOUS on parity grounds; no direct over-splitting link. No fix this plan.
+
+#### 3b. `maxChildCreations = 20` cap in `findOrCreateNode` — SUSPICIOUS
+
+Python `tssb.py:353-361` has `while not root['children'] or (1.0 - prod(1.0 - root['sticks'])) < u:` — unbounded. Go caps at 20 (`main.go:2272, 2291`). Same band-aid pattern as 2b. When the cap is hit, Go's subsequent index-finding loop picks `index = len(edges) - 1` (the last child), which differs from Python's behavior (which guarantees edge > u on exit). In practice this cap is rarely hit because 20 creations at one node would already be pathological. SUSPICIOUS, keep as safety net, no fix this plan.
+
+#### 3c. No `llhmap` cache in Go — BENIGN (performance)
+
+Python `tssb.py:99, 125-129` caches per-node LLH across slice-sampler iterations to avoid recomputation when the sampler proposes the same node multiple times. Go recomputes every iteration. This is a performance optimization, not a correctness divergence. BENIGN, no fix.
+
+#### 3d. SSM and CNV datum assignments resampled in separate passes — BENIGN
+
+Python treats SSMs and CNVs as rows of a single `self.data` array and resamples them interleaved in a single loop. Go separates SSMs (`t.Data`) and CNVs (`t.CNVData`) into two sequential passes (`main.go:1277-1361` for SSMs, `main.go:1366-1417` for CNVs). Because each slice-sampler update targets its own conditional posterior, the sequential-vs-interleaved ordering doesn't change the stationary distribution. The RNG stream is different, but Go's RNG stream is independent of Python's anyway. BENIGN.
+
+#### 3e. Root-node empty convention — BENIGN
+
+Python `tssb.py:118-120` and Go `main.go:1314-1317` both redirect the root to `root.children[0]` with `new_path = [0]` when `find_node` returns root. Since both set `root.Main = 1e-30` in `resampleSticks`, the root is essentially never returned except at `max_depth`, and the redirect is equivalent. BENIGN.
+
+#### 3f. Data move semantics during slice sampling — BENIGN
+
+Python `tssb.py:121-124` moves the datum from old_node to new_node before computing LLH, then reverts on rejection. Go does the move only for CNV SSMs (`main.go:1323-1331`) where it matters for the CNV-aware tree likelihood, and leaves non-CNV SSMs alone (non-CNV LLH is a pure function of `newNode.Params`, which isn't affected by datum membership). Both approaches produce the same LLH value; Go's is more efficient. BENIGN.
+
+#### 3g. Path-based slice bracket shrinking — BENIGN
+
+Python `tssb.py:142-146` computes `path_lt(indices, new_path)` and shrinks `min_u`/`max_u` based on sign. Go `main.go:1354-1359` does the same via `pathLT`. Would need to confirm `pathLT` matches Python's `path_lt` exactly; it's reportedly verified in earlier reports. BENIGN assuming prior verification stands. (Sanity check: both treat `pathComp >= 0` identically — Go's `else` branch covers both `== 0` and `> 0`, matching Python's `elif path_comp >= 0`. Good.)
+
+#### 3.R Summary
+
+| Sub-item | Severity | Fix in this plan |
+|---|---|---|
+| 3a 100-iter cap | SUSPICIOUS | no |
+| 3b maxChildCreations=20 in findOrCreateNode | SUSPICIOUS | no (safety net) |
+| 3c no llhmap cache | BENIGN (perf) | no |
+| 3d SSM/CNV separate passes | BENIGN | no |
+| 3e root-empty redirect | BENIGN | no |
+| 3f data-move semantics | BENIGN | no |
+| 3g path-based shrinking | BENIGN | no |
+
+**No BLOCKER found in resampleAssignments or findOrCreateNode.** All divergences are either performance optimizations or cap/safety-net patterns whose removal would require fixing BLOCKER 2a first.
+
+
 
