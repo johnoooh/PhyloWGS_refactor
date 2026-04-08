@@ -2273,6 +2273,7 @@ func (t *TSSB) resampleStickOrders(rng *rand.Rand) {
 					root.Sticks = append(root.Sticks, newStick)
 					newChild := t.spawnChild(root, depth, rng)
 					root.Children = append(root.Children, newChild)
+					t.Trace.SpawnsInStickOrders++
 
 					// Recompute weights
 					edges = sticksToEdges(root.Sticks)
@@ -2352,6 +2353,7 @@ func (t *TSSB) findOrCreateNode(u float64, rng *rand.Rand) (*Node, []int) {
 					root.Sticks = append(root.Sticks, newStick)
 					newChild := t.spawnChild(root, depth, rng)
 					root.Children = append(root.Children, newChild)
+					t.Trace.SpawnsInFindNode++
 					creations++
 				}
 
@@ -2371,6 +2373,7 @@ func (t *TSSB) findOrCreateNode(u float64, rng *rand.Rand) (*Node, []int) {
 				root.Sticks = append(root.Sticks, newStick)
 				newChild := t.spawnChild(root, depth, rng)
 				root.Children = append(root.Children, newChild)
+				t.Trace.SpawnsInFindNode++
 				creations++
 			}
 
