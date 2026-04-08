@@ -121,3 +121,82 @@ Python uses `elif new_* < self.*: lower = new_*; elif new_* > self.*: upper = ne
 
 Phase 1.8 rule: one BLOCKER found → skip Phases 2-4 after audit is complete and proceed to Phase 5. **I will still finish the rest of Phase 1 audits first** because there may be additional BLOCKERs worth batching into the same fix commit, and the audit document is cheap.
 
+---
+
+### 2. `resampleStickOrders` — child reorder + lazy spawn
+
+- **Python:** `phylowgs/tssb.py:193-243` (`TSSB.resample_stick_orders`)
+- **Go:** `PhyloWGS_refactor/main.go:2071-2248` (`(*TSSB).resampleStickOrders`)
+
+The algorithm: for each non-leaf node, look at its data-bearing children (the `represented` set); for each, draw `u ~ Uniform(0,1)` and walk the stick-breaking mass to find which child (or uncreated region) u falls in. If u falls in an uncreated region, spawn a new child and retry; if u falls in an existing child, append it to `new_order` and move on. At the end, the parent's `children` list is permuted into `new_order` and the rest are killed.
+
+#### 2a. Leftover mass computation — **BLOCKER**
+
+This is the second concrete bug and is likely the single largest over-splitting driver.
+
+**Python `tssb.py:208-210`:**
+```python
+sub_indices = filter(lambda i: i not in new_order, range(root['sticks'].shape[0]))
+sub_weights = hstack([all_weights[sub_indices], 1.0 - sum(all_weights)])
+sub_weights = sub_weights / sum(sub_weights)
+```
+The "uncreated region" bucket is `1.0 - sum(all_weights)` — the **true** remaining stick mass that has never been allocated to any existing child. After normalization, `sub_weights` sums to 1 over `len(sub_indices)+1` buckets.
+
+**Go `main.go:2133-2152`:**
+```go
+subWeights := make([]float64, len(subIndices)+1)
+totalUsed := 0.0
+for i, idx := range subIndices {
+    subWeights[i] = allWeights[idx]
+    totalUsed += allWeights[idx]
+}
+subWeights[len(subIndices)] = 1.0 - totalUsed // leftover
+```
+Go computes `totalUsed` as `sum(allWeights[i] for i in subIndices)` — the mass of the **not-yet-ordered** children. The "leftover" bucket is then `1 - totalUsed`, which equals `sum(already_ordered_children) + true_unallocated`. **Go's leftover bucket is inflated by the mass of children that have already been placed into `new_order`**, then normalized as if it were all genuinely unallocated.
+
+**Quantitative verification:** With 3 children with stick weights [0.4, 0.3, 0.2] (sum 0.9, true unallocated = 0.1) and child 0 already in `new_order`:
+
+| | sub_weights before norm | P(fall into leftover bucket) |
+|---|---|---|
+| Python | [0.3, 0.2, 0.1] (sum 0.6) | 0.1/0.6 = **16.7%** |
+| Go | [0.3, 0.2, 0.5] (sum 1.0) | **50.0%** |
+
+Go is 3× more likely to spawn a new child on this step. The bug only manifests when the outer loop `for len(represented) > 0` has iterated at least once (i.e. a parent with ≥2 data-bearing children), so it compounds as the tree grows. **This explains why Go over-splits more than Python on fixtures with many true subclones.**
+
+**Severity: BLOCKER.** Direct, quantifiable bias toward spawning new children, with trivial fix: change the Go line `subWeights[len(subIndices)] = 1.0 - totalUsed` to `subWeights[len(subIndices)] = 1.0 - sum(allWeights)` (precomputed before the for loop). Then normalization by sumW (which will no longer be trivially 1) produces Python-equivalent probabilities.
+
+**Relationship to the `maxCreations = 10` cap in 2b below:** the cap is almost certainly there because the original port hit runaway spawning in internal testing, which is precisely what this bug causes. Fixing 2a will likely make 2b unnecessary, but we should retain the cap for now (it acts as a safety net) and remove it in a follow-up after Phase 6 validates the primary fix.
+
+#### 2b. `maxCreations = 10` cap, no Python equivalent — SUSPICIOUS
+
+Python's inner spawn loop (`tssb.py:207`) is `while True`. Go caps at 10 creations per `u` draw (`main.go:2109`). When hit, Go force-picks an existing child rather than allowing the spawn loop to continue. This is a one-directional divergence that **reduces** spawn count in Go. In isolation this would cause Go to under-split, but it's masked by 2a (which biases toward spawning) and serves as a safety net against runaway spawning when 2a fires. Severity: SUSPICIOUS, do not change in this plan — removing it without fixing 2a would cause infinite loops.
+
+#### 2c. Kill-by-index loop semantics — BENIGN
+
+Python `tssb.py:233-237` iterates `k not in new_order` and deletes from `root['children'][k]` while iterating — Python list semantics mean this could misbehave, but in practice it uses `filter` to build the list of indices first and then calls `kill()` then `del`. Go `main.go:2229-2238` builds `inNewOrder` set first, then iterates original indices and kills each. Functionally equivalent. BENIGN.
+
+#### 2d. Immediate `resampleSticks` at end — BENIGN
+
+Both Python `tssb.py:243` and Go `main.go:2247` call `resampleSticks` immediately after the reorder pass. Matches.
+
+#### 2e. `resampleSticks` depth-0 main override — BENIGN (cosmetic divergence)
+
+Tangential to stick-orders but worth noting since it was in the Python source I read:
+
+Python `tssb.py:186-187` does `root['main'] = boundbeta(...) if min_depth <= depth else 0.0; if depth == 0: root['main'] = 1e-30`. So at depth 0 Python always calls `boundbeta` (consuming an RNG draw) then overwrites with 1e-30.
+
+Go `main.go:1959-1963` branches on `depth >= 1` and only calls `boundBeta` then; at depth 0 it directly sets `1e-30` without consuming an RNG draw.
+
+Net effect on `Main` value: identical (1e-30 at depth 0, boundBeta at depth > 0). Only difference is a 1-draw offset in the RNG stream at each `resampleSticks` call. Since Go's RNG stream is independent of Python's anyway (`math/rand` vs numpy), this is observationally unobservable. BENIGN.
+
+#### 2.R Summary
+
+| Sub-item | Severity | Fix in this plan |
+|---|---|---|
+| **2a leftover mass bucket** | **BLOCKER** | **yes** |
+| 2b maxCreations=10 cap | SUSPICIOUS | keep as safety net, follow-up |
+| 2c kill-by-index | BENIGN | no |
+| 2d resampleSticks call | BENIGN | no |
+| 2e depth-0 Main override | BENIGN | no |
+
+
