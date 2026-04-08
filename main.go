@@ -166,6 +166,33 @@ type TSSB struct {
 	cachedWeights []float64
 	cachedNodes   []*Node
 	weightsDirty  bool
+
+	// Per-iteration diagnostic counters for the --trace NDJSON log. These are
+	// always present (cheap to carry) but only read/reset inside runChain when
+	// traceFile != "". MCMC behavior is unchanged.
+	Trace TraceCounters
+}
+
+// TraceCounters accumulates per-MCMC-iteration spawn/kill counts used by the
+// optional --trace NDJSON log. Each TSSB owns its own counters so chains never
+// share state. See docs/plans/round2_trace_design.md.
+type TraceCounters struct {
+	SpawnsInFindNode    int
+	SpawnsInStickOrders int
+}
+
+// countAllNodes returns the total number of nodes in a TSSB subtree rooted at
+// root, including root itself, via DFS. Used by the optional --trace log to
+// capture K_before_cull and K_after_cull each MCMC iter.
+func countAllNodes(root *TSSBNode) int {
+	if root == nil {
+		return 0
+	}
+	n := 1
+	for _, c := range root.Children {
+		n += countAllNodes(c)
+	}
+	return n
 }
 
 // TSSBNode is a node in the TSSB structure
@@ -2506,9 +2533,29 @@ func (t *TSSB) resampleHypers(rng *rand.Rand) {
 // MCMC Chain
 // ============================================================================
 
-func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters int, seed int64) ChainResult {
+func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters int, seed int64, traceFile string) ChainResult {
 	start := time.Now()
 	rng := rand.New(rand.NewSource(seed))
+
+	// Optional per-iteration trace (Round 2 diagnostics).
+	// When traceFile is empty, no file is opened and no trace records are
+	// emitted. When non-empty, one NDJSON object is written per MCMC iter
+	// (burnin + samples) matching the schema in docs/plans/round2_trace_design.md.
+	var traceW *bufio.Writer
+	var traceFH *os.File
+	if traceFile != "" {
+		fh, err := os.Create(traceFile)
+		if err != nil {
+			log.Printf("Chain %d: failed to create trace file %s: %v", chainID, traceFile, err)
+		} else {
+			traceFH = fh
+			traceW = bufio.NewWriter(fh)
+			defer func() {
+				traceW.Flush()
+				traceFH.Close()
+			}()
+		}
+	}
 
 	// Deep copy CNVs for this chain.
 	// CNV.Node is written on every MCMC iteration (resampleAssignments). All
@@ -2575,7 +2622,11 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 	for iter := -burnin; iter < samples; iter++ {
 		// MCMC iteration
 		tssb.resampleAssignments(rng)
+
+		// Measure tree size before/after cullTree for the optional trace.
+		kBeforeCull := countAllNodes(tssb.Root)
 		tssb.cullTree()
+		kAfterCull := countAllNodes(tssb.Root)
 
 		// Pre-compute tree metadata for MH
 		tssb.setNodeHeights()
@@ -2614,6 +2665,30 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 
 		// Compute likelihood
 		llh := tssb.completeDataLogLikelihood()
+
+		// Emit optional trace record for this iter (Round 2 diagnostics).
+		if traceW != nil {
+			rec := map[string]interface{}{
+				"iter":                   iter + burnin,
+				"chain":                  chainID,
+				"K_before_cull":          kBeforeCull,
+				"K_after_cull":           kAfterCull,
+				"spawns_in_find_node":    tssb.Trace.SpawnsInFindNode,
+				"spawns_in_stick_orders": tssb.Trace.SpawnsInStickOrders,
+				"kills_in_cull":          kBeforeCull - kAfterCull,
+				"dp_alpha":               tssb.DPAlpha,
+				"dp_gamma":               tssb.DPGamma,
+				"alpha_decay":            tssb.AlphaDecay,
+				"best_llh_this_iter":     llh,
+			}
+			if b, err := json.Marshal(rec); err == nil {
+				traceW.Write(b)
+				traceW.WriteByte('\n')
+			}
+			// Reset per-iter counters for next iteration.
+			tssb.Trace.SpawnsInFindNode = 0
+			tssb.Trace.SpawnsInStickOrders = 0
+		}
 
 		if iter < 0 {
 			burninLLH = append(burninLLH, llh)
@@ -3046,6 +3121,7 @@ func main() {
 	seed := flag.Int64("r", 0, "Random seed (0 = use time)")
 	noGPU := flag.Bool("no-gpu", false, "Disable GPU acceleration")
 	cpuProfile := flag.String("cpuprofile", "", "Write CPU profile to file")
+	traceFile := flag.String("trace", "", "Write per-iteration NDJSON diagnostics to this file (single-chain only; with -j>1 each chain appends id suffix)")
 
 	flag.Parse()
 
@@ -3126,7 +3202,18 @@ func main() {
 		go func(chainID int) {
 			defer wg.Done()
 			chainSeed := *seed + int64(chainID)*1000
-			results[chainID] = runChain(chainID, ssms, cnvs, *burnin, *samples, *mhIters, chainSeed)
+			// Route each chain's trace output to a distinct file when -j>1 so
+			// concurrent writes don't collide. With a single chain, use the
+			// path the user gave verbatim.
+			chainTrace := ""
+			if *traceFile != "" {
+				if *chains == 1 {
+					chainTrace = *traceFile
+				} else {
+					chainTrace = fmt.Sprintf("%s.chain%d", *traceFile, chainID)
+				}
+			}
+			results[chainID] = runChain(chainID, ssms, cnvs, *burnin, *samples, *mhIters, chainSeed, chainTrace)
 		}(i)
 	}
 
