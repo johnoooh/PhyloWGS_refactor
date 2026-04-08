@@ -385,6 +385,43 @@ Go explicitly assigns all CNVs to the initial child at `main.go:656-658`. Python
 | 5e data assignment | BENIGN | no |
 | 5f CNV placement | BENIGN | no |
 
+---
+
+### 6. MCMC loop ordering — `runChain` vs `do_mcmc`
+
+- **Python:** `phylowgs/evolve.py:159-213` (`do_mcmc` iteration body)
+- **Go:** `PhyloWGS_refactor/main.go:2519-2587` (`runChain` iteration body)
+
+#### 6a. Call order — matches
+
+| Step | Python (evolve.py) | Go (main.go) | Notes |
+|---|---|---|---|
+| 1 | `resample_assignments()` | `resampleAssignments(rng)` | |
+| 2 | `cull_tree()` | `cullTree()` | |
+| 3 | `get_mixture()` + assign `node.id` | — | Go assigns node ids lazily elsewhere |
+| 4 | `set_node_height` | `setNodeHeights()` | |
+| 5 | `set_path_from_root_to_node` | `setNodePaths()` | |
+| 6 | `map_datum_to_node` | `mapDatumToNode()` | |
+| 7 | — | `precomputeMHStates()` | Go-only optimization from commit f969d36; no semantic effect |
+| 8 | `metropolis(...)` | `metropolis(mhIters, mhStd, rng)` | |
+| 9 | MH std adapt (×2 / /2) | MH std adapt (×2 / /2) | same thresholds 0.08/0.5/0.99 |
+| 10 | — | `ssm.MHStateValid = false` for all SSMs | Invalidates the Go-only MH cache |
+| 11 | `resample_sticks()` | `resampleSticks(rng)` | |
+| 12 | `resample_stick_orders()` | `resampleStickOrders(rng)` | (internally re-calls resampleSticks in both) |
+| 13 | `resample_hypers()` | `resampleHypers(rng)` | |
+| 14 | `complete_data_log_likelihood()` | `completeDataLogLikelihood()` | |
+
+Ordering matches 1:1. The `precomputeMHStates` + invalidation around metropolis is a pure caching optimization and has no effect on the posterior. The missing explicit `get_mixture + node.id` step in Go is only used by Python for logging/output purposes and does not affect sampling. BENIGN.
+
+#### 6b. Burnin semantics — BENIGN
+
+Go uses `for iter := -burnin; iter < samples; iter++` and discards samples with `iter < 0`. Python uses `range(start_iter, num_samples)` with `start_iter = -burnin - 1 + 1 = -burnin`. Equivalent burnin counting. BENIGN.
+
+#### 6.R Summary
+
+No BLOCKERs. MCMC loop ordering matches Python.
+
+
 
 
 
