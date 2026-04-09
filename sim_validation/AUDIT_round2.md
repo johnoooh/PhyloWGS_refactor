@@ -133,3 +133,104 @@ the primary targets. Items to confirm or reject against Python source:
    so currently a no-op, but important if min_depth is ever raised).
 
 Phase 4 (TDD fix + slice re-run + Report 6) follows Phase 3.
+
+---
+
+## Phase 3 Results — Both hypotheses falsified, paradigm shift
+
+**Date:** 2026-04-08 (same day, later)
+
+### Falsification 1: the `maxChildCreations = 20` cap
+
+Added a `CapHitsFindNode` diagnostic counter that increments every time
+the safeguard fires *before* `u` falls into the stick space. Re-ran the
+K3_C2 fixture short chain (50 burnin + 100 samples) and a long chain
+(500 burnin + 500 samples). Result:
+
+```
+cap_hits_find_node:   total = 0   across all 150 + 1000 iters
+```
+
+The Go-only cap **never fires in practice**. It cannot be the source of
+K-inflation — it is dead code on this workload. Hypothesis rejected.
+
+### Falsification 2: the depth==0 special case
+
+Re-read `tssb.py:find_node` (340-377). At depth 0, Python also
+hard-codes `index = 0` and descends into `root['children'][0]`. Python's
+`find_node` *does not* create new root children either. The Go
+special-case branch (main.go:2409-2420) is structurally equivalent to
+Python's depth-0 behavior. Hypothesis rejected.
+
+### Full structural diff of `findOrCreateNode` vs `find_node`
+
+Line-by-line against `phylowgs/tssb.py:340-377` confirmed equivalence in:
+
+- depth-0 index hard-coding
+- `u` rescaling on the remaining stick mass at each depth
+- lazy `spawnChild` append when `u > edges[-1]`
+- the `boundbeta(1, alpha_decay^depth * dp_alpha)` stick draw
+- no min_depth handling in either (both default to 0)
+- no gamma-prior or DP-prior sampling inside this function
+
+The **only** divergence is the `maxChildCreations=20` cap, which the
+counter just proved is unreachable on this fixture. No structural bug
+remains to fix in `findOrCreateNode`.
+
+### Head-to-head on K3_C2 (4000 Go trees vs 1000 Python trees)
+
+```
+                        Python (orig)        Go (current head)
+N trees:                1000                 4000 (4 chains × 1000)
+range (K):              4 – 16               3 – 15
+median K:               13                   12
+mean K:                 11.95                11.42
+mode K:                 13 (279/1000)        12 (1228/4000)
+best-llh tree K:        5                    4
+best-llh value:         −315.8               −307.85   ← Go better
+```
+
+**Go and Python produce essentially the same K distribution on K3_C2.**
+Go is marginally *tighter* (median 12 vs 13) and finds a slightly better
+likelihood. Both samplers over-split the posterior relative to the true
+K=3 — because PhyloWGS's DP prior with dp_alpha ∈ [1,50] routinely
+admits 10+ populations on 30-SSM data. This is a property of the model,
+not a bug in either port.
+
+### The Round 2 premise was wrong
+
+The round 1 / round 2 framing of "Go over-splits relative to Python" on
+the K3_C2 fixture is **not supported by the data**. Both implementations
+land in the same K=10–14 band. The high per-iter `K_before_cull ≈ 80`
+observed by the tracer is a normal burnin/slice-sampler dynamic shared
+by both ports; it is not evidence of a fidelity bug because `cullTree`
+immediately reclaims ~half the spawned nodes and the retained `K_after`
+aligns with Python.
+
+### What the Round 1 / Report 5 "K=30" number actually measured
+
+The original "Go produces K≈30" observation came from the
+post-`removeEmptyNodes` flat structure reported in Task 1.3. That
+function reparents deep intermediate-empty nodes to the root, producing
+an artificial fan-out of leaf populations. Report 5's K count was
+measuring *reporting-layer* flatness, not sampler-layer fanout. The
+sampler itself carries a hierarchical K ≈ 12, matching Python.
+
+### Decision
+
+**Do not proceed to Phase 4 without user direction.** The premise for
+the Phase 4 fix (K-inflation is a Go bug in `findOrCreateNode`) is
+falsified. Options:
+
+1. **Abandon the over-splitting investigation.** Go matches Python on
+   K3_C2 within sampling noise. Close out round 2 with a negative
+   result and revise the sim-validation report.
+2. **Broaden the head-to-head.** Run Go + Python on K5/K8 fixtures to
+   confirm parity holds beyond K3_C2. If a real divergence appears on
+   other fixtures, restart the audit on that evidence.
+3. **Investigate the `removeEmptyNodes` flat-structure reporting.** If
+   the user cares about the post-processing flatness (K=30 in Report
+   5), the fix belongs in the reporting layer, not the sampler.
+
+Phase 3 closes here pending user direction.
+

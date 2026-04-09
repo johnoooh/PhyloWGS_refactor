@@ -176,9 +176,16 @@ type TSSB struct {
 // TraceCounters accumulates per-MCMC-iteration spawn/kill counts used by the
 // optional --trace NDJSON log. Each TSSB owns its own counters so chains never
 // share state. See docs/plans/round2_trace_design.md.
+//
+// CapHitsFindNode is a diagnostic counter that increments every time the
+// non-Python maxChildCreations=20 safeguard inside findOrCreateNode fires
+// BEFORE u falls inside the stick space. When it fires, the descent proceeds
+// with u > max(edges), which cascades into recursive spawning at deeper
+// depths. Round 2 Phase 3 evidence gathering.
 type TraceCounters struct {
 	SpawnsInFindNode    int
 	SpawnsInStickOrders int
+	CapHitsFindNode     int
 }
 
 // countAllNodes returns the total number of nodes in a TSSB subtree rooted at
@@ -2364,8 +2371,15 @@ func (t *TSSB) findOrCreateNode(u float64, rng *rand.Rand) (*Node, []int) {
 				}
 				edge := 1.0 - prod
 
-				if u < edge || creations >= maxChildCreations {
-					break // u falls within existing sticks OR we've created enough
+				if u < edge {
+					break // u falls within existing sticks
+				}
+				if creations >= maxChildCreations {
+					// Cap fired before u fit: descent will proceed with u > max(edges).
+					// This is a Python-fidelity divergence; we count it for Phase 3
+					// evidence gathering. Behavior is unchanged by this counter.
+					t.Trace.CapHitsFindNode++
+					break
 				}
 
 				// u falls beyond existing sticks - create new child
@@ -2678,6 +2692,7 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 				"K_after_cull":           kAfterCull,
 				"spawns_in_find_node":    tssb.Trace.SpawnsInFindNode,
 				"spawns_in_stick_orders": tssb.Trace.SpawnsInStickOrders,
+				"cap_hits_find_node":     tssb.Trace.CapHitsFindNode,
 				"kills_in_cull":          kBeforeCull - kAfterCull,
 				"dp_alpha":               tssb.DPAlpha,
 				"dp_gamma":               tssb.DPGamma,
@@ -2691,6 +2706,7 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 			// Reset per-iter counters for next iteration.
 			tssb.Trace.SpawnsInFindNode = 0
 			tssb.Trace.SpawnsInStickOrders = 0
+			tssb.Trace.CapHitsFindNode = 0
 		}
 
 		if iter < 0 {
