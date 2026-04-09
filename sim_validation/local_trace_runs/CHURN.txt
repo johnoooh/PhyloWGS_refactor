@@ -1,0 +1,179 @@
+===============================================================================================
+Exp A — HPC parity (B=500/S=1000)
+===============================================================================================
+
+  ── expA_baseline/K3_S1_T200_M30_C2_rep0/trace.ndjson ──  total=1500  burnin=500
+    K_before_cull   K_after_cull    spawns_find    spawns_stick    dp_alpha       alpha_decay     llh
+    early_burnin     59.1±21.3     31.6±10.1     28.5±14.8      9.5± 6.0     28.6±12.1      0.4± 0.1   -403.9±114.3
+    late_burnin      89.8±42.4     44.6±18.6     47.0±28.9     13.5± 9.0     28.4±11.0      0.5± 0.1   -391.2±19.8
+    early_sample     81.7±32.6     40.6±13.5     41.5±23.3     13.1± 7.6     28.0±13.7      0.4± 0.1   -386.1±13.6
+    late_sample     104.1±58.6     47.7±19.8     56.8±41.1     15.6±10.7     30.7±10.8      0.5± 0.1   -394.5±19.8
+    SAMPLE-PHASE Spearman ρ vs K_after_cull:
+        K_before_cull: +0.845
+        spawns_find:   +0.826
+        spawns_stick:  +0.670
+        dp_alpha:      -0.261
+        alpha_decay:   +0.668
+        dp_gamma:      +0.131
+
+  ── expA_baseline/K3_S1_T200_M30_C0_rep0/trace.ndjson ──  total=1500  burnin=500
+    K_before_cull   K_after_cull    spawns_find    spawns_stick    dp_alpha       alpha_decay     llh
+    early_burnin      6.8± 5.2      3.3± 1.0      3.5± 5.2      0.3± 1.1     24.8±13.8      0.1± 0.1   -128.6±33.7
+    late_burnin       6.0± 3.4      3.2± 0.5      2.8± 3.3      0.2± 0.7     31.6±12.1      0.1± 0.1   -111.9± 3.2
+    early_sample      5.5± 2.8      3.2± 0.6      2.2± 2.6      0.2± 0.8     31.1±12.0      0.1± 0.1   -111.6± 2.5
+    late_sample       5.2± 2.8      3.2± 0.6      2.0± 2.8      0.1± 0.7     35.0±11.0      0.1± 0.0   -111.6± 2.4
+    SAMPLE-PHASE Spearman ρ vs K_after_cull:
+        K_before_cull: +0.313
+        spawns_find:   +0.236
+        spawns_stick:  +0.755
+        dp_alpha:      +0.044
+        alpha_decay:   +0.028
+        dp_gamma:      +0.041
+
+  ── expA_baseline/K5_S1_T200_M50_C2_rep0/trace.ndjson ──  total=1500  burnin=500
+    K_before_cull   K_after_cull    spawns_find    spawns_stick    dp_alpha       alpha_decay     llh
+    early_burnin      9.3± 6.5      4.8± 1.3      4.6± 5.9      0.8± 1.6     20.4±14.0      0.2± 0.1   -6686.0±133.3
+    late_burnin       7.3± 3.1      4.4± 0.7      2.8± 2.9      0.7± 1.6     18.4±11.9      0.1± 0.1   -6654.4± 3.0
+    early_sample      8.4± 4.2      4.4± 0.7      4.0± 4.0      0.4± 1.1     26.3±13.3      0.1± 0.1   -6654.7± 2.9
+    late_sample       8.9± 4.5      4.6± 1.0      4.3± 4.1      0.5± 1.3     26.0±13.0      0.1± 0.1   -6655.1± 3.5
+    SAMPLE-PHASE Spearman ρ vs K_after_cull:
+        K_before_cull: +0.373
+        spawns_find:   +0.265
+        spawns_stick:  +0.451
+        dp_alpha:      -0.022
+        alpha_decay:   +0.182
+        dp_gamma:      -0.062
+
+  ── expA_baseline/K5_S1_T200_M50_C0_rep0/trace.ndjson ──  total=1500  burnin=500
+    K_before_cull   K_after_cull    spawns_find    spawns_stick    dp_alpha       alpha_decay     llh
+    early_burnin     23.6±13.1     13.1± 6.8     11.2± 9.3      3.1± 3.4     13.2±10.8      0.3± 0.2   -251.8±55.8
+    late_burnin      26.8±13.1     14.6± 6.7     12.7± 9.2      4.2± 4.3     12.1± 9.6      0.3± 0.2   -236.0±10.0
+    early_sample     31.7±17.7     16.1± 7.4     16.6±12.9      3.9± 4.6      8.6± 9.0      0.5± 0.2   -239.3±11.4
+    late_sample      40.2±20.6     19.0± 7.4     21.4±15.5      5.3± 4.6     20.7±14.4      0.4± 0.2   -241.1±11.8
+    SAMPLE-PHASE Spearman ρ vs K_after_cull:
+        K_before_cull: +0.730
+        spawns_find:   +0.661
+        spawns_stick:  +0.442
+        dp_alpha:      -0.035
+        alpha_decay:   +0.333
+        dp_gamma:      +0.023
+
+===============================================================================================
+Exp B — long convergence (B=2000/S=5000) [if complete]
+===============================================================================================
+
+  ── expB_long/K3_S1_T200_M30_C2_rep0/trace.ndjson ──  total=7000  burnin=2000
+    K_before_cull   K_after_cull    spawns_find    spawns_stick    dp_alpha       alpha_decay     llh
+    early_burnin     81.8±31.8     40.3±13.1     41.9±22.5     13.0± 7.8     25.0±14.0      0.5± 0.1   -387.2±18.4
+    late_burnin      97.1±42.4     45.8±17.9     52.2±29.3     15.2± 9.4     27.3±12.0      0.5± 0.1   -392.1±22.1
+    early_sample    127.0±60.9     56.4±21.6     71.4±43.6     19.7±12.0     21.2±12.1      0.6± 0.1   -402.8±22.7
+    late_sample      91.1±41.9     43.9±17.2     47.5±28.9     14.8± 9.5     25.0±11.4      0.5± 0.1   -389.0±18.5
+    SAMPLE-PHASE Spearman ρ vs K_after_cull:
+        K_before_cull: +0.848
+        spawns_find:   +0.839
+        spawns_stick:  +0.671
+        dp_alpha:      -0.091
+        alpha_decay:   +0.631
+        dp_gamma:      +0.062
+
+  ── expB_long/K3_S1_T200_M30_C0_rep0/trace.ndjson ──  total=7000  burnin=2000
+    K_before_cull   K_after_cull    spawns_find    spawns_stick    dp_alpha       alpha_decay     llh
+    early_burnin      5.9± 3.8      3.3± 0.8      2.5± 3.7      0.3± 1.2     28.7±13.7      0.1± 0.1   -121.9±26.8
+    late_burnin       6.1± 3.2      3.3± 0.6      2.8± 3.1      0.2± 1.0     32.7±11.5      0.1± 0.0   -112.4± 3.4
+    early_sample      5.9± 3.2      3.3± 0.7      2.5± 3.1      0.2± 0.8     30.3±12.3      0.1± 0.1   -112.5± 3.3
+    late_sample       5.8± 3.1      3.2± 0.5      2.5± 3.0      0.2± 0.9     30.4±12.4      0.1± 0.1   -112.0± 2.8
+    SAMPLE-PHASE Spearman ρ vs K_after_cull:
+        K_before_cull: +0.288
+        spawns_find:   +0.214
+        spawns_stick:  +0.669
+        dp_alpha:      -0.010
+        alpha_decay:   +0.061
+        dp_gamma:      -0.016
+
+  ── expB_long/K5_S1_T200_M50_C2_rep0/trace.ndjson ──  total=7000  burnin=2000
+    K_before_cull   K_after_cull    spawns_find    spawns_stick    dp_alpha       alpha_decay     llh
+    early_burnin      9.7± 5.0      4.7± 1.0      5.0± 4.7      0.6± 1.4     22.5±13.5      0.1± 0.1   -6692.1±189.2
+    late_burnin       9.2± 4.6      4.5± 0.9      4.7± 4.2      0.6± 1.6     21.0±12.9      0.1± 0.1   -6655.0± 3.6
+    early_sample      8.5± 4.2      4.5± 0.9      4.0± 3.9      0.6± 1.5     26.2±12.2      0.1± 0.0   -6654.8± 3.1
+    late_sample       8.8± 4.4      4.5± 0.8      4.3± 4.1      0.5± 1.3     23.3±13.4      0.1± 0.1   -6655.2± 3.4
+    SAMPLE-PHASE Spearman ρ vs K_after_cull:
+        K_before_cull: +0.321
+        spawns_find:   +0.201
+        spawns_stick:  +0.454
+        dp_alpha:      -0.019
+        alpha_decay:   +0.156
+        dp_gamma:      +0.002
+
+  ── expB_long/K5_S1_T200_M50_C0_rep0/trace.ndjson ──  total=7000  burnin=2000
+    K_before_cull   K_after_cull    spawns_find    spawns_stick    dp_alpha       alpha_decay     llh
+    early_burnin     29.7±16.6     15.1± 7.4     15.0±11.9      4.2± 4.1     10.8±11.1      0.4± 0.2   -237.9±10.8
+    late_burnin      27.4±13.5     14.7± 6.1     13.0±10.2      3.8± 3.9      8.6± 8.4      0.4± 0.2   -237.8±10.0
+    early_sample     31.9±15.5     16.3± 6.5     15.9±11.8      4.5± 4.4      7.9± 7.2      0.5± 0.2   -240.3±10.1
+    late_sample      31.3±20.9     15.7± 7.8     16.1±15.8      4.3± 4.6     10.4± 9.1      0.4± 0.2   -238.6±11.1
+    SAMPLE-PHASE Spearman ρ vs K_after_cull:
+        K_before_cull: +0.769
+        spawns_find:   +0.700
+        spawns_stick:  +0.483
+        dp_alpha:      -0.158
+        alpha_decay:   +0.489
+        dp_gamma:      +0.065
+
+===============================================================================================
+Exp C — multi-chain K3_C2
+===============================================================================================
+
+  ── expC_multichain/K3_S1_T200_M30_C2_rep0/trace.ndjson.chain0 ──  total=1500  burnin=500
+    K_before_cull   K_after_cull    spawns_find    spawns_stick    dp_alpha       alpha_decay     llh
+    early_burnin     45.8±21.2     25.3±11.8     21.3±13.1      6.7± 5.0     40.7± 7.0      0.3± 0.1   -390.6±89.5
+    late_burnin      90.6±40.8     44.2±18.0     46.1±25.5     16.1± 9.0     16.9±11.4      0.6± 0.1   -390.3±24.3
+    early_sample    122.0±51.2     54.9±18.9     66.8±37.9     20.4±10.4     22.2±11.1      0.6± 0.1   -402.8±20.5
+    late_sample     149.3±52.0     63.7±17.0     86.4±41.5     22.5±10.2     21.0±10.0      0.7± 0.1   -410.1±20.3
+    SAMPLE-PHASE Spearman ρ vs K_after_cull:
+        K_before_cull: +0.839
+        spawns_find:   +0.829
+        spawns_stick:  +0.645
+        dp_alpha:      -0.089
+        alpha_decay:   +0.591
+        dp_gamma:      +0.009
+
+  ── expC_multichain/K3_S1_T200_M30_C2_rep0/trace.ndjson.chain1 ──  total=1500  burnin=500
+    K_before_cull   K_after_cull    spawns_find    spawns_stick    dp_alpha       alpha_decay     llh
+    early_burnin     87.7±24.4     43.3±11.4     45.3±17.3     14.8± 8.9     22.1± 8.8      0.5± 0.1   -406.7±80.1
+    late_burnin      97.9±30.7     48.5±16.3     50.7±21.3     16.0± 9.3     17.9±14.0      0.6± 0.1   -395.0±16.6
+    early_sample     99.8±36.8     47.7±15.8     51.4±25.5     17.3± 9.6     23.0±12.0      0.5± 0.1   -394.2±18.0
+    late_sample      66.5±22.3     34.7±10.6     31.9±15.6     10.6± 6.5     33.1±10.6      0.4± 0.1   -381.6±15.2
+    SAMPLE-PHASE Spearman ρ vs K_after_cull:
+        K_before_cull: +0.807
+        spawns_find:   +0.777
+        spawns_stick:  +0.601
+        dp_alpha:      -0.135
+        alpha_decay:   +0.536
+        dp_gamma:      +0.100
+
+  ── expC_multichain/K3_S1_T200_M30_C2_rep0/trace.ndjson.chain2 ──  total=1500  burnin=500
+    K_before_cull   K_after_cull    spawns_find    spawns_stick    dp_alpha       alpha_decay     llh
+    early_burnin    108.0±59.7     49.8±23.2     60.5±40.5     17.0±12.1     31.2±11.6      0.5± 0.2   -413.3±93.4
+    late_burnin     122.0±39.2     55.2±17.2     67.1±27.5     20.4±10.8     20.4± 6.9      0.6± 0.0   -399.0±14.4
+    early_sample    110.6±33.5     51.3±14.7     60.2±24.7     16.8± 9.0     29.5±11.3      0.5± 0.1   -399.0±15.0
+    late_sample      97.9±34.4     46.5±14.8     51.7±25.0     15.3± 8.8     19.0±11.3      0.6± 0.1   -392.7±17.6
+    SAMPLE-PHASE Spearman ρ vs K_after_cull:
+        K_before_cull: +0.822
+        spawns_find:   +0.816
+        spawns_stick:  +0.656
+        dp_alpha:      -0.110
+        alpha_decay:   +0.601
+        dp_gamma:      +0.051
+
+  ── expC_multichain/K3_S1_T200_M30_C2_rep0/trace.ndjson.chain3 ──  total=1500  burnin=500
+    K_before_cull   K_after_cull    spawns_find    spawns_stick    dp_alpha       alpha_decay     llh
+    early_burnin     60.7±31.4     33.4±16.1     28.9±18.6      9.6± 7.8     34.0± 9.5      0.4± 0.1   -398.8±84.4
+    late_burnin     123.4±55.2     56.0±20.8     67.7±40.1     20.1±11.1     22.0±11.2      0.6± 0.1   -401.5±18.6
+    early_sample    101.7±37.7     49.6±16.3     53.4±26.7     16.2± 8.9     17.7±10.7      0.6± 0.1   -396.4±18.9
+    late_sample     118.7±62.1     52.6±22.4     68.1±44.4     17.3±11.5     28.0±11.8      0.5± 0.1   -399.8±25.2
+    SAMPLE-PHASE Spearman ρ vs K_after_cull:
+        K_before_cull: +0.786
+        spawns_find:   +0.776
+        spawns_stick:  +0.622
+        dp_alpha:      +0.009
+        alpha_decay:   +0.475
+        dp_gamma:      +0.086

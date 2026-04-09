@@ -1,0 +1,7 @@
+# Raw trace data is large and regeneratable via run_local_baseline.sh
+# (~13 min wall, ~80 MB). Reports and scripts are committed.
+expA_baseline/
+expB_long/
+expC_multichain/
+probe/
+run.log
