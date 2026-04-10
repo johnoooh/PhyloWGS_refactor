@@ -23,9 +23,9 @@ import (
 
 // Global GPU engine (shared across chains)
 var (
-	gpuEngine *cuda.GPULikelihoodEngine
-	useGPU    bool
-	gpuMu     sync.Mutex
+	gpuEngine          *cuda.GPULikelihoodEngine
+	useGPU             bool
+	gpuMu              sync.Mutex
 )
 
 // ============================================================================
@@ -166,40 +166,6 @@ type TSSB struct {
 	cachedWeights []float64
 	cachedNodes   []*Node
 	weightsDirty  bool
-
-	// Per-iteration diagnostic counters for the --trace NDJSON log. These are
-	// always present (cheap to carry) but only read/reset inside runChain when
-	// traceFile != "". MCMC behavior is unchanged.
-	Trace TraceCounters
-}
-
-// TraceCounters accumulates per-MCMC-iteration spawn/kill counts used by the
-// optional --trace NDJSON log. Each TSSB owns its own counters so chains never
-// share state. See docs/plans/round2_trace_design.md.
-//
-// CapHitsFindNode is a diagnostic counter that increments every time the
-// non-Python maxChildCreations=20 safeguard inside findOrCreateNode fires
-// BEFORE u falls inside the stick space. When it fires, the descent proceeds
-// with u > max(edges), which cascades into recursive spawning at deeper
-// depths. Round 2 Phase 3 evidence gathering.
-type TraceCounters struct {
-	SpawnsInFindNode    int
-	SpawnsInStickOrders int
-	CapHitsFindNode     int
-}
-
-// countAllNodes returns the total number of nodes in a TSSB subtree rooted at
-// root, including root itself, via DFS. Used by the optional --trace log to
-// capture K_before_cull and K_after_cull each MCMC iter.
-func countAllNodes(root *TSSBNode) int {
-	if root == nil {
-		return 0
-	}
-	n := 1
-	for _, c := range root.Children {
-		n += countAllNodes(c)
-	}
-	return n
 }
 
 // TSSBNode is a node in the TSSB structure
@@ -295,13 +261,13 @@ func boundBeta(a, b float64, rng *rand.Rand) float64 {
 	x := gammaVariate(a, rng)
 	y := gammaVariate(b, rng)
 	result := x / (x + y)
-	// Bound away from 0 and 1
-	if result < 1e-6 {
-		result = 1e-6
-	}
-	if result > 1-1e-6 {
-		result = 1 - 1e-6
-	}
+	// Match Python's boundbeta exactly:
+	//   (1.0 - numpy.finfo(numpy.float64).eps) * (beta(a,b) - 0.5) + 0.5
+	// This is an affine shrinkage toward 0.5, giving bounds ≈ [1.11e-16, 1-1.11e-16].
+	// The previous hard clamp to [1e-6, 1-1e-6] created a systematic bias in
+	// dpAlphaLLH that pushed alpha_decay upward at high M, causing over-splitting.
+	const eps = 2.220446049250313e-16 // numpy.finfo(numpy.float64).eps
+	result = (1.0-eps)*(result-0.5) + 0.5
 	return result
 }
 
@@ -338,17 +304,6 @@ func dirichletSample(alpha []float64, rng *rand.Rand) []float64 {
 	for i, a := range alpha {
 		result[i] = gammaVariate(a, rng)
 		sum += result[i]
-	}
-	for i := range result {
-		result[i] /= sum
-		if result[i] < 1e-10 {
-			result[i] = 1e-10
-		}
-	}
-	// Renormalize
-	sum = 0
-	for _, v := range result {
-		sum += v
 	}
 	for i := range result {
 		result[i] /= sum
@@ -1312,6 +1267,16 @@ func (t *TSSB) resampleAssignments(rng *rand.Rand) {
 	for n := 0; n < t.NumData; n++ {
 		oldNode := t.Assignments[n]
 
+		// Per-SSM LLH cache: matches Python's `llhmap = {}` (tssb.py:99).
+		// Caches the first LLH computed for each node during this SSM's slice
+		// sampling loop. This is semantically important (not just an optimization)
+		// because spawnChild() reduces the parent's Pi/Params, so recomputing
+		// would give a lower LLH for nodes whose children were spawned since the
+		// first visit. Python masks this by returning the cached value. Without
+		// the cache, existing nodes become progressively less attractive as more
+		// children spawn, creating a positive feedback loop that worsens with M.
+		llhMap := make(map[*Node]float64)
+
 		// Get path indices for current assignment
 		ancestors := oldNode.getAncestors()
 		currentIndices := make([]int, 0)
@@ -1326,7 +1291,7 @@ func (t *TSSB) resampleAssignments(rng *rand.Rand) {
 			}
 		}
 
-		// Compute old likelihood. For CNV SSMs, use full tree-traversal (like Python).
+		// Compute old likelihood and seed the cache.
 		var oldLLH float64
 		ssm := t.Data[n]
 		if len(ssm.CNVs) > 0 {
@@ -1334,12 +1299,17 @@ func (t *TSSB) resampleAssignments(rng *rand.Rand) {
 		} else {
 			oldLLH = ssm.logLikelihoodNoCNV(oldNode.Params)
 		}
+		llhMap[oldNode] = oldLLH
 		llhSlice := math.Log(rng.Float64()) + oldLLH
 
 		maxU := 1.0
 		minU := 0.0
 
-		for iter := 0; iter < 100; iter++ { // Max iterations to prevent infinite loop
+		// Slice sampler loop: matches Python's `while True` with two natural exits:
+		// 1. newLLH > llhSlice (accept proposal)
+		// 2. abs(maxU - minU) < eps (interval shrunk, keep current)
+		// No artificial iteration cap — Python has none.
+		for {
 			newU := (maxU-minU)*rng.Float64() + minU
 
 			// Use findOrCreateNode for dynamic node creation
@@ -1351,10 +1321,11 @@ func (t *TSSB) resampleAssignments(rng *rand.Rand) {
 				newPath = []int{0}
 			}
 
-			// Compute new likelihood. For CNV SSMs, temporarily update node assignment
-			// to compute correct tree-traversal likelihood (matching Python behavior).
+			// Compute new likelihood, using cache if available (matches Python's llhmap).
 			var newLLH float64
-			if len(ssm.CNVs) > 0 {
+			if cached, ok := llhMap[newNode]; ok {
+				newLLH = cached
+			} else if len(ssm.CNVs) > 0 {
 				// Temporarily move SSM to new node for likelihood evaluation
 				oldNode.Data = removeFromSlice(oldNode.Data, n)
 				newNode.Data = append(newNode.Data, n)
@@ -1364,8 +1335,10 @@ func (t *TSSB) resampleAssignments(rng *rand.Rand) {
 				newNode.Data = removeFromSlice(newNode.Data, n)
 				oldNode.Data = append(oldNode.Data, n)
 				ssm.Node = oldNode
+				llhMap[newNode] = newLLH
 			} else {
 				newLLH = ssm.logLikelihoodNoCNV(newNode.Params)
+				llhMap[newNode] = newLLH
 			}
 
 			if newLLH > llhSlice {
@@ -1379,6 +1352,7 @@ func (t *TSSB) resampleAssignments(rng *rand.Rand) {
 
 			// Shrink slice based on path comparison
 			if maxU-minU < eps {
+				// Slice sampler shrank down — keep current state (matches Python)
 				break
 			}
 
@@ -1425,7 +1399,8 @@ func (t *TSSB) resampleAssignments(rng *rand.Rand) {
 		maxU := 1.0
 		minU := 0.0
 
-		for iter := 0; iter < 100; iter++ {
+		// CNV slice sampler: unbounded loop matching Python's `while True`
+		for {
 			newU := (maxU-minU)*rng.Float64() + minU
 			newNode, newPath := t.findOrCreateNode(newU, rng)
 			if newNode.Parent == nil && len(t.Root.Children) > 0 {
@@ -1536,6 +1511,8 @@ func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
 	}
 
 	accepted := 0
+	nanCount := 0
+	infCount := 0
 
 	// Cache the current likelihood - it only changes when we accept a move
 	cachedOldLLH := t.paramPost(nodes, false)
@@ -1547,9 +1524,6 @@ func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
 			pi := make([]float64, len(nodes))
 			for i, node := range nodes {
 				pi[i] = node.Pi[tp]
-				if pi[i] < 1e-10 {
-					pi[i] = 1e-10
-				}
 			}
 
 			// Sample from Dirichlet centered on current pi
@@ -1589,12 +1563,6 @@ func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
 			for i, node := range nodes {
 				piOld[i] = node.Pi[tp]
 				piNew[i] = node.Pi1[tp]
-				if piOld[i] < 1e-10 {
-					piOld[i] = 1e-10
-				}
-				if piNew[i] < 1e-10 {
-					piNew[i] = 1e-10
-				}
 			}
 
 			// Forward proposal: q(pi_new | pi_old)
@@ -1602,18 +1570,28 @@ func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
 			for i := range piNew {
 				alphaFwd[i] = std * piNew[i]
 			}
-			logA += dirichletLogPDF(piOld, alphaFwd)
+			fwdVal := dirichletLogPDF(piOld, alphaFwd)
+			logA += fwdVal
 
 			// Backward proposal: q(pi_old | pi_new)
 			alphaBwd := make([]float64, len(piOld))
 			for i := range piOld {
 				alphaBwd[i] = std * piOld[i]
 			}
-			logA -= dirichletLogPDF(piNew, alphaBwd)
+			bwdVal := dirichletLogPDF(piNew, alphaBwd)
+			logA -= bwdVal
+		}
+
+		// Track NaN/Inf in logA
+		if math.IsNaN(logA) {
+			nanCount++
+		} else if math.IsInf(logA, 0) {
+			infCount++
 		}
 
 		// Accept/reject
-		if math.Log(rng.Float64()) < logA {
+		doAccept := math.Log(rng.Float64()) < logA
+		if doAccept {
 			accepted++
 			for _, node := range nodes {
 				copy(node.Params, node.Params1)
@@ -1622,6 +1600,11 @@ func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
 			// Update cached LLH to new value (since we accepted)
 			cachedOldLLH = newLLH
 		}
+	}
+
+	if nanCount > 0 || infCount > 0 {
+		log.Printf("MH diagnostics: nodes=%d iters=%d std=%.1f accepted=%d NaN=%d Inf=%d",
+			len(nodes), iters, std, accepted, nanCount, infCount)
 	}
 
 	return float64(accepted) / float64(iters)
@@ -1972,7 +1955,13 @@ func (t *TSSB) resampleSticks(rng *rand.Rand) {
 	var descend func(*TSSBNode, int)
 	descend = func(root *TSSBNode, depth int) {
 		dataDown := 0
-		// Process children in reverse order
+		// Process children in reverse order: data_down accumulates from
+		// later children to earlier ones. For child i, data_down = sum_{j>i}(n_j).
+		// This matches the standard GEM posterior:
+		//   v_i ~ Beta(1 + n_i, gamma + sum_{j>i} n_j)
+		// NOTE: Python iterates forward with a different accumulation convention,
+		// but both produce equivalent posteriors because the stick-breaking
+		// parameterization interacts with the iteration order.
 		for i := len(root.Children) - 1; i >= 0; i-- {
 			child := root.Children[i]
 			childData := countData(child)
@@ -2198,11 +2187,9 @@ func (t *TSSB) resampleStickOrders(rng *rand.Rand) {
 		for len(represented) > 0 {
 			u := rng.Float64()
 
-			// Build sub-weights for children not yet in new_order
-			// Safeguard: maximum number of child creations per sampling
-			maxCreations := 10
-			creations := 0
-
+			// Build sub-weights for children not yet in new_order.
+			// Python: inner `while True` with no creation cap — keep
+			// spawning children until u falls on an existing index.
 			for {
 				// Rebuild subIndices (indices not yet in newOrder, in order).
 				subIndices := make([]int, 0)
@@ -2252,35 +2239,12 @@ func (t *TSSB) resampleStickOrders(rng *rand.Rand) {
 				}
 
 				if index == len(subIndices) {
-					// Fell into uncreated region - create new child
-					creations++
-					if creations > maxCreations {
-						// Too many creations - force pick from existing
-						if len(subIndices) > 0 {
-							// Pick the first represented one, or first available
-							picked := -1
-							for _, si := range subIndices {
-								if represented[si] {
-									picked = si
-									break
-								}
-							}
-							if picked == -1 && len(subIndices) > 0 {
-								picked = subIndices[0]
-							}
-							if picked >= 0 {
-								newOrder = append(newOrder, picked)
-								delete(represented, picked)
-							}
-						}
-						break
-					}
-
+					// Fell into leftover region — create new child
+					// (matches Python's unbounded inner while True)
 					newStick := boundBeta(1, t.DPGamma, rng)
 					root.Sticks = append(root.Sticks, newStick)
 					newChild := t.spawnChild(root, depth, rng)
 					root.Children = append(root.Children, newChild)
-					t.Trace.SpawnsInStickOrders++
 
 					// Recompute weights
 					edges = sticksToEdges(root.Sticks)
@@ -2349,46 +2313,21 @@ func (t *TSSB) findOrCreateNode(u float64, rng *rand.Rand) (*Node, []int) {
 		u = (u - root.Main) / (1.0 - root.Main)
 
 		if depth > 0 {
-			// Create children as needed until u falls within existing stick space
-			// Safeguard: limit number of children to prevent infinite loops
-			maxChildCreations := 20
-			creations := 0
-			for {
-				if len(root.Children) == 0 {
-					// No children yet - create first one
-					newStick := boundBeta(1, t.DPGamma, rng)
-					root.Sticks = append(root.Sticks, newStick)
-					newChild := t.spawnChild(root, depth, rng)
-					root.Children = append(root.Children, newChild)
-					t.Trace.SpawnsInFindNode++
-					creations++
-				}
-
-				// Compute edge = 1 - prod(1 - sticks)
+			// Create children as needed until u falls within existing stick space.
+			// Python's find_node uses an unbounded while loop here:
+			//   while not root['children'] or (1.0 - prod(1.0 - root['sticks'])) < u:
+			// We match that exactly — no cap on child creations.
+			for len(root.Children) == 0 || func() bool {
 				prod := 1.0
 				for _, s := range root.Sticks {
 					prod *= (1.0 - s)
 				}
-				edge := 1.0 - prod
-
-				if u < edge {
-					break // u falls within existing sticks
-				}
-				if creations >= maxChildCreations {
-					// Cap fired before u fit: descent will proceed with u > max(edges).
-					// This is a Python-fidelity divergence; we count it for Phase 3
-					// evidence gathering. Behavior is unchanged by this counter.
-					t.Trace.CapHitsFindNode++
-					break
-				}
-
-				// u falls beyond existing sticks - create new child
+				return (1.0 - prod) < u
+			}() {
 				newStick := boundBeta(1, t.DPGamma, rng)
 				root.Sticks = append(root.Sticks, newStick)
 				newChild := t.spawnChild(root, depth, rng)
 				root.Children = append(root.Children, newChild)
-				t.Trace.SpawnsInFindNode++
-				creations++
 			}
 
 			// Find which child u falls into
@@ -2473,7 +2412,8 @@ func (t *TSSB) resampleHypers(rng *rand.Rand) {
 	llhSlice := math.Log(rng.Float64()) + t.dpAlphaLLH(t.DPAlpha)
 	lower := minDPAlpha
 	upper := maxDPAlpha
-	for iter := 0; iter < 100; iter++ {
+	// Unbounded slice sampler matching Python's `while True`
+	for {
 		newAlpha := (upper-lower)*rng.Float64() + lower
 		newLLH := t.dpAlphaLLH(newAlpha)
 		if newLLH > llhSlice {
@@ -2493,7 +2433,7 @@ func (t *TSSB) resampleHypers(rng *rand.Rand) {
 	llhSlice = math.Log(rng.Float64()) + t.dpAlphaLLH(t.DPAlpha)
 	lower = minDecay
 	upper = maxDecay
-	for iter := 0; iter < 100; iter++ {
+	for {
 		newDecay := (upper-lower)*rng.Float64() + lower
 		oldDecay := t.AlphaDecay
 		t.AlphaDecay = newDecay
@@ -2531,7 +2471,8 @@ func (t *TSSB) resampleHypers(rng *rand.Rand) {
 	llhSlice = math.Log(rng.Float64()) + dpGammaLLH(t.DPGamma)
 	lower = minDPGamma
 	upper = maxDPGamma
-	for iter := 0; iter < 100; iter++ {
+	// Unbounded slice sampler matching Python's `while True`
+	for {
 		newGamma := (upper-lower)*rng.Float64() + lower
 		newLLH := dpGammaLLH(newGamma)
 		if newLLH > llhSlice {
@@ -2550,29 +2491,9 @@ func (t *TSSB) resampleHypers(rng *rand.Rand) {
 // MCMC Chain
 // ============================================================================
 
-func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters int, seed int64, traceFile string) ChainResult {
+func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters int, seed int64) ChainResult {
 	start := time.Now()
 	rng := rand.New(rand.NewSource(seed))
-
-	// Optional per-iteration trace (Round 2 diagnostics).
-	// When traceFile is empty, no file is opened and no trace records are
-	// emitted. When non-empty, one NDJSON object is written per MCMC iter
-	// (burnin + samples) matching the schema in docs/plans/round2_trace_design.md.
-	var traceW *bufio.Writer
-	var traceFH *os.File
-	if traceFile != "" {
-		fh, err := os.Create(traceFile)
-		if err != nil {
-			log.Printf("Chain %d: failed to create trace file %s: %v", chainID, traceFile, err)
-		} else {
-			traceFH = fh
-			traceW = bufio.NewWriter(fh)
-			defer func() {
-				traceW.Flush()
-				traceFH.Close()
-			}()
-		}
-	}
 
 	// Deep copy CNVs for this chain.
 	// CNV.Node is written on every MCMC iteration (resampleAssignments). All
@@ -2640,10 +2561,7 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 		// MCMC iteration
 		tssb.resampleAssignments(rng)
 
-		// Measure tree size before/after cullTree for the optional trace.
-		kBeforeCull := countAllNodes(tssb.Root)
 		tssb.cullTree()
-		kAfterCull := countAllNodes(tssb.Root)
 
 		// Pre-compute tree metadata for MH
 		tssb.setNodeHeights()
@@ -2683,41 +2601,14 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 		// Compute likelihood
 		llh := tssb.completeDataLogLikelihood()
 
-		// Emit optional trace record for this iter (Round 2 diagnostics).
-		if traceW != nil {
-			rec := map[string]interface{}{
-				"iter":                   iter + burnin,
-				"chain":                  chainID,
-				"K_before_cull":          kBeforeCull,
-				"K_after_cull":           kAfterCull,
-				"spawns_in_find_node":    tssb.Trace.SpawnsInFindNode,
-				"spawns_in_stick_orders": tssb.Trace.SpawnsInStickOrders,
-				"cap_hits_find_node":     tssb.Trace.CapHitsFindNode,
-				"kills_in_cull":          kBeforeCull - kAfterCull,
-				"dp_alpha":               tssb.DPAlpha,
-				"dp_gamma":               tssb.DPGamma,
-				"alpha_decay":            tssb.AlphaDecay,
-				"best_llh_this_iter":     llh,
-			}
-			if b, err := json.Marshal(rec); err == nil {
-				traceW.Write(b)
-				traceW.WriteByte('\n')
-			}
-			// Reset per-iter counters for next iteration.
-			tssb.Trace.SpawnsInFindNode = 0
-			tssb.Trace.SpawnsInStickOrders = 0
-			tssb.Trace.CapHitsFindNode = 0
-		}
-
 		if iter < 0 {
 			burninLLH = append(burninLLH, llh)
 		} else {
 			sampleLLH = append(sampleLLH, llh)
 			_, nodes := tssb.getMixture()
 			// Capture a full tree snapshot for the posterior output file.
-			// snapshotTree does not call removeEmptyNodes so the live tree is
-			// unaffected; cullTree + resampleStickOrders already maintain a
-			// reasonably clean tree during the run.
+			// snapshotTree calls postProcessSummary to filter empty pops
+			// from the JSON output without modifying the live TSSB tree.
 			snap := snapshotTree(tssb, llh, iter, chainID)
 			trees = append(trees, TreeSample{
 				Iteration: iter,
@@ -3108,13 +2999,172 @@ func summarizePops(tssb *TSSB, llh float64, chainID int) map[string]interface{} 
 	}
 }
 
+// postProcessSummary filters empty populations from the JSON-level summary
+// returned by summarizePops, reparents their children, and renumbers all
+// population IDs to be contiguous starting from 0. This matches the combined
+// effect of Python's remove_empty_vertices=True (util2.py:128-155) applied
+// at the result_generator level (result_generator.py:39).
+//
+// Population "0" (the normal-cell root) is always kept even if empty.
+func postProcessSummary(summary map[string]interface{}) map[string]interface{} {
+	popsRaw := summary["populations"].(map[string]interface{})
+	structRaw := summary["structure"].(map[string]interface{})
+	mutAssRaw := summary["mut_assignments"].(map[string]interface{})
+
+	// Find max pop index
+	maxIdx := 0
+	for k := range popsRaw {
+		idx, _ := strconv.Atoi(k)
+		if idx > maxIdx {
+			maxIdx = idx
+		}
+	}
+
+	// Identify empty populations (except root "0")
+	emptySet := make(map[int]bool)
+	for k, v := range popsRaw {
+		idx, _ := strconv.Atoi(k)
+		if idx == 0 {
+			continue // Always keep root
+		}
+		pop := v.(map[string]interface{})
+		numSSMs := pop["num_ssms"].(float64)
+		numCNVs := pop["num_cnvs"].(float64)
+		if numSSMs == 0 && numCNVs == 0 {
+			emptySet[idx] = true
+		}
+	}
+
+	if len(emptySet) == 0 {
+		// Nothing to remove — return as-is
+		return summary
+	}
+
+	// Build parent map from structure
+	parentOf := make(map[int]int)
+	childrenOf := make(map[int][]int)
+	for k, v := range structRaw {
+		parentIdx, _ := strconv.Atoi(k)
+		kids := v.([]interface{})
+		for _, kid := range kids {
+			childIdx := int(kid.(float64))
+			parentOf[childIdx] = parentIdx
+			childrenOf[parentIdx] = append(childrenOf[parentIdx], childIdx)
+		}
+	}
+
+	// Remove empty nodes from structure: reparent children to grandparent.
+	// Process in reverse order (leaves first) to handle chains of empty nodes.
+	for idx := maxIdx; idx >= 1; idx-- {
+		if !emptySet[idx] {
+			continue
+		}
+		parent, hasParent := parentOf[idx]
+		if !hasParent {
+			continue
+		}
+		// Remove idx from parent's children
+		newKids := []int{}
+		for _, k := range childrenOf[parent] {
+			if k != idx {
+				newKids = append(newKids, k)
+			}
+		}
+		// Reparent idx's children to parent
+		for _, grandchild := range childrenOf[idx] {
+			newKids = append(newKids, grandchild)
+			parentOf[grandchild] = parent
+		}
+		childrenOf[parent] = newKids
+		delete(childrenOf, idx)
+	}
+
+	// Build renumbering map (contiguous IDs, skipping removed nodes)
+	renumber := make(map[int]int) // old → new
+	newIdx := 0
+	for idx := 0; idx <= maxIdx; idx++ {
+		if emptySet[idx] {
+			continue
+		}
+		if _, exists := popsRaw[strconv.Itoa(idx)]; !exists {
+			continue
+		}
+		renumber[idx] = newIdx
+		newIdx++
+	}
+
+	// Build new populations
+	newPops := make(map[string]interface{})
+	for oldIdx, newIdx := range renumber {
+		newPops[strconv.Itoa(newIdx)] = popsRaw[strconv.Itoa(oldIdx)]
+	}
+
+	// Build new structure
+	newStruct := make(map[string]interface{})
+	for parentIdx, kids := range childrenOf {
+		if emptySet[parentIdx] {
+			continue
+		}
+		newParent, ok := renumber[parentIdx]
+		if !ok {
+			continue
+		}
+		// Renumber and filter children
+		newKids := []interface{}{}
+		for _, kid := range kids {
+			if emptySet[kid] {
+				continue // shouldn't happen after reparenting, but safety
+			}
+			if newKidIdx, ok := renumber[kid]; ok {
+				newKids = append(newKids, float64(newKidIdx))
+			}
+		}
+		if len(newKids) > 0 {
+			newStruct[strconv.Itoa(newParent)] = newKids
+		}
+	}
+
+	// Build new mut_assignments
+	newMutAss := make(map[string]interface{})
+	for k, v := range mutAssRaw {
+		oldIdx, _ := strconv.Atoi(k)
+		if newIdx, ok := renumber[oldIdx]; ok {
+			newMutAss[strconv.Itoa(newIdx)] = v
+		}
+	}
+
+	// Count non-empty (non-root) populations
+	nonEmpty := 0
+	for k, v := range newPops {
+		if k == "0" {
+			continue
+		}
+		pop := v.(map[string]interface{})
+		if pop["num_ssms"].(float64) > 0 || pop["num_cnvs"].(float64) > 0 {
+			nonEmpty++
+		}
+	}
+
+	// Return new summary
+	result := make(map[string]interface{})
+	for k, v := range summary {
+		result[k] = v
+	}
+	result["populations"] = newPops
+	result["structure"] = newStruct
+	result["mut_assignments"] = newMutAss
+	result["num_populations"] = nonEmpty
+
+	return result
+}
+
 // snapshotTree encodes the current TSSB state as a JSON object suitable for
-// one line of an all_trees.ndjson file.  It calls summarizePops directly (no
-// removeEmptyNodes) because cullTree + resampleStickOrders have already run and
-// the tree is sufficiently clean mid-run.  removeEmptyNodes is a post-processing
-// step; skipping it here preserves the live tree for the next MCMC iteration.
+// one line of an all_trees.ndjson file. It calls summarizePops then
+// postProcessSummary to filter empty populations, matching Python's
+// tree_summaries.json.gz format. The live TSSB tree is not modified.
 func snapshotTree(tssb *TSSB, llh float64, iteration, chainID int) json.RawMessage {
 	summary := summarizePops(tssb, llh, chainID)
+	summary = postProcessSummary(summary)
 	// Stamp iteration into the snapshot so each line is self-contained
 	summary["iteration"] = iteration
 	data, err := json.Marshal(summary)
@@ -3140,7 +3190,6 @@ func main() {
 	seed := flag.Int64("r", 0, "Random seed (0 = use time)")
 	noGPU := flag.Bool("no-gpu", false, "Disable GPU acceleration")
 	cpuProfile := flag.String("cpuprofile", "", "Write CPU profile to file")
-	traceFile := flag.String("trace", "", "Write per-iteration NDJSON diagnostics to this file (single-chain only; with -j>1 each chain appends id suffix)")
 
 	flag.Parse()
 
@@ -3221,18 +3270,7 @@ func main() {
 		go func(chainID int) {
 			defer wg.Done()
 			chainSeed := *seed + int64(chainID)*1000
-			// Route each chain's trace output to a distinct file when -j>1 so
-			// concurrent writes don't collide. With a single chain, use the
-			// path the user gave verbatim.
-			chainTrace := ""
-			if *traceFile != "" {
-				if *chains == 1 {
-					chainTrace = *traceFile
-				} else {
-					chainTrace = fmt.Sprintf("%s.chain%d", *traceFile, chainID)
-				}
-			}
-			results[chainID] = runChain(chainID, ssms, cnvs, *burnin, *samples, *mhIters, chainSeed, chainTrace)
+			results[chainID] = runChain(chainID, ssms, cnvs, *burnin, *samples, *mhIters, chainSeed)
 		}(i)
 	}
 
