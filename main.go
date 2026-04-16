@@ -3164,10 +3164,23 @@ func postProcessSummary(summary map[string]interface{}) map[string]interface{} {
 // tree_summaries.json.gz format. The live TSSB tree is not modified.
 func snapshotTree(tssb *TSSB, llh float64, iteration, chainID int) json.RawMessage {
 	summary := summarizePops(tssb, llh, chainID)
-	summary = postProcessSummary(summary)
+
+	// Round-trip through JSON so postProcessSummary receives uniform
+	// map[string]interface{} types rather than the concrete Go structs
+	// (popSummary, mutAssignment, []int) that summarizePops uses.
+	raw, err := json.Marshal(summary)
+	if err != nil {
+		return nil
+	}
+	var generic map[string]interface{}
+	if err := json.Unmarshal(raw, &generic); err != nil {
+		return nil
+	}
+
+	generic = postProcessSummary(generic)
 	// Stamp iteration into the snapshot so each line is self-contained
-	summary["iteration"] = iteration
-	data, err := json.Marshal(summary)
+	generic["iteration"] = iteration
+	data, err := json.Marshal(generic)
 	if err != nil {
 		// This should not happen; summarizePops only uses serializable types.
 		// Return nil so the caller skips this snapshot rather than crashing.
