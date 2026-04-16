@@ -8,7 +8,7 @@
 #
 # Jobs are submitted as Slurm array jobs grouped by M-tier:
 #   - Each tier gets its own wall time (derived from P95 × 2.33 × 1.05 safety)
-#   - Tiers under 2h are submitted to cmobic_preemptable to reduce fairshare
+#   - Tiers under 2h are submitted to cmobic_preempt to reduce fairshare
 #   - Longer tiers go to cmobic_cpu (or --partition override)
 #
 # Usage:
@@ -22,7 +22,7 @@
 #   --chains N          Parallel chains for Go (default: 8)
 #   --mem MB            Memory in MB (default: 8000)
 #   --partition NAME    SLURM partition for long jobs (default: cmobic_cpu)
-#   --preempt NAME      SLURM partition for short jobs (default: cmobic_preemptable)
+#   --preempt NAME      SLURM partition for short jobs (default: cmobic_preempt)
 #   --preempt-cutoff S  Max seconds for preemptable (default: 7200 = 2h)
 #   --go-only           Only run Go port (skip original Python)
 #   --dry-run           Print jobs without submitting
@@ -35,7 +35,7 @@ SAMPLES=2500
 CHAINS=8
 MEM_MB=8000
 PARTITION="cmobic_cpu"
-PREEMPT_PARTITION="cmobic_preemptable"
+PREEMPT_PARTITION="cmobic_preempt"
 PREEMPT_CUTOFF=7200   # 2 hours in seconds
 DRY_RUN=false
 GO_ONLY=false
