@@ -99,6 +99,11 @@ echo "[go] Building phylowgs-go (CPU)"
 mkdir -p "$WORKDIR/bin"
 cd "$GO_SRC"
 source "$WORKDIR/env.sh" 2>/dev/null || true
+# Ensure the installed Go is on PATH (env.sh sourcing may fail silently)
+if [[ -x "$GO_INSTALL_DIR/go/bin/go" ]]; then
+    export PATH="$GO_INSTALL_DIR/go/bin:$PATH"
+fi
+echo "[go] Using: $(go version)"
 go build -o "$WORKDIR/bin/phylowgs-go" . 2>&1
 echo "[go] Built: $(ls -lh "$WORKDIR/bin/phylowgs-go" | awk '{print $5}')"
 
