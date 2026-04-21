@@ -24,6 +24,8 @@
 #   --partition NAME    SLURM partition for long jobs (default: cmobic_cpu)
 #   --preempt NAME      SLURM partition for short jobs (default: cmobic_preempt)
 #   --preempt-cutoff S  Max seconds for preemptable (default: 7200 = 2h)
+#   --bind-paths PATHS  Singularity --bind paths (default: auto-detect from workdir)
+#   --phylowgs-dir DIR  Path to evolve.py inside container (default: /opt/phylowgs)
 #   --go-only           Only run Go port (skip original Python)
 #   --dry-run           Print jobs without submitting
 
@@ -40,6 +42,8 @@ PREEMPT_CUTOFF=7200   # 2 hours in seconds
 DRY_RUN=false
 GO_ONLY=false
 PHYLOWGS_SIF=""
+BIND_PATHS=""
+PHYLOWGS_DIR="/usr/bin/phylowgs"
 
 # ── Wall-time tiers based on mutation count (M) ─────────────────────────────
 # Derived from P95 of observed runtimes at B=500/s=1000, scaled by 2.33×
@@ -82,6 +86,8 @@ while [[ $# -gt 0 ]]; do
         --partition)      PARTITION="$2";         shift 2 ;;
         --preempt)        PREEMPT_PARTITION="$2"; shift 2 ;;
         --preempt-cutoff) PREEMPT_CUTOFF="$2";    shift 2 ;;
+        --bind-paths)     BIND_PATHS="$2";        shift 2 ;;
+        --phylowgs-dir)   PHYLOWGS_DIR="$2";      shift 2 ;;
         --go-only)        GO_ONLY=true;           shift ;;
         --dry-run)        DRY_RUN=true;           shift ;;
         *) echo "Unknown arg: $1"; exit 1 ;;
@@ -111,6 +117,22 @@ fi
 if [[ "$GO_ONLY" == false ]]; then
     [[ ! -f "$PHYLOWGS_SIF" ]] && { echo "SIF not found: $PHYLOWGS_SIF"; exit 1; }
     echo "SIF image: $PHYLOWGS_SIF"
+    echo "PhyloWGS dir (in container): $PHYLOWGS_DIR"
+fi
+
+# Auto-detect bind paths from workdir if not specified
+if [[ -z "$BIND_PATHS" ]]; then
+    # Bind the top-level mount of the workdir (e.g. /scratch, /data1, /juno)
+    _top_mount=$(echo "$WORKDIR" | cut -d/ -f1-2)
+    BIND_PATHS="$_top_mount"
+    # Also bind the SIF parent if it's on a different mount
+    if [[ "$GO_ONLY" == false ]]; then
+        _sif_mount=$(echo "$(readlink -f "$PHYLOWGS_SIF")" | cut -d/ -f1-2)
+        if [[ "$_sif_mount" != "$_top_mount" ]]; then
+            BIND_PATHS="${BIND_PATHS},${_sif_mount}"
+        fi
+    fi
+    echo "Bind paths (auto): $BIND_PATHS"
 fi
 
 FIXTURES_DIR="$WORKDIR/fixtures"
@@ -335,15 +357,15 @@ echo "START: $(date) | impl=original-python | fixture=$FIXTURE_NAME | host=$(hos
 START=$(date +%s)
 
 cd "$RESULT_DIR"
-singularity exec --bind /data1,WORKDIR_PLACEHOLDER "SIF_PLACEHOLDER" \
-    python2 /usr/bin/phylowgs/evolve.py \
+singularity exec --bind BIND_PLACEHOLDER "SIF_PLACEHOLDER" \
+    python2 PHYLOWGSDIR_PLACEHOLDER/evolve.py \
     -B BURNIN_PLACEHOLDER -s SAMPLES_PLACEHOLDER \
     "$FIXTURE_DIR/ssm_data.txt" \
     "$FIXTURE_DIR/cnv_data.txt"
 
 if [[ -f "$RESULT_DIR/trees.zip" ]]; then
-    singularity exec --bind /data1,WORKDIR_PLACEHOLDER "SIF_PLACEHOLDER" \
-        python2 /usr/bin/phylowgs/write_results.py \
+    singularity exec --bind BIND_PLACEHOLDER "SIF_PLACEHOLDER" \
+        python2 PHYLOWGSDIR_PLACEHOLDER/write_results.py \
         "$FIXTURE_NAME" \
         "$RESULT_DIR/trees.zip" \
         "$RESULT_DIR/tree_summaries.json.gz" \
@@ -365,6 +387,8 @@ HEREDOC_END
         PY_SCRIPT="${PY_SCRIPT//FIXTURES_DIR_PLACEHOLDER/$FIXTURES_DIR}"
         PY_SCRIPT="${PY_SCRIPT//RESULTS_DIR_PLACEHOLDER/$RESULTS_DIR}"
         PY_SCRIPT="${PY_SCRIPT//SIF_PLACEHOLDER/$PHYLOWGS_SIF}"
+        PY_SCRIPT="${PY_SCRIPT//BIND_PLACEHOLDER/$BIND_PATHS}"
+        PY_SCRIPT="${PY_SCRIPT//PHYLOWGSDIR_PLACEHOLDER/$PHYLOWGS_DIR}"
         PY_SCRIPT="${PY_SCRIPT//BURNIN_PLACEHOLDER/$BURNIN}"
         PY_SCRIPT="${PY_SCRIPT//SAMPLES_PLACEHOLDER/$SAMPLES}"
 

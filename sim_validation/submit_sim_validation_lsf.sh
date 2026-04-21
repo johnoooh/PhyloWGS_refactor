@@ -37,6 +37,8 @@ QUEUE="general"
 DRY_RUN=false
 GO_ONLY=false
 PHYLOWGS_SIF=""
+BIND_PATHS=""
+PHYLOWGS_DIR="/usr/bin/phylowgs"
 
 # ── Wall-time tiers based on mutation count (M) ─────────────────────────────
 # Derived from P95 of observed runtimes at B=500/s=1000, scaled by 2.33×
@@ -78,9 +80,11 @@ while [[ $# -gt 0 ]]; do
         --samples)    SAMPLES="$2";       shift 2 ;;
         --chains)     CHAINS="$2";        shift 2 ;;
         --mem)        MEM_GB="$2";        shift 2 ;;
-        --queue)      QUEUE="$2";         shift 2 ;;
-        --go-only)    GO_ONLY=true;       shift ;;
-        --dry-run)    DRY_RUN=true;       shift ;;
+        --queue)          QUEUE="$2";         shift 2 ;;
+        --bind-paths)     BIND_PATHS="$2";    shift 2 ;;
+        --phylowgs-dir)   PHYLOWGS_DIR="$2";  shift 2 ;;
+        --go-only)        GO_ONLY=true;       shift ;;
+        --dry-run)        DRY_RUN=true;       shift ;;
         *) echo "Unknown arg: $1"; exit 1 ;;
     esac
 done
@@ -108,6 +112,20 @@ fi
 if [[ "$GO_ONLY" == false ]]; then
     [[ ! -f "$PHYLOWGS_SIF" ]] && { echo "SIF not found: $PHYLOWGS_SIF"; exit 1; }
     echo "SIF image: $PHYLOWGS_SIF"
+    echo "PhyloWGS dir (in container): $PHYLOWGS_DIR"
+fi
+
+# Auto-detect bind paths from workdir if not specified
+if [[ -z "$BIND_PATHS" ]]; then
+    _top_mount=$(echo "$WORKDIR" | cut -d/ -f1-2)
+    BIND_PATHS="$_top_mount"
+    if [[ "$GO_ONLY" == false ]]; then
+        _sif_mount=$(echo "$(readlink -f "$PHYLOWGS_SIF")" | cut -d/ -f1-2)
+        if [[ "$_sif_mount" != "$_top_mount" ]]; then
+            BIND_PATHS="${BIND_PATHS},${_sif_mount}"
+        fi
+    fi
+    echo "Bind paths (auto): $BIND_PATHS"
 fi
 
 FIXTURES_DIR="$WORKDIR/fixtures"
@@ -317,15 +335,15 @@ echo "START: \$(date) | impl=original-python | fixture=\$FIXTURE_NAME | host=\$(
 START=\$(date +%s)
 
 cd "\$RESULT_DIR"
-singularity exec --bind /data1,$WORKDIR "$PHYLOWGS_SIF" \\
-    python2 /usr/bin/phylowgs/evolve.py \\
+singularity exec --bind $BIND_PATHS "$PHYLOWGS_SIF" \\
+    python2 $PHYLOWGS_DIR/evolve.py \\
     -B $BURNIN -s $SAMPLES \\
     "\$FIXTURE_DIR/ssm_data.txt" \\
     "\$FIXTURE_DIR/cnv_data.txt"
 
 if [[ -f "\$RESULT_DIR/trees.zip" ]]; then
-    singularity exec --bind /data1,$WORKDIR "$PHYLOWGS_SIF" \\
-        python2 /usr/bin/phylowgs/write_results.py \\
+    singularity exec --bind $BIND_PATHS "$PHYLOWGS_SIF" \\
+        python2 $PHYLOWGS_DIR/write_results.py \\
         "\$FIXTURE_NAME" \\
         "\$RESULT_DIR/trees.zip" \\
         "\$RESULT_DIR/tree_summaries.json.gz" \\
