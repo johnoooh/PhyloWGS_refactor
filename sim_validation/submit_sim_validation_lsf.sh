@@ -41,31 +41,32 @@ PHYLOWGS_SIF=""
 # ── Wall-time tiers based on mutation count (M) ─────────────────────────────
 # Derived from P95 of observed runtimes at B=500/s=1000, scaled by 2.33×
 # (for new B=1000/s=2500) with 1.05× safety margin, rounded up to 15 min.
+# Then doubled for LSF server (slower I/O than Slurm cluster).
 # Python tiers include +20 min headroom for write_results.py post-processing.
 #
 # Returns: "HH:MM SECONDS" (two space-separated tokens)
 # Note: LSF -W uses HH:MM format (no seconds).
 get_go_tier() {
     local m_val
-    if [[ "$1" =~ _M([0-9]+)_ ]]; then m_val="${BASH_REMATCH[1]}"; else echo "8:15 29700"; return; fi
-    if   (( m_val <= 30 ));  then echo "0:30 1800"
-    elif (( m_val <= 50 ));  then echo "0:45 2700"
-    elif (( m_val <= 100 )); then echo "1:15 4500"
-    elif (( m_val <= 150 )); then echo "4:30 16200"
-    elif (( m_val <= 250 )); then echo "8:15 29700"
-    else                          echo "7:45 27900"
+    if [[ "$1" =~ _M([0-9]+)_ ]]; then m_val="${BASH_REMATCH[1]}"; else echo "16:30 59400"; return; fi
+    if   (( m_val <= 30 ));  then echo "1:00 3600"
+    elif (( m_val <= 50 ));  then echo "1:30 5400"
+    elif (( m_val <= 100 )); then echo "2:30 9000"
+    elif (( m_val <= 150 )); then echo "9:00 32400"
+    elif (( m_val <= 250 )); then echo "16:30 59400"
+    else                          echo "15:30 55800"
     fi
 }
 
 get_py_tier() {
     local m_val
-    if [[ "$1" =~ _M([0-9]+)_ ]]; then m_val="${BASH_REMATCH[1]}"; else echo "8:45 31500"; return; fi
-    if   (( m_val <= 30 ));  then echo "1:15 4500"
-    elif (( m_val <= 50 ));  then echo "2:45 9900"
-    elif (( m_val <= 100 )); then echo "5:30 19800"
-    elif (( m_val <= 150 )); then echo "6:15 22500"
-    elif (( m_val <= 250 )); then echo "7:00 25200"
-    else                          echo "8:45 31500"
+    if [[ "$1" =~ _M([0-9]+)_ ]]; then m_val="${BASH_REMATCH[1]}"; else echo "17:30 63000"; return; fi
+    if   (( m_val <= 30 ));  then echo "2:30 9000"
+    elif (( m_val <= 50 ));  then echo "5:30 19800"
+    elif (( m_val <= 100 )); then echo "11:00 39600"
+    elif (( m_val <= 150 )); then echo "12:30 45000"
+    elif (( m_val <= 250 )); then echo "14:00 50400"
+    else                          echo "17:30 63000"
     fi
 }
 
