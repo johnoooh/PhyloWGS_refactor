@@ -159,9 +159,9 @@ group_fixtures() {
     local skip_file="$3"     # file to check for skip (e.g., "summary.json")
     local skip_file2="${4:-}" # optional second skip file
     local prefix="$5"        # file prefix: "go" or "py"
-    local -n _COUNTS="$6"
-    local -n _TIMES="$7"
-    local -n _PARTS="$8"
+    # $6 = assoc-array name for counts, $7 = times, $8 = parts
+    # Using eval instead of nameref (local -n) for Bash 4.2 compat.
+    local _c_name="$6" _t_name="$7" _p_name="$8"
 
     for name in "${FIXTURE_NAMES[@]}"; do
         result_dir="$RESULTS_DIR/${impl}/$name"
@@ -186,14 +186,18 @@ group_fixtures() {
         fi
 
         tier_file="$ARRAY_DIR/${prefix}_fixtures_${tier_key}.txt"
-        if [[ -z "${_COUNTS[$tier_key]+x}" ]]; then
+        local _existing
+        eval "_existing=\${${_c_name}[\$tier_key]+x}"
+        if [[ -z "$_existing" ]]; then
             > "$tier_file"
-            _COUNTS[$tier_key]=0
-            _TIMES[$tier_key]="$tier_time"
-            _PARTS[$tier_key]="$part"
+            eval "${_c_name}[\$tier_key]=0"
+            eval "${_t_name}[\$tier_key]=\$tier_time"
+            eval "${_p_name}[\$tier_key]=\$part"
         fi
         echo "$name" >> "$tier_file"
-        _COUNTS[$tier_key]=$(( ${_COUNTS[$tier_key]} + 1 ))
+        local _cur
+        eval "_cur=\${${_c_name}[\$tier_key]}"
+        eval "${_c_name}[\$tier_key]=$(( _cur + 1 ))"
     done
 }
 
