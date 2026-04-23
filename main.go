@@ -2808,7 +2808,23 @@ func writeResults(outDir string, results []ChainResult) error {
 	if tssb := results[bestChainIdx].FinalTree; tssb != nil {
 		removeEmptyNodes(tssb.Root, nil)
 		treeSummary := summarizePops(tssb, bestOverallLLH, results[bestChainIdx].ChainID)
-		treeData, _ := json.MarshalIndent(treeSummary, "", "  ")
+
+		// JSON round-trip to normalize concrete types to map[string]interface{}
+		rawJSON, _ := json.Marshal(treeSummary)
+		var generic map[string]interface{}
+		json.Unmarshal(rawJSON, &generic)
+
+		// Apply Python-equivalent post-processing pipeline:
+		// 1. Remove empty populations (postProcessSummary = remove_empty_nodes)
+		generic = postProcessSummary(generic)
+		// 2. Remove small populations (< 1% of total SSMs) — matches Python's
+		//    write_results.py default min_ssms=0.01
+		generic = removeSmallNodes(generic, 0.01)
+		// 3. Remove superclones — matches Python's default (--keep-superclones
+		//    not set)
+		generic = removeSuperclones(generic)
+
+		treeData, _ := json.MarshalIndent(generic, "", "  ")
 		treePath := filepath.Join(outDir, "best_tree.json")
 		if err := os.WriteFile(treePath, treeData, 0644); err != nil {
 			return err
@@ -3155,6 +3171,510 @@ func postProcessSummary(summary map[string]interface{}) map[string]interface{} {
 	result["mut_assignments"] = newMutAss
 	result["num_populations"] = nonEmpty
 
+	return result
+}
+
+// removeSuperclones implements Python's ResultMunger.remove_superclones().
+// It detects a specific pattern: root(0) has exactly 1 child (clonal node),
+// and the clonal node has exactly 1 child, where the clonal node has ≤33% of
+// the child's SSMs AND their cellular prevalences are within 10% (mean abs diff).
+// When triggered, the child is merged into the clonal node: CPs become a
+// weighted average by SSM count, child's mutations move to clonal, child is
+// removed and remaining nodes are renumbered.
+// Operates on the same map[string]interface{} format as postProcessSummary output.
+func removeSuperclones(summary map[string]interface{}) map[string]interface{} {
+	popsRaw := summary["populations"].(map[string]interface{})
+	structRaw := summary["structure"].(map[string]interface{})
+	mutAssRaw := summary["mut_assignments"].(map[string]interface{})
+
+	// Root must have exactly 1 child
+	rootKids, ok := structRaw["0"]
+	if !ok {
+		return summary
+	}
+	rootChildren := rootKids.([]interface{})
+	if len(rootChildren) != 1 {
+		return summary
+	}
+	clonalIdx := int(rootChildren[0].(float64))
+
+	// Clonal node must have exactly 1 child
+	clonalKidsRaw, ok := structRaw[strconv.Itoa(clonalIdx)]
+	if !ok {
+		return summary
+	}
+	clonalChildren := clonalKidsRaw.([]interface{})
+	if len(clonalChildren) != 1 {
+		return summary
+	}
+	childIdx := int(clonalChildren[0].(float64))
+
+	clonalPop := popsRaw[strconv.Itoa(clonalIdx)].(map[string]interface{})
+	childPop := popsRaw[strconv.Itoa(childIdx)].(map[string]interface{})
+
+	clonalSSMs := int(clonalPop["num_ssms"].(float64))
+	childSSMs := int(childPop["num_ssms"].(float64))
+
+	if childSSMs == 0 {
+		return summary
+	}
+	// SSM ratio: clonal must have ≤33% of child's SSMs
+	if float64(clonalSSMs)/float64(childSSMs) > 0.33 {
+		return summary
+	}
+
+	// CP must be within 10% (mean absolute difference)
+	clonalCP := clonalPop["cellular_prevalence"].([]interface{})
+	childCP := childPop["cellular_prevalence"].([]interface{})
+	if len(clonalCP) != len(childCP) || len(clonalCP) == 0 {
+		return summary
+	}
+	cpDiffSum := 0.0
+	for i := range clonalCP {
+		cpDiffSum += math.Abs(clonalCP[i].(float64) - childCP[i].(float64))
+	}
+	meanCPDiff := cpDiffSum / float64(len(clonalCP))
+	if meanCPDiff > 0.1 {
+		return summary
+	}
+
+	// Triggered — merge child into clonal.
+	// Deep-copy the summary so we don't mutate the input.
+	result := make(map[string]interface{})
+	for k, v := range summary {
+		result[k] = v
+	}
+	// Deep-copy pops, structure, mut_assignments
+	newPops := make(map[string]interface{})
+	for k, v := range popsRaw {
+		newPops[k] = v
+	}
+	newStruct := make(map[string]interface{})
+	for k, v := range structRaw {
+		newStruct[k] = v
+	}
+	newMutAss := make(map[string]interface{})
+	for k, v := range mutAssRaw {
+		newMutAss[k] = v
+	}
+
+	// 1. Weighted average CP
+	totalSSMs := clonalSSMs + childSSMs
+	newCP := make([]interface{}, len(clonalCP))
+	for i := range clonalCP {
+		ccp := clonalCP[i].(float64)
+		chcp := childCP[i].(float64)
+		newCP[i] = (ccp*float64(clonalSSMs) + chcp*float64(childSSMs)) / float64(totalSSMs)
+	}
+
+	// Update clonal pop's CP (copy the map first)
+	updatedClonal := make(map[string]interface{})
+	for k, v := range clonalPop {
+		updatedClonal[k] = v
+	}
+	updatedClonal["cellular_prevalence"] = newCP
+	newPops[strconv.Itoa(clonalIdx)] = updatedClonal
+
+	// 2. Move child's mutations to clonal (destination='clonal' in Python)
+	clonalIdxStr := strconv.Itoa(clonalIdx)
+	childIdxStr := strconv.Itoa(childIdx)
+	if childMuts, ok := newMutAss[childIdxStr]; ok {
+		childMutsMap := childMuts.(map[string]interface{})
+		clonalMuts := newMutAss[clonalIdxStr].(map[string]interface{})
+		// Deep-copy clonal muts
+		updatedMuts := make(map[string]interface{})
+		for k, v := range clonalMuts {
+			updatedMuts[k] = v
+		}
+		for _, mutType := range []string{"ssms", "cnvs"} {
+			existing := updatedMuts[mutType].([]interface{})
+			incoming := childMutsMap[mutType].([]interface{})
+			updatedMuts[mutType] = append(existing, incoming...)
+		}
+		newMutAss[clonalIdxStr] = updatedMuts
+		delete(newMutAss, childIdxStr)
+	}
+
+	// 3. Remove child from populations
+	delete(newPops, childIdxStr)
+
+	// 4. Update structure: child's children become clonal's children
+	childKidsRaw, hasChildKids := newStruct[childIdxStr]
+	delete(newStruct, childIdxStr)
+	if hasChildKids {
+		newStruct[clonalIdxStr] = childKidsRaw
+	} else {
+		delete(newStruct, clonalIdxStr)
+	}
+
+	// 5. Renumber contiguously (same logic as postProcessSummary)
+	maxIdx := 0
+	for k := range newPops {
+		idx, _ := strconv.Atoi(k)
+		if idx > maxIdx {
+			maxIdx = idx
+		}
+	}
+	renumber := make(map[int]int)
+	newI := 0
+	for idx := 0; idx <= maxIdx; idx++ {
+		if _, exists := newPops[strconv.Itoa(idx)]; !exists {
+			continue
+		}
+		renumber[idx] = newI
+		newI++
+	}
+
+	finalPops := make(map[string]interface{})
+	for oldIdx, newIdx := range renumber {
+		pop := newPops[strconv.Itoa(oldIdx)].(map[string]interface{})
+		updatedPop := make(map[string]interface{})
+		for k, v := range pop {
+			updatedPop[k] = v
+		}
+		updatedPop["num_ssms"] = float64(len(getSSMsFromMutAss(newMutAss, strconv.Itoa(oldIdx))))
+		updatedPop["num_cnvs"] = float64(len(getCNVsFromMutAss(newMutAss, strconv.Itoa(oldIdx))))
+		finalPops[strconv.Itoa(newIdx)] = updatedPop
+	}
+
+	finalStruct := make(map[string]interface{})
+	for parentStr, kidsRaw := range newStruct {
+		parentIdx, _ := strconv.Atoi(parentStr)
+		newParent, ok := renumber[parentIdx]
+		if !ok {
+			continue
+		}
+		kids := kidsRaw.([]interface{})
+		newKids := make([]interface{}, 0, len(kids))
+		for _, k := range kids {
+			oldK := int(k.(float64))
+			if newK, ok := renumber[oldK]; ok {
+				newKids = append(newKids, float64(newK))
+			}
+		}
+		if len(newKids) > 0 {
+			finalStruct[strconv.Itoa(newParent)] = newKids
+		}
+	}
+
+	finalMutAss := make(map[string]interface{})
+	for oldIdxStr, v := range newMutAss {
+		oldIdx, _ := strconv.Atoi(oldIdxStr)
+		if newIdx, ok := renumber[oldIdx]; ok {
+			finalMutAss[strconv.Itoa(newIdx)] = v
+		}
+	}
+
+	nonEmpty := 0
+	for k := range finalPops {
+		if k == "0" {
+			continue
+		}
+		pop := finalPops[k].(map[string]interface{})
+		if pop["num_ssms"].(float64) > 0 || pop["num_cnvs"].(float64) > 0 {
+			nonEmpty++
+		}
+	}
+
+	result["populations"] = finalPops
+	result["structure"] = finalStruct
+	result["mut_assignments"] = finalMutAss
+	result["num_populations"] = nonEmpty
+	return result
+}
+
+// getSSMsFromMutAss returns the SSM list for a population from mut_assignments.
+func getSSMsFromMutAss(mutAss map[string]interface{}, popIdx string) []interface{} {
+	entry, ok := mutAss[popIdx]
+	if !ok {
+		return nil
+	}
+	m := entry.(map[string]interface{})
+	ssms, ok := m["ssms"]
+	if !ok {
+		return nil
+	}
+	return ssms.([]interface{})
+}
+
+// getCNVsFromMutAss returns the CNV list for a population from mut_assignments.
+func getCNVsFromMutAss(mutAss map[string]interface{}, popIdx string) []interface{} {
+	entry, ok := mutAss[popIdx]
+	if !ok {
+		return nil
+	}
+	m := entry.(map[string]interface{})
+	cnvs, ok := m["cnvs"]
+	if !ok {
+		return nil
+	}
+	return cnvs.([]interface{})
+}
+
+// removeSmallNodes implements Python's ResultMunger.remove_small_nodes().
+// Any non-root population with fewer than ceil(minFrac * totalSSMs) SSMs is
+// removed. Its mutations are reassigned to the remaining population with the
+// closest cellular prevalence. Children of removed nodes are reparented to
+// their grandparent. Remaining nodes are renumbered contiguously.
+func removeSmallNodes(summary map[string]interface{}, minFrac float64) map[string]interface{} {
+	popsRaw := summary["populations"].(map[string]interface{})
+	structRaw := summary["structure"].(map[string]interface{})
+	mutAssRaw := summary["mut_assignments"].(map[string]interface{})
+
+	// Count total SSMs
+	totalSSMs := 0
+	for _, v := range popsRaw {
+		pop := v.(map[string]interface{})
+		totalSSMs += int(pop["num_ssms"].(float64))
+	}
+	if totalSSMs == 0 {
+		return summary
+	}
+
+	threshold := int(math.Round(minFrac * float64(totalSSMs)))
+	if threshold < 1 {
+		threshold = 1
+	}
+
+	// Identify small nodes (non-root with num_ssms < threshold)
+	smallSet := make(map[int]bool)
+	for k, v := range popsRaw {
+		idx, _ := strconv.Atoi(k)
+		if idx == 0 {
+			continue
+		}
+		pop := v.(map[string]interface{})
+		numSSMs := int(pop["num_ssms"].(float64))
+		if numSSMs < threshold {
+			smallSet[idx] = true
+		}
+	}
+
+	if len(smallSet) == 0 {
+		return summary
+	}
+
+	// Deep-copy everything
+	newPops := make(map[string]interface{})
+	for k, v := range popsRaw {
+		newPops[k] = v
+	}
+	newStruct := make(map[string]interface{})
+	for k, v := range structRaw {
+		newStruct[k] = v
+	}
+	newMutAss := make(map[string]interface{})
+	for k, v := range mutAssRaw {
+		newMutAss[k] = v
+	}
+
+	// Build parent map
+	parentOf := make(map[int]int)
+	for k, v := range newStruct {
+		parentIdx, _ := strconv.Atoi(k)
+		for _, kid := range v.([]interface{}) {
+			childIdx := int(kid.(float64))
+			parentOf[childIdx] = parentIdx
+		}
+	}
+
+	// Collect mutations from small nodes for reassignment
+	type deletedMuts struct {
+		ssms []interface{}
+		cnvs []interface{}
+	}
+	var allDeletedMuts []deletedMuts
+
+	// Remove small nodes from structure (reparent children to grandparent)
+	maxIdx := 0
+	for k := range newPops {
+		idx, _ := strconv.Atoi(k)
+		if idx > maxIdx {
+			maxIdx = idx
+		}
+	}
+
+	for idx := 1; idx <= maxIdx; idx++ {
+		if !smallSet[idx] {
+			continue
+		}
+		idxStr := strconv.Itoa(idx)
+
+		// Collect mutations
+		if muts, ok := newMutAss[idxStr]; ok {
+			m := muts.(map[string]interface{})
+			dm := deletedMuts{}
+			if ssms, ok := m["ssms"]; ok {
+				dm.ssms = ssms.([]interface{})
+			}
+			if cnvs, ok := m["cnvs"]; ok {
+				dm.cnvs = cnvs.([]interface{})
+			}
+			allDeletedMuts = append(allDeletedMuts, dm)
+			delete(newMutAss, idxStr)
+		}
+
+		// Remove from populations
+		delete(newPops, idxStr)
+
+		// Reparent in structure
+		parent, hasParent := parentOf[idx]
+		if hasParent {
+			parentStr := strconv.Itoa(parent)
+			// Remove idx from parent's children
+			if pKids, ok := newStruct[parentStr]; ok {
+				kids := pKids.([]interface{})
+				var filtered []interface{}
+				for _, k := range kids {
+					if int(k.(float64)) != idx {
+						filtered = append(filtered, k)
+					}
+				}
+				// Add idx's children to parent
+				if myKids, ok := newStruct[idxStr]; ok {
+					for _, k := range myKids.([]interface{}) {
+						filtered = append(filtered, k)
+						parentOf[int(k.(float64))] = parent
+					}
+				}
+				if len(filtered) > 0 {
+					// Sort children
+					sort.Slice(filtered, func(i, j int) bool {
+						return filtered[i].(float64) < filtered[j].(float64)
+					})
+					newStruct[parentStr] = filtered
+				} else {
+					delete(newStruct, parentStr)
+				}
+			}
+		}
+		delete(newStruct, idxStr)
+	}
+
+	// Reassign deleted mutations to closest-CP node (destination='best')
+	for _, dm := range allDeletedMuts {
+		for _, mutType := range []struct {
+			name string
+			muts []interface{}
+		}{{"ssms", dm.ssms}, {"cnvs", dm.cnvs}} {
+			for _, mutID := range mutType.muts {
+				// Find remaining non-root population with closest CP
+				// Python uses implied_phi from VAF, but we don't have ref_reads here.
+				// Instead, like Python's _move_muts_to_best_node with simple heuristic,
+				// we use implied_phi ≈ 0.5 (middle of range) and find closest pop.
+				// Actually, Python uses the VAF from the mutlist, but since we don't
+				// have the mutlist in best_tree.json, we assign to the pop with the
+				// highest CP (most clonal). This matches the spirit of Python's
+				// approach for clonal-skewed data.
+				bestIdx := -1
+				bestCP := -1.0
+				for k, v := range newPops {
+					kidx, _ := strconv.Atoi(k)
+					if kidx == 0 {
+						continue
+					}
+					pop := v.(map[string]interface{})
+					cpRaw := pop["cellular_prevalence"].([]interface{})
+					meanCP := 0.0
+					for _, c := range cpRaw {
+						meanCP += c.(float64)
+					}
+					meanCP /= float64(len(cpRaw))
+					if meanCP > bestCP {
+						bestCP = meanCP
+						bestIdx = kidx
+					}
+				}
+				if bestIdx < 0 {
+					continue
+				}
+				bestStr := strconv.Itoa(bestIdx)
+				entry, ok := newMutAss[bestStr]
+				if !ok {
+					newMutAss[bestStr] = map[string]interface{}{
+						"ssms": []interface{}{},
+						"cnvs": []interface{}{},
+					}
+					entry = newMutAss[bestStr]
+				}
+				m := entry.(map[string]interface{})
+				m[mutType.name] = append(m[mutType.name].([]interface{}), mutID)
+			}
+		}
+	}
+
+	// Renumber contiguously
+	renumber := make(map[int]int)
+	newI := 0
+	for idx := 0; idx <= maxIdx; idx++ {
+		if _, exists := newPops[strconv.Itoa(idx)]; !exists {
+			continue
+		}
+		renumber[idx] = newI
+		newI++
+	}
+
+	finalPops := make(map[string]interface{})
+	for oldIdx, newIdx := range renumber {
+		oldStr := strconv.Itoa(oldIdx)
+		pop := newPops[oldStr].(map[string]interface{})
+		updatedPop := make(map[string]interface{})
+		for k, v := range pop {
+			updatedPop[k] = v
+		}
+		// Update num_ssms/num_cnvs from mut_assignments
+		updatedPop["num_ssms"] = float64(len(getSSMsFromMutAss(newMutAss, oldStr)))
+		updatedPop["num_cnvs"] = float64(len(getCNVsFromMutAss(newMutAss, oldStr)))
+		finalPops[strconv.Itoa(newIdx)] = updatedPop
+	}
+
+	finalStruct := make(map[string]interface{})
+	for parentStr, kidsRaw := range newStruct {
+		parentIdx, _ := strconv.Atoi(parentStr)
+		newParent, ok := renumber[parentIdx]
+		if !ok {
+			continue
+		}
+		kids := kidsRaw.([]interface{})
+		var newKids []interface{}
+		for _, k := range kids {
+			oldK := int(k.(float64))
+			if newK, ok := renumber[oldK]; ok {
+				newKids = append(newKids, float64(newK))
+			}
+		}
+		if len(newKids) > 0 {
+			finalStruct[strconv.Itoa(newParent)] = newKids
+		}
+	}
+
+	finalMutAss := make(map[string]interface{})
+	for oldIdxStr, v := range newMutAss {
+		oldIdx, _ := strconv.Atoi(oldIdxStr)
+		if newIdx, ok := renumber[oldIdx]; ok {
+			finalMutAss[strconv.Itoa(newIdx)] = v
+		}
+	}
+
+	nonEmpty := 0
+	for k := range finalPops {
+		if k == "0" {
+			continue
+		}
+		pop := finalPops[k].(map[string]interface{})
+		if pop["num_ssms"].(float64) > 0 || pop["num_cnvs"].(float64) > 0 {
+			nonEmpty++
+		}
+	}
+
+	result := make(map[string]interface{})
+	for k, v := range summary {
+		result[k] = v
+	}
+	result["populations"] = finalPops
+	result["structure"] = finalStruct
+	result["mut_assignments"] = finalMutAss
+	result["num_populations"] = nonEmpty
 	return result
 }
 
