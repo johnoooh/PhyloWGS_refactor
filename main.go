@@ -2817,9 +2817,23 @@ func writeResults(outDir string, results []ChainResult) error {
 		// Apply Python-equivalent post-processing pipeline:
 		// 1. Remove empty populations (postProcessSummary = remove_empty_nodes)
 		generic = postProcessSummary(generic)
-		// 2. Remove small populations (< 1% of total SSMs) — matches Python's
-		//    write_results.py default min_ssms=0.01
-		generic = removeSmallNodes(generic, 0.01)
+		// 2. Remove small populations using adaptive threshold: max(1%, 2/M).
+		//    At low M (30-100) this prunes singleton over-splits more aggressively
+		//    than Python's fixed 1%, matching or beating Python's K accuracy.
+		//    At high M (200+) it falls back to 1%, matching Python's default.
+		totalSSMs := 0
+		for _, v := range generic["populations"].(map[string]interface{}) {
+			pop := v.(map[string]interface{})
+			totalSSMs += int(pop["num_ssms"].(float64))
+		}
+		minFrac := 0.01
+		if totalSSMs > 0 {
+			adaptive := 2.0 / float64(totalSSMs)
+			if adaptive > minFrac {
+				minFrac = adaptive
+			}
+		}
+		generic = removeSmallNodes(generic, minFrac)
 		// 3. Remove superclones — matches Python's default (--keep-superclones
 		//    not set)
 		generic = removeSuperclones(generic)
