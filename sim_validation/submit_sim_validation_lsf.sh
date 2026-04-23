@@ -34,6 +34,7 @@ SAMPLES=2500
 CHAINS=8
 MEM_GB=8
 QUEUE="general"
+PY_CHAINS=8
 DRY_RUN=false
 GO_ONLY=false
 PHYLOWGS_SIF=""
@@ -61,14 +62,16 @@ get_go_tier() {
 }
 
 get_py_tier() {
+    # Python now runs multievolve.py with 8 chains. LSF tiers are 2× Slurm
+    # (slower I/O), and 8× single-chain for multievolve overhead.
     local m_val
-    if [[ "$1" =~ _M([0-9]+)_ ]]; then m_val="${BASH_REMATCH[1]}"; else echo "17:30 63000"; return; fi
-    if   (( m_val <= 30 ));  then echo "2:30 9000"
-    elif (( m_val <= 50 ));  then echo "5:30 19800"
-    elif (( m_val <= 100 )); then echo "11:00 39600"
-    elif (( m_val <= 150 )); then echo "12:30 45000"
-    elif (( m_val <= 250 )); then echo "14:00 50400"
-    else                          echo "17:30 63000"
+    if [[ "$1" =~ _M([0-9]+)_ ]]; then m_val="${BASH_REMATCH[1]}"; else echo "144:00 518400"; return; fi
+    if   (( m_val <= 30 ));  then echo "20:00 72000"
+    elif (( m_val <= 50 ));  then echo "44:00 158400"
+    elif (( m_val <= 100 )); then echo "88:00 316800"
+    elif (( m_val <= 150 )); then echo "100:00 360000"
+    elif (( m_val <= 250 )); then echo "112:00 403200"
+    else                          echo "144:00 518400"
     fi
 }
 
@@ -213,7 +216,7 @@ group_fixtures "go-cpu" "get_go_tier" "summary.json" "" "go" \
 
 # ── Group Python fixtures ───────────────────────────────────────────────────
 if [[ "$GO_ONLY" == false ]]; then
-    group_fixtures "original-python" "get_py_tier" "mcmc_samples.txt" "tree_summaries.json.gz" "py" \
+    group_fixtures "original-python" "get_py_tier" "tree_summaries.json.gz" "" "py" \
         PY_TIER_COUNTS PY_TIER_TIMES
 fi
 
@@ -326,7 +329,7 @@ FIXTURE_DIR="$FIXTURES_DIR/\$FIXTURE_NAME"
 RESULT_DIR="$RESULTS_DIR/original-python/\$FIXTURE_NAME"
 mkdir -p "\$RESULT_DIR"
 
-if [[ -f "\$RESULT_DIR/mcmc_samples.txt" ]] || [[ -f "\$RESULT_DIR/tree_summaries.json.gz" ]]; then
+if [[ -f "\$RESULT_DIR/tree_summaries.json.gz" ]]; then
     echo "SKIP: \$FIXTURE_NAME already completed"
     exit 0
 fi
@@ -336,16 +339,18 @@ START=\$(date +%s)
 
 cd "\$RESULT_DIR"
 singularity exec --bind $BIND_PATHS "$PHYLOWGS_SIF" \\
-    python2 $PHYLOWGS_DIR/evolve.py \\
+    python2 $PHYLOWGS_DIR/multievolve.py \\
+    -n $PY_CHAINS \\
     -B $BURNIN -s $SAMPLES \\
-    "\$FIXTURE_DIR/ssm_data.txt" \\
-    "\$FIXTURE_DIR/cnv_data.txt"
+    -O "\$RESULT_DIR/chains" \\
+    --ssms "\$FIXTURE_DIR/ssm_data.txt" \\
+    --cnvs "\$FIXTURE_DIR/cnv_data.txt"
 
-if [[ -f "\$RESULT_DIR/trees.zip" ]]; then
+if [[ -f "\$RESULT_DIR/chains/trees.zip" ]]; then
     singularity exec --bind $BIND_PATHS "$PHYLOWGS_SIF" \\
         python2 $PHYLOWGS_DIR/write_results.py \\
         "\$FIXTURE_NAME" \\
-        "\$RESULT_DIR/trees.zip" \\
+        "\$RESULT_DIR/chains/trees.zip" \\
         "\$RESULT_DIR/tree_summaries.json.gz" \\
         "\$RESULT_DIR/mutlist.json.gz" \\
         "\$RESULT_DIR/mutass.zip" \\
@@ -366,7 +371,7 @@ HEREDOC_END
             BSUB_OUT=$(bsub \
                 -J "${job_name}[1-${count}]" \
                 -q "$QUEUE" \
-                -n 1 \
+                -n "$PY_CHAINS" \
                 -R "rusage[mem=${MEM_GB}]" \
                 -W "$tier_time" \
                 -o "${LOGS_DIR}/py_${tier}_%I.out" \

@@ -39,6 +39,7 @@ MEM_MB=8000
 PARTITION="cmobic_cpu"
 PREEMPT_PARTITION="cmobic_preempt"
 PREEMPT_CUTOFF=7200   # 2 hours in seconds
+PY_CHAINS=8
 DRY_RUN=false
 GO_ONLY=false
 PHYLOWGS_SIF=""
@@ -64,14 +65,17 @@ get_go_tier() {
 }
 
 get_py_tier() {
+    # Python now runs multievolve.py with 8 chains. Each chain runs evolve.py
+    # sequentially within multievolve's subprocess pool. Wall time is roughly
+    # 8× single-chain evolve.py + write_results.py overhead.
     local m_val
-    if [[ "$1" =~ _M([0-9]+)_ ]]; then m_val="${BASH_REMATCH[1]}"; else echo "8:45:00 31500"; return; fi
-    if   (( m_val <= 30 ));  then echo "1:15:00 4500"
-    elif (( m_val <= 50 ));  then echo "2:45:00 9900"
-    elif (( m_val <= 100 )); then echo "5:30:00 19800"
-    elif (( m_val <= 150 )); then echo "6:15:00 22500"
-    elif (( m_val <= 250 )); then echo "7:00:00 25200"
-    else                          echo "8:45:00 31500"
+    if [[ "$1" =~ _M([0-9]+)_ ]]; then m_val="${BASH_REMATCH[1]}"; else echo "72:00:00 259200"; return; fi
+    if   (( m_val <= 30 ));  then echo "10:00:00 36000"
+    elif (( m_val <= 50 ));  then echo "22:00:00 79200"
+    elif (( m_val <= 100 )); then echo "44:00:00 158400"
+    elif (( m_val <= 150 )); then echo "50:00:00 180000"
+    elif (( m_val <= 250 )); then echo "56:00:00 201600"
+    else                          echo "72:00:00 259200"
     fi
 }
 
@@ -164,7 +168,7 @@ echo "=== Simulation Validation Job Submission (Array Jobs) ==="
 echo "Workdir:         $WORKDIR"
 echo "Fixtures:        $N_FIXTURES"
 echo "Implementations: $IMPLS"
-echo "Config:          B=$BURNIN s=$SAMPLES j=$CHAINS (Go); B=$BURNIN s=$SAMPLES (Python)"
+echo "Config:          B=$BURNIN s=$SAMPLES j=$CHAINS (Go); B=$BURNIN s=$SAMPLES n=$PY_CHAINS (Python multievolve)"
 echo "Partitions:      $PARTITION (long), $PREEMPT_PARTITION (< ${PREEMPT_CUTOFF}s)"
 echo "Memory:          ${MEM_MB}MB"
 echo ""
@@ -229,7 +233,7 @@ group_fixtures "go-cpu" "get_go_tier" "summary.json" "" "go" \
 
 # ── Group Python fixtures ───────────────────────────────────────────────────
 if [[ "$GO_ONLY" == false ]]; then
-    group_fixtures "original-python" "get_py_tier" "mcmc_samples.txt" "tree_summaries.json.gz" "py" \
+    group_fixtures "original-python" "get_py_tier" "tree_summaries.json.gz" "" "py" \
         PY_TIER_COUNTS PY_TIER_TIMES PY_TIER_PARTS
 fi
 
@@ -348,7 +352,7 @@ FIXTURE_DIR="FIXTURES_DIR_PLACEHOLDER/$FIXTURE_NAME"
 RESULT_DIR="RESULTS_DIR_PLACEHOLDER/original-python/$FIXTURE_NAME"
 mkdir -p "$RESULT_DIR"
 
-if [[ -f "$RESULT_DIR/mcmc_samples.txt" ]] || [[ -f "$RESULT_DIR/tree_summaries.json.gz" ]]; then
+if [[ -f "$RESULT_DIR/tree_summaries.json.gz" ]]; then
     echo "SKIP: $FIXTURE_NAME already completed"
     exit 0
 fi
@@ -358,16 +362,19 @@ START=$(date +%s)
 
 cd "$RESULT_DIR"
 singularity exec --bind BIND_PLACEHOLDER "SIF_PLACEHOLDER" \
-    python2 PHYLOWGSDIR_PLACEHOLDER/evolve.py \
+    python2 PHYLOWGSDIR_PLACEHOLDER/multievolve.py \
+    -n PY_CHAINS_PLACEHOLDER \
     -B BURNIN_PLACEHOLDER -s SAMPLES_PLACEHOLDER \
-    "$FIXTURE_DIR/ssm_data.txt" \
-    "$FIXTURE_DIR/cnv_data.txt"
+    -O "$RESULT_DIR/chains" \
+    --ssms "$FIXTURE_DIR/ssm_data.txt" \
+    --cnvs "$FIXTURE_DIR/cnv_data.txt"
 
-if [[ -f "$RESULT_DIR/trees.zip" ]]; then
+# write_results.py on the merged output
+if [[ -f "$RESULT_DIR/chains/trees.zip" ]]; then
     singularity exec --bind BIND_PLACEHOLDER "SIF_PLACEHOLDER" \
         python2 PHYLOWGSDIR_PLACEHOLDER/write_results.py \
         "$FIXTURE_NAME" \
-        "$RESULT_DIR/trees.zip" \
+        "$RESULT_DIR/chains/trees.zip" \
         "$RESULT_DIR/tree_summaries.json.gz" \
         "$RESULT_DIR/mutlist.json.gz" \
         "$RESULT_DIR/mutass.zip" \
@@ -391,6 +398,7 @@ HEREDOC_END
         PY_SCRIPT="${PY_SCRIPT//PHYLOWGSDIR_PLACEHOLDER/$PHYLOWGS_DIR}"
         PY_SCRIPT="${PY_SCRIPT//BURNIN_PLACEHOLDER/$BURNIN}"
         PY_SCRIPT="${PY_SCRIPT//SAMPLES_PLACEHOLDER/$SAMPLES}"
+        PY_SCRIPT="${PY_SCRIPT//PY_CHAINS_PLACEHOLDER/$PY_CHAINS}"
 
         if [[ "$DRY_RUN" == true ]]; then
             echo "  [dry-run] python (${tier_time}, ${tier_part}): --array=0-${max_idx} (${count} tasks)"
@@ -398,7 +406,7 @@ HEREDOC_END
             PY_JID=$(echo "$PY_SCRIPT" | sbatch --parsable \
                 --job-name="simval_py_${tier}" \
                 --partition="$tier_part" \
-                --cpus-per-task=1 \
+                --cpus-per-task="$PY_CHAINS" \
                 --mem="${MEM_MB}M" \
                 --time="$tier_time" \
                 --array="0-${max_idx}" \
