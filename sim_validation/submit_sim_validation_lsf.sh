@@ -40,6 +40,7 @@ GO_ONLY=false
 PHYLOWGS_SIF=""
 BIND_PATHS=""
 PHYLOWGS_DIR="/usr/bin/phylowgs"
+CHAIN_INCLUSION_FACTOR="1.1"
 
 # ── Wall-time tiers based on mutation count (M) ─────────────────────────────
 # Derived from P95 of observed runtimes at B=500/s=1000, scaled by 2.33×
@@ -86,6 +87,7 @@ while [[ $# -gt 0 ]]; do
         --queue)          QUEUE="$2";         shift 2 ;;
         --bind-paths)     BIND_PATHS="$2";    shift 2 ;;
         --phylowgs-dir)   PHYLOWGS_DIR="$2";  shift 2 ;;
+        --chain-inclusion-factor) CHAIN_INCLUSION_FACTOR="$2"; shift 2 ;;
         --go-only)        GO_ONLY=true;       shift ;;
         --dry-run)        DRY_RUN=true;       shift ;;
         *) echo "Unknown arg: $1"; exit 1 ;;
@@ -278,6 +280,7 @@ START=\$(date +%s)
     -B $BURNIN \\
     -s $SAMPLES \\
     -j $CHAINS \\
+    -I $CHAIN_INCLUSION_FACTOR \\
     -O "\$RESULT_DIR" \\
     "\$FIXTURE_DIR/ssm_data.txt" \\
     "\$FIXTURE_DIR/cnv_data.txt"
