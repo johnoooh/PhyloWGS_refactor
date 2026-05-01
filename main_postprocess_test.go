@@ -472,3 +472,99 @@ func TestRemoveSmallNodes_ReparentsChildren(t *testing.T) {
 		t.Errorf("structure[0] = %v, want [1, 2]", rootKids)
 	}
 }
+
+// ============================================================================
+// filterChainsByInclusion tests
+// ============================================================================
+
+func TestFilterChains_AllIncluded(t *testing.T) {
+	// Three chains with similar LLH — all should be included with factor=1.1
+	results := []ChainResult{
+		{SampleLLH: []float64{-100, -99, -101}},
+		{SampleLLH: []float64{-100, -98, -102}},
+		{SampleLLH: []float64{-101, -100, -99}},
+	}
+	included, excluded := filterChainsByInclusion(results, 1.1)
+	if len(included) != 3 {
+		t.Errorf("expected 3 included, got %d: %v", len(included), included)
+	}
+	if len(excluded) != 0 {
+		t.Errorf("expected 0 excluded, got %d: %v", len(excluded), excluded)
+	}
+}
+
+func TestFilterChains_OneBadChainExcluded(t *testing.T) {
+	// Chain 2 has much worse LLH — should be excluded
+	results := []ChainResult{
+		{SampleLLH: []float64{-100, -99, -101}},
+		{SampleLLH: []float64{-100, -98, -102}},
+		{SampleLLH: []float64{-10000, -9999, -10001}}, // terrible chain
+	}
+	included, excluded := filterChainsByInclusion(results, 1.1)
+	if len(included) != 2 {
+		t.Errorf("expected 2 included, got %d: %v", len(included), included)
+	}
+	if len(excluded) != 1 || excluded[0] != 2 {
+		t.Errorf("expected excluded=[2], got %v", excluded)
+	}
+}
+
+func TestFilterChains_FactorInf_IncludesAll(t *testing.T) {
+	// factor=Inf should include all chains regardless of quality
+	results := []ChainResult{
+		{SampleLLH: []float64{-100}},
+		{SampleLLH: []float64{-10000}},
+	}
+	included, excluded := filterChainsByInclusion(results, math.Inf(1))
+	if len(included) != 2 {
+		t.Errorf("expected 2 included with Inf factor, got %d", len(included))
+	}
+	if len(excluded) != 0 {
+		t.Errorf("expected 0 excluded, got %d", len(excluded))
+	}
+}
+
+func TestFilterChains_Factor1_OnlyBest(t *testing.T) {
+	// factor=1.0 should include only the chain(s) with the best logSumLLH
+	results := []ChainResult{
+		{SampleLLH: []float64{-100, -99}},   // logSumExp ≈ -98.69
+		{SampleLLH: []float64{-200, -199}},   // logSumExp ≈ -198.69
+		{SampleLLH: []float64{-100, -99}},    // same as chain 0
+	}
+	included, excluded := filterChainsByInclusion(results, 1.0)
+	// Chains 0 and 2 tie, both should be included
+	if len(included) != 2 {
+		t.Errorf("expected 2 included (tied best), got %d: %v", len(included), included)
+	}
+	if len(excluded) != 1 || excluded[0] != 1 {
+		t.Errorf("expected excluded=[1], got %v", excluded)
+	}
+}
+
+func TestFilterChains_SingleChain(t *testing.T) {
+	results := []ChainResult{
+		{SampleLLH: []float64{-500, -499}},
+	}
+	included, excluded := filterChainsByInclusion(results, 1.1)
+	if len(included) != 1 || included[0] != 0 {
+		t.Errorf("single chain should always be included, got included=%v", included)
+	}
+	if len(excluded) != 0 {
+		t.Errorf("expected 0 excluded, got %v", excluded)
+	}
+}
+
+func TestFilterChains_EmptySampleLLH(t *testing.T) {
+	// Chain with no samples should be excluded
+	results := []ChainResult{
+		{SampleLLH: []float64{-100, -99}},
+		{SampleLLH: []float64{}},
+	}
+	included, excluded := filterChainsByInclusion(results, 1.1)
+	if len(included) != 1 || included[0] != 0 {
+		t.Errorf("expected only chain 0 included, got %v", included)
+	}
+	if len(excluded) != 1 || excluded[0] != 1 {
+		t.Errorf("expected chain 1 excluded, got %v", excluded)
+	}
+}

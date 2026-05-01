@@ -2713,7 +2713,59 @@ func writeMutList(outDir string, ssms []*SSM, cnvs []*CNV) error {
 	return os.WriteFile(filepath.Join(outDir, "mutlist.json"), data, 0644)
 }
 
-func writeResults(outDir string, results []ChainResult) error {
+// filterChainsByInclusion determines which chains should be included when
+// selecting the best tree. This matches Python's determine_chains_to_merge()
+// from multievolve.py.
+//
+// For each chain, it computes logSumExp of all sampled tree log-likelihoods.
+// A chain is included if its logSumLLH >= factor * max(logSumLLH). Since LLHs
+// are negative, multiplying by factor > 1 makes the threshold more negative
+// (more permissive). factor=1.1 (Python default) includes chains whose
+// aggregate LLH is within ~10% of the best. factor=Inf includes all chains.
+// factor=1.0 includes only the best chain.
+//
+// Returns the indices of included chains and excluded chains.
+func filterChainsByInclusion(results []ChainResult, factor float64) (included []int, excluded []int) {
+	if len(results) == 0 {
+		return nil, nil
+	}
+	if len(results) == 1 {
+		return []int{0}, nil
+	}
+
+	// Compute logSumExp of sample LLHs for each chain
+	logSumLLHs := make([]float64, len(results))
+	for i, r := range results {
+		if len(r.SampleLLH) == 0 {
+			logSumLLHs[i] = math.Inf(-1)
+		} else {
+			logSumLLHs[i] = logsumexp(r.SampleLLH)
+		}
+	}
+
+	// Find best (maximum) logSumLLH
+	bestLogSumLLH := logSumLLHs[0]
+	for _, v := range logSumLLHs[1:] {
+		if v > bestLogSumLLH {
+			bestLogSumLLH = v
+		}
+	}
+
+	// Include chains whose logSumLLH >= factor * bestLogSumLLH.
+	// Since bestLogSumLLH < 0, multiplying by factor > 1 gives a more negative
+	// threshold, so more chains pass.
+	threshold := factor * bestLogSumLLH
+	for i, v := range logSumLLHs {
+		if v >= threshold {
+			included = append(included, i)
+		} else {
+			excluded = append(excluded, i)
+		}
+	}
+	return included, excluded
+}
+
+func writeResults(outDir string, results []ChainResult, chainInclusionFactor float64) error {
 	if err := os.MkdirAll(outDir, 0755); err != nil {
 		return err
 	}
@@ -2794,10 +2846,20 @@ func writeResults(outDir string, results []ChainResult) error {
 		f.Close()
 	}
 
-	// Write best_tree.json from the chain with best final LLH
+	// Filter chains by inclusion factor (matches Python's determine_chains_to_merge)
+	includedChains, excludedChains := filterChainsByInclusion(results, chainInclusionFactor)
+	if len(includedChains) > 0 {
+		log.Printf("Chain inclusion filter (factor=%.2f): including chains %v", chainInclusionFactor, includedChains)
+		if len(excludedChains) > 0 {
+			log.Printf("Chain inclusion filter: excluding chains %v", excludedChains)
+		}
+	}
+
+	// Write best_tree.json from the best sample among included chains only
 	bestChainIdx := 0
 	bestOverallLLH := math.Inf(-1)
-	for i, r := range results {
+	for _, i := range includedChains {
+		r := results[i]
 		for _, llhVal := range r.SampleLLH {
 			if llhVal > bestOverallLLH {
 				bestOverallLLH = llhVal
@@ -3736,6 +3798,8 @@ func main() {
 	mhIters := flag.Int("i", 5000, "MH iterations per MCMC iteration")
 	seed := flag.Int64("r", 0, "Random seed (0 = use time)")
 	noGPU := flag.Bool("no-gpu", false, "Disable GPU acceleration")
+	chainInclusionFactor := flag.Float64("I", 1.1, "Chain inclusion factor: chains with logSumExp(LLH) >= factor * best are included. "+
+		"Matches Python multievolve.py -I. Set to inf to include all chains, 1.0 for only the best.")
 	cpuProfile := flag.String("cpuprofile", "", "Write CPU profile to file")
 
 	flag.Parse()
@@ -3845,7 +3909,7 @@ func main() {
 	log.Printf("Median LLH: %.2f", medianLLH)
 
 	// Write results
-	if err := writeResults(*outDir, results); err != nil {
+	if err := writeResults(*outDir, results, *chainInclusionFactor); err != nil {
 		log.Printf("Warning: failed to write results: %v", err)
 	}
 	log.Printf("Results written to %s", *outDir)
