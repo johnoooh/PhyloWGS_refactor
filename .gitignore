@@ -1,0 +1,50 @@
+# --- Build artifacts ---
+phylowgs-go
+phylowgs_go
+*.exe
+*.test
+*.out
+*.prof
+*.cprof
+
+# --- CUDA build outputs ---
+cuda/libcuda_bridge.so
+*.so
+*.a
+*.o
+
+# --- MCMC run outputs (regenerated per run) ---
+output/
+test_output/
+validation_test/
+benchmark_results/
+*.ndjson
+
+# Sim validation: keep code/reports, ignore raw run dumps
+sim_validation/local_trace_runs/
+sim_validation/results_plots/
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# --- Environments / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Editor / OS ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# --- Claude local files ---
+.claude/settings.local.json
+CLAUDE.local.md

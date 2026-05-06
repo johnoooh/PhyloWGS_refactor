@@ -1,6 +1,6 @@
 # PhyloWGS Go Port — Code Review vs Original Python 2
 
-_Reviewed 2026-04-04 by Sevry (manual line-by-line comparison)_
+_Manual line-by-line comparison vs the original Python/C++ implementation, 2026-04-04._
 
 ## Executive Summary
 
