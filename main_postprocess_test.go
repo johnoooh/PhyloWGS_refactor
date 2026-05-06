@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"math"
+	"math/rand"
 	"reflect"
 	"sort"
 	"testing"
@@ -566,5 +567,54 @@ func TestFilterChains_EmptySampleLLH(t *testing.T) {
 	}
 	if len(excluded) != 1 || excluded[0] != 1 {
 		t.Errorf("expected chain 1 excluded, got %v", excluded)
+	}
+}
+
+// TestDirichletSample_Pseudocount verifies that dirichletSample adds the
+// 0.0001 pseudocount matching C++ util.cpp:dirichlet_sample, ensuring no
+// component is exactly zero.
+func TestDirichletSample_Pseudocount(t *testing.T) {
+	rng := rand.New(rand.NewSource(42))
+	// Use alpha values that would produce near-zero components without pseudocount
+	alpha := []float64{0.001, 100.0, 0.001}
+	for trial := 0; trial < 100; trial++ {
+		result := dirichletSample(alpha, rng)
+		sum := 0.0
+		for i, v := range result {
+			if v <= 0 {
+				t.Errorf("trial %d: component %d is <= 0: %e", trial, i, v)
+			}
+			sum += v
+		}
+		if math.Abs(sum-1.0) > 1e-10 {
+			t.Errorf("trial %d: sum = %f, want 1.0", trial, sum)
+		}
+	}
+}
+
+// TestDirichletSample_PseudocountFloor verifies the minimum possible value
+// for any component is bounded away from zero by the pseudocount.
+func TestDirichletSample_PseudocountFloor(t *testing.T) {
+	rng := rand.New(rand.NewSource(123))
+	// With 3 components and pseudocount 0.0001, the minimum fraction for any
+	// component is 0.0001 / (sum + 3*0.0001). Even if the raw Dirichlet gives
+	// one component ~0, after adding 0.0001 it must be positive.
+	alpha := []float64{0.0001, 1000.0, 1000.0}
+	minSeen := 1.0
+	for trial := 0; trial < 1000; trial++ {
+		result := dirichletSample(alpha, rng)
+		for _, v := range result {
+			if v < minSeen {
+				minSeen = v
+			}
+		}
+	}
+	// With pseudocount, the smallest component should be > 0
+	// and roughly > 0.0001/(2000 + 0.0003) ≈ 5e-8
+	if minSeen <= 0 {
+		t.Errorf("minimum component was %e, expected > 0", minSeen)
+	}
+	if minSeen < 1e-10 {
+		t.Errorf("minimum component %e is suspiciously small — pseudocount may not be working", minSeen)
 	}
 }

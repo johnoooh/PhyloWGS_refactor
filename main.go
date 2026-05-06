@@ -308,6 +308,18 @@ func dirichletSample(alpha []float64, rng *rand.Rand) []float64 {
 	for i := range result {
 		result[i] /= sum
 	}
+	// Match C++ util.cpp:dirichlet_sample — add small pseudocount to prevent
+	// zero-valued components, then renormalize. Without this, small populations
+	// can get pi=0 from the Dirichlet draw, causing -Inf likelihoods in the MH
+	// step and biasing the sampler toward simpler (fewer-node) trees.
+	sum = 0.0
+	for i := range result {
+		result[i] += 0.0001
+		sum += result[i]
+	}
+	for i := range result {
+		result[i] /= sum
+	}
 	return result
 }
 
