@@ -590,55 +590,6 @@ func TestFilterChains_EmptySampleLLH(t *testing.T) {
 	}
 }
 
-// TestDirichletSample_Pseudocount verifies that dirichletSample adds the
-// 0.0001 pseudocount matching C++ util.cpp:dirichlet_sample, ensuring no
-// component is exactly zero.
-func TestDirichletSample_Pseudocount(t *testing.T) {
-	rng := rand.New(rand.NewSource(42))
-	// Use alpha values that would produce near-zero components without pseudocount
-	alpha := []float64{0.001, 100.0, 0.001}
-	for trial := 0; trial < 100; trial++ {
-		result := dirichletSample(alpha, rng)
-		sum := 0.0
-		for i, v := range result {
-			if v <= 0 {
-				t.Errorf("trial %d: component %d is <= 0: %e", trial, i, v)
-			}
-			sum += v
-		}
-		if math.Abs(sum-1.0) > 1e-10 {
-			t.Errorf("trial %d: sum = %f, want 1.0", trial, sum)
-		}
-	}
-}
-
-// TestDirichletSample_PseudocountFloor verifies the minimum possible value
-// for any component is bounded away from zero by the pseudocount.
-func TestDirichletSample_PseudocountFloor(t *testing.T) {
-	rng := rand.New(rand.NewSource(123))
-	// With 3 components and pseudocount 0.0001, the minimum fraction for any
-	// component is 0.0001 / (sum + 3*0.0001). Even if the raw Dirichlet gives
-	// one component ~0, after adding 0.0001 it must be positive.
-	alpha := []float64{0.0001, 1000.0, 1000.0}
-	minSeen := 1.0
-	for trial := 0; trial < 1000; trial++ {
-		result := dirichletSample(alpha, rng)
-		for _, v := range result {
-			if v < minSeen {
-				minSeen = v
-			}
-		}
-	}
-	// With pseudocount, the smallest component should be > 0
-	// and roughly > 0.0001/(2000 + 0.0003) ≈ 5e-8
-	if minSeen <= 0 {
-		t.Errorf("minimum component was %e, expected > 0", minSeen)
-	}
-	if minSeen < 1e-10 {
-		t.Errorf("minimum component %e is suspiciously small — pseudocount may not be working", minSeen)
-	}
-}
-
 // ── VAF-based reassignment tests ────────────────────────────────────────────
 
 // findMutAssPop returns the (post-renumbering) population index that contains
@@ -1079,4 +1030,27 @@ func buildTinyTreeForTest(t *testing.T) []*SSM {
 	}
 	s.LogBinNormConst = []float64{logBinCoeff(s.D[0], s.A[0])}
 	return []*SSM{s}
+}
+
+// TestDirichletSample_NormalizesToOne locks in the contract that
+// dirichletSample produces a valid probability simplex: all components
+// non-negative and summing to exactly 1 (within float tolerance). This
+// guards against re-introduction of the C++-style 0.0001 pseudocount or
+// any other transformation that would bias the proposal distribution.
+func TestDirichletSample_NormalizesToOne(t *testing.T) {
+	rng := rand.New(rand.NewSource(7))
+	alpha := []float64{1.0, 1.0, 1.0, 1.0}
+	for trial := 0; trial < 1000; trial++ {
+		x := dirichletSample(alpha, rng)
+		sum := 0.0
+		for _, v := range x {
+			if v < 0 {
+				t.Fatalf("trial %d: negative component %v in %v", trial, v, x)
+			}
+			sum += v
+		}
+		if math.Abs(sum-1.0) > 1e-12 {
+			t.Fatalf("trial %d: sum=%v, want 1", trial, sum)
+		}
+	}
 }

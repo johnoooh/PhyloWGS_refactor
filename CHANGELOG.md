@@ -35,3 +35,15 @@ reassignment, CNV path, deterministic tie-breaking (20-trial run),
 missing-data drop, zero-total-reads drop, and the extracted
 `pickBestSample` helper (mid-chain best, multi-chain, included-only,
 ties, empty, length-mismatch error paths).
+
+### Changed — `dirichletSample` no longer adds a pseudocount
+
+- `dirichletSample` no longer adds the C++-style 0.0001 pseudocount.
+  The pseudocount masks rather than fixes -Inf likelihoods on near-zero
+  pi components and biases acceptance ratios. Validation showed our
+  downstream binomial likelihood already clamps mu to [1e-15, 1-1e-15],
+  so a zero pi cannot produce -Inf in the LLH path. If a numerical issue
+  arises downstream, fix it at the LLH site, not in the proposal.
+- Added `TestDirichletSample_NormalizesToOne` in `main_postprocess_test.go`
+  to lock the contract: 1000 trials with alpha=[1,1,1,1] must produce
+  non-negative components summing to 1 within 1e-12.
