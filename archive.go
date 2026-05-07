@@ -64,3 +64,47 @@ func (w *TreeArchiveWriter) Close() error {
 	}
 	return w.f.Close()
 }
+
+// MutassArchiveWriter mirrors pwgsresults.json_writer.JsonWriter.write_mutass:
+// one zip entry per included tree named "<idx>.json" with content
+// {"mut_assignments": {populationIdx: {"ssms": [...], "cnvs": [...]}}, "dataset_name": "<name>"}.
+type MutassArchiveWriter struct {
+	f       *os.File
+	zw      *zip.Writer
+	dataset string
+}
+
+func newMutassArchiveWriter(path, datasetName string) (*MutassArchiveWriter, error) {
+	f, err := os.Create(path)
+	if err != nil {
+		return nil, err
+	}
+	return &MutassArchiveWriter{
+		f: f, zw: zip.NewWriter(f), dataset: datasetName,
+	}, nil
+}
+
+// WriteTree records one tree's mutation assignments. The mutass map shape
+// matches Python: {populationIdx: {"ssms": [...], "cnvs": [...]}}.
+func (w *MutassArchiveWriter) WriteTree(idx int, mutass map[string]map[string][]string) error {
+	entry, err := w.zw.CreateHeader(&zip.FileHeader{
+		Name:   fmt.Sprintf("%d.json", idx),
+		Method: zip.Deflate,
+	})
+	if err != nil {
+		return err
+	}
+	payload := struct {
+		MutAssignments map[string]map[string][]string `json:"mut_assignments"`
+		DatasetName    string                         `json:"dataset_name"`
+	}{mutass, w.dataset}
+	return json.NewEncoder(entry).Encode(payload)
+}
+
+func (w *MutassArchiveWriter) Close() error {
+	if err := w.zw.Close(); err != nil {
+		w.f.Close()
+		return err
+	}
+	return w.f.Close()
+}

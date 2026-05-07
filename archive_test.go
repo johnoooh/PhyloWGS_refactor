@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -80,5 +81,55 @@ func TestTreeArchiveWriter_ContentRoundTrips(t *testing.T) {
 	got, _ := io.ReadAll(rc)
 	if string(got) != string(payload) {
 		t.Errorf("content mismatch:\n got: %s\nwant: %s", got, payload)
+	}
+}
+
+func TestMutassArchiveWriter_WritesPerTreeJSONEntries(t *testing.T) {
+	tmp := t.TempDir()
+	zipPath := filepath.Join(tmp, "mutass.zip")
+	w, err := newMutassArchiveWriter(zipPath, "TestDataset")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.WriteTree(0, map[string]map[string][]string{
+		"0": {"ssms": {"s1", "s2"}, "cnvs": {}},
+		"1": {"ssms": {"s3"}, "cnvs": {"c1"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.WriteTree(1, map[string]map[string][]string{
+		"0": {"ssms": {"s1"}, "cnvs": {}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := zip.OpenReader(zipPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+
+	got := map[string]string{}
+	for _, f := range r.File {
+		rc, _ := f.Open()
+		b, _ := io.ReadAll(rc)
+		rc.Close()
+		got[f.Name] = string(b)
+	}
+	if _, ok := got["0.json"]; !ok {
+		t.Errorf("missing 0.json; entries: %v", got)
+	}
+	if _, ok := got["1.json"]; !ok {
+		t.Errorf("missing 1.json")
+	}
+	// minimal sanity: dataset_name embedded
+	if !strings.Contains(got["0.json"], `"dataset_name":"TestDataset"`) {
+		t.Errorf("0.json missing dataset_name field: %s", got["0.json"])
+	}
+	if !strings.Contains(got["0.json"], `"mut_assignments"`) {
+		t.Errorf("0.json missing mut_assignments wrapper: %s", got["0.json"])
 	}
 }
