@@ -48,3 +48,6 @@ Thumbs.db
 # --- Claude local files ---
 .claude/settings.local.json
 CLAUDE.local.md
+
+# --- Plan documents (local working drafts) ---
+PLAN_*.md

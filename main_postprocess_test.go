@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"reflect"
 	"sort"
+	"strconv"
 	"testing"
 )
 
@@ -395,7 +396,15 @@ func TestRemoveSmallNodes_RemovesBelowThreshold(t *testing.T) {
 		},
 	)
 
-	result := removeSmallNodes(summary, 0.05)
+	// Provide read-counts so the VAF math has data to work with. s_small at
+	// A=20, D=100 → variant=80 → implied_phi = 1.6 → clamped to 1.0. Closest
+	// remaining non-root population is pop1 at CP=0.8.
+	ssms := []*SSM{
+		{ID: "s0", A: []int{60}, D: []int{100}},
+		{ID: "s_small", A: []int{20}, D: []int{100}},
+		{ID: "s1", A: []int{85}, D: []int{100}},
+	}
+	result := removeSmallNodes(summary, 0.05, ssms, nil)
 
 	pops := result["populations"].(map[string]interface{})
 	if len(pops) != 3 { // 0, 1, 2 (was 3)
@@ -428,7 +437,8 @@ func TestRemoveSmallNodes_NoOp(t *testing.T) {
 		},
 	)
 
-	result := removeSmallNodes(summary, 0.01)
+	// No reassignment happens (nothing is below threshold), so no read data needed.
+	result := removeSmallNodes(summary, 0.01, nil, nil)
 	pops := result["populations"].(map[string]interface{})
 	if len(pops) != 3 {
 		t.Errorf("got %d populations, want 3 (no-op)", len(pops))
@@ -459,7 +469,15 @@ func TestRemoveSmallNodes_ReparentsChildren(t *testing.T) {
 		},
 	)
 
-	result := removeSmallNodes(summary, 0.05) // threshold = 5
+	// Provide read-counts so s_small can be reassigned (otherwise it would
+	// be silently dropped). This test only checks structure, so where it
+	// lands doesn't matter.
+	ssms := []*SSM{
+		{ID: "s_small", A: []int{50}, D: []int{100}},
+		{ID: "s0", A: []int{50}, D: []int{100}},
+		{ID: "s1", A: []int{50}, D: []int{100}},
+	}
+	result := removeSmallNodes(summary, 0.05, ssms, nil) // threshold = 5
 
 	pops := result["populations"].(map[string]interface{})
 	if len(pops) != 3 { // 0, 1(was 2), 2(was 3)
@@ -528,9 +546,9 @@ func TestFilterChains_FactorInf_IncludesAll(t *testing.T) {
 func TestFilterChains_Factor1_OnlyBest(t *testing.T) {
 	// factor=1.0 should include only the chain(s) with the best logSumLLH
 	results := []ChainResult{
-		{SampleLLH: []float64{-100, -99}},   // logSumExp ≈ -98.69
-		{SampleLLH: []float64{-200, -199}},   // logSumExp ≈ -198.69
-		{SampleLLH: []float64{-100, -99}},    // same as chain 0
+		{SampleLLH: []float64{-100, -99}},  // logSumExp ≈ -98.69
+		{SampleLLH: []float64{-200, -199}}, // logSumExp ≈ -198.69
+		{SampleLLH: []float64{-100, -99}},  // same as chain 0
 	}
 	included, excluded := filterChainsByInclusion(results, 1.0)
 	// Chains 0 and 2 tie, both should be included
@@ -616,5 +634,367 @@ func TestDirichletSample_PseudocountFloor(t *testing.T) {
 	}
 	if minSeen < 1e-10 {
 		t.Errorf("minimum component %e is suspiciously small — pseudocount may not be working", minSeen)
+	}
+}
+
+// ── VAF-based reassignment tests ────────────────────────────────────────────
+
+// findMutAssPop returns the (post-renumbering) population index that contains
+// the given SSM or CNV id, or -1 if not found.
+func findMutAssPop(t *testing.T, summary map[string]interface{}, mutType, mutID string) int {
+	t.Helper()
+	ma := summary["mut_assignments"].(map[string]interface{})
+	for k, v := range ma {
+		entry, ok := v.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		muts, ok := entry[mutType].([]interface{})
+		if !ok {
+			continue
+		}
+		for _, m := range muts {
+			if s, ok := m.(string); ok && s == mutID {
+				idx, _ := strconv.Atoi(k)
+				return idx
+			}
+		}
+	}
+	return -1
+}
+
+// TestRemoveSmallNodes_VAFReassignment_LowVAF verifies that a removed-node SSM
+// with low VAF (implied_phi ≈ 0.3) gets reassigned to the *low-CP* population,
+// not the highest-CP one. This is the bug the original Go code had: it always
+// dumped orphans into the highest-CP node.
+func TestRemoveSmallNodes_VAFReassignment_LowVAF(t *testing.T) {
+	// 4 pops: root + 3 subclones. Pop2 (CP=0.5) is the small node (1 SSM).
+	// totalSSMs = 100, threshold at 5% = 5 → pop2 removed.
+	// s_small read counts: A=85, D=100 → variant=15 → implied_phi=0.3.
+	// Closest non-root pop to phi=0.3:
+	//   pop1 (CP=0.9, delta=0.6), pop3 (CP=0.2, delta=0.1) → pop3 wins.
+	// After renumbering: pop3 becomes "2" (was 3).
+	summary := buildSummary(t,
+		map[string]interface{}{
+			"0": map[string]interface{}{"cellular_prevalence": []interface{}{1.0}, "num_ssms": 0, "num_cnvs": 0},
+			"1": map[string]interface{}{"cellular_prevalence": []interface{}{0.9}, "num_ssms": 50, "num_cnvs": 0},
+			"2": map[string]interface{}{"cellular_prevalence": []interface{}{0.5}, "num_ssms": 1, "num_cnvs": 0},
+			"3": map[string]interface{}{"cellular_prevalence": []interface{}{0.2}, "num_ssms": 49, "num_cnvs": 0},
+		},
+		map[string]interface{}{"0": []interface{}{1, 2, 3}},
+		map[string]interface{}{
+			"1": map[string]interface{}{"ssms": []interface{}{"s0"}, "cnvs": []interface{}{}},
+			"2": map[string]interface{}{"ssms": []interface{}{"s_small"}, "cnvs": []interface{}{}},
+			"3": map[string]interface{}{"ssms": []interface{}{"s1"}, "cnvs": []interface{}{}},
+		},
+	)
+	ssms := []*SSM{
+		{ID: "s0", A: []int{10}, D: []int{100}},
+		{ID: "s_small", A: []int{85}, D: []int{100}}, // phi = 0.3
+		{ID: "s1", A: []int{90}, D: []int{100}},
+	}
+
+	result := removeSmallNodes(summary, 0.05, ssms, nil)
+
+	if got := findMutAssPop(t, result, "ssms", "s_small"); got != 2 {
+		t.Errorf("s_small reassigned to pop %d, want 2 (was orig pop3, CP=0.2)", got)
+	}
+}
+
+// TestRemoveSmallNodes_VAFReassignment_HighVAF verifies that a removed-node SSM
+// with very high VAF (clamped implied_phi=1.0) lands on the highest-CP pop.
+func TestRemoveSmallNodes_VAFReassignment_HighVAF(t *testing.T) {
+	// Same layout as Low-VAF test. SSM read counts: A=10, D=100 → variant=90
+	// → raw implied_phi = 1.8 → clamped to 1.0.
+	// Closest non-root pop to phi=1.0:
+	//   pop1 (CP=0.9, delta=0.1), pop3 (CP=0.2, delta=0.8) → pop1 wins.
+	// After renumbering: pop1 stays "1".
+	summary := buildSummary(t,
+		map[string]interface{}{
+			"0": map[string]interface{}{"cellular_prevalence": []interface{}{1.0}, "num_ssms": 0, "num_cnvs": 0},
+			"1": map[string]interface{}{"cellular_prevalence": []interface{}{0.9}, "num_ssms": 50, "num_cnvs": 0},
+			"2": map[string]interface{}{"cellular_prevalence": []interface{}{0.5}, "num_ssms": 1, "num_cnvs": 0},
+			"3": map[string]interface{}{"cellular_prevalence": []interface{}{0.2}, "num_ssms": 49, "num_cnvs": 0},
+		},
+		map[string]interface{}{"0": []interface{}{1, 2, 3}},
+		map[string]interface{}{
+			"1": map[string]interface{}{"ssms": []interface{}{"s0"}, "cnvs": []interface{}{}},
+			"2": map[string]interface{}{"ssms": []interface{}{"s_small"}, "cnvs": []interface{}{}},
+			"3": map[string]interface{}{"ssms": []interface{}{"s1"}, "cnvs": []interface{}{}},
+		},
+	)
+	ssms := []*SSM{
+		{ID: "s0", A: []int{10}, D: []int{100}},
+		{ID: "s_small", A: []int{10}, D: []int{100}}, // raw phi=1.8 → clamped 1.0
+		{ID: "s1", A: []int{90}, D: []int{100}},
+	}
+
+	result := removeSmallNodes(summary, 0.05, ssms, nil)
+
+	if got := findMutAssPop(t, result, "ssms", "s_small"); got != 1 {
+		t.Errorf("s_small reassigned to pop %d, want 1 (highest-CP pop, phi=1.0 clamped)", got)
+	}
+}
+
+// TestRemoveSmallNodes_VAFReassignment_CNV verifies that CNV mutations go
+// through the same VAF-based reassignment as SSMs (Python's
+// _move_muts_to_best_node iterates over both 'ssms' and 'cnvs').
+func TestRemoveSmallNodes_VAFReassignment_CNV(t *testing.T) {
+	// Pop2 has zero SSMs but holds one CNV in mut_assignments. With
+	// num_ssms=0 < threshold=5, pop2 is removed; the CNV must be reassigned
+	// by VAF, not SSM count.
+	// CNV read counts: A=85, D=100 → phi=0.3 → goes to pop3 (CP=0.2).
+	summary := buildSummary(t,
+		map[string]interface{}{
+			"0": map[string]interface{}{"cellular_prevalence": []interface{}{1.0}, "num_ssms": 0, "num_cnvs": 0},
+			"1": map[string]interface{}{"cellular_prevalence": []interface{}{0.9}, "num_ssms": 50, "num_cnvs": 0},
+			"2": map[string]interface{}{"cellular_prevalence": []interface{}{0.5}, "num_ssms": 0, "num_cnvs": 1},
+			"3": map[string]interface{}{"cellular_prevalence": []interface{}{0.2}, "num_ssms": 49, "num_cnvs": 0},
+		},
+		map[string]interface{}{"0": []interface{}{1, 2, 3}},
+		map[string]interface{}{
+			"1": map[string]interface{}{"ssms": []interface{}{"s0"}, "cnvs": []interface{}{}},
+			"2": map[string]interface{}{"ssms": []interface{}{}, "cnvs": []interface{}{"c_orphan"}},
+			"3": map[string]interface{}{"ssms": []interface{}{"s1"}, "cnvs": []interface{}{}},
+		},
+	)
+	ssms := []*SSM{
+		{ID: "s0", A: []int{10}, D: []int{100}},
+		{ID: "s1", A: []int{90}, D: []int{100}},
+	}
+	cnvs := []*CNV{
+		{ID: "c_orphan", A: []int{85}, D: []int{100}}, // phi=0.3
+	}
+
+	result := removeSmallNodes(summary, 0.05, ssms, cnvs)
+
+	if got := findMutAssPop(t, result, "cnvs", "c_orphan"); got != 2 {
+		t.Errorf("c_orphan reassigned to pop %d, want 2 (was pop3, CP=0.2)", got)
+	}
+}
+
+// TestRemoveSmallNodes_TieBreaking verifies that when two populations have
+// identical |meanCP - impliedPhi|, the lower-indexed population wins.
+// This matches Python's deterministic dict iteration where populations are
+// inserted in pre-order with monotonically increasing pidx.
+func TestRemoveSmallNodes_TieBreaking(t *testing.T) {
+	// pop1 and pop3 both have CP=0.5. SSM phi=1.0 → deltas equal at 0.5.
+	// With strict < and ascending pidx iteration, pop1 wins.
+	// After renumbering: pop1 stays "1".
+	summary := buildSummary(t,
+		map[string]interface{}{
+			"0": map[string]interface{}{"cellular_prevalence": []interface{}{1.0}, "num_ssms": 0, "num_cnvs": 0},
+			"1": map[string]interface{}{"cellular_prevalence": []interface{}{0.5}, "num_ssms": 50, "num_cnvs": 0},
+			"2": map[string]interface{}{"cellular_prevalence": []interface{}{0.1}, "num_ssms": 1, "num_cnvs": 0},
+			"3": map[string]interface{}{"cellular_prevalence": []interface{}{0.5}, "num_ssms": 49, "num_cnvs": 0},
+		},
+		map[string]interface{}{"0": []interface{}{1, 2, 3}},
+		map[string]interface{}{
+			"1": map[string]interface{}{"ssms": []interface{}{"s0"}, "cnvs": []interface{}{}},
+			"2": map[string]interface{}{"ssms": []interface{}{"s_small"}, "cnvs": []interface{}{}},
+			"3": map[string]interface{}{"ssms": []interface{}{"s1"}, "cnvs": []interface{}{}},
+		},
+	)
+	ssms := []*SSM{
+		{ID: "s0", A: []int{50}, D: []int{100}},
+		{ID: "s_small", A: []int{50}, D: []int{100}}, // phi = 1.0
+		{ID: "s1", A: []int{50}, D: []int{100}},
+	}
+
+	// Run multiple times — Go map iteration is randomized, but our explicit
+	// sort makes tie-breaking deterministic. All runs must agree.
+	for trial := 0; trial < 20; trial++ {
+		// buildSummary must be re-built each trial; removeSmallNodes mutates.
+		s := buildSummary(t,
+			map[string]interface{}{
+				"0": map[string]interface{}{"cellular_prevalence": []interface{}{1.0}, "num_ssms": 0, "num_cnvs": 0},
+				"1": map[string]interface{}{"cellular_prevalence": []interface{}{0.5}, "num_ssms": 50, "num_cnvs": 0},
+				"2": map[string]interface{}{"cellular_prevalence": []interface{}{0.1}, "num_ssms": 1, "num_cnvs": 0},
+				"3": map[string]interface{}{"cellular_prevalence": []interface{}{0.5}, "num_ssms": 49, "num_cnvs": 0},
+			},
+			map[string]interface{}{"0": []interface{}{1, 2, 3}},
+			map[string]interface{}{
+				"1": map[string]interface{}{"ssms": []interface{}{"s0"}, "cnvs": []interface{}{}},
+				"2": map[string]interface{}{"ssms": []interface{}{"s_small"}, "cnvs": []interface{}{}},
+				"3": map[string]interface{}{"ssms": []interface{}{"s1"}, "cnvs": []interface{}{}},
+			},
+		)
+		result := removeSmallNodes(s, 0.05, ssms, nil)
+		if got := findMutAssPop(t, result, "ssms", "s_small"); got != 1 {
+			t.Fatalf("trial %d: s_small went to pop %d, want 1 (lowest pidx on tie)", trial, got)
+		}
+	}
+	// Reference unused summary so go vet doesn't complain.
+	_ = summary
+}
+
+// TestRemoveSmallNodes_NoReadData verifies that when SSM data is missing for
+// an orphaned mutation, the mutation is silently dropped (rather than
+// crashing). The structural changes still happen normally.
+func TestRemoveSmallNodes_NoReadData(t *testing.T) {
+	summary := buildSummary(t,
+		map[string]interface{}{
+			"0": map[string]interface{}{"cellular_prevalence": []interface{}{1.0}, "num_ssms": 0, "num_cnvs": 0},
+			"1": map[string]interface{}{"cellular_prevalence": []interface{}{0.9}, "num_ssms": 50, "num_cnvs": 0},
+			"2": map[string]interface{}{"cellular_prevalence": []interface{}{0.5}, "num_ssms": 1, "num_cnvs": 0},
+			"3": map[string]interface{}{"cellular_prevalence": []interface{}{0.2}, "num_ssms": 49, "num_cnvs": 0},
+		},
+		map[string]interface{}{"0": []interface{}{1, 2, 3}},
+		map[string]interface{}{
+			"1": map[string]interface{}{"ssms": []interface{}{"s0"}, "cnvs": []interface{}{}},
+			"2": map[string]interface{}{"ssms": []interface{}{"s_orphan"}, "cnvs": []interface{}{}},
+			"3": map[string]interface{}{"ssms": []interface{}{"s1"}, "cnvs": []interface{}{}},
+		},
+	)
+	// Pass nil SSM data — s_orphan has no read counts available.
+	result := removeSmallNodes(summary, 0.05, nil, nil)
+
+	// Pop2 still removed structurally (3 pops remain after renumbering).
+	pops := result["populations"].(map[string]interface{})
+	if len(pops) != 3 {
+		t.Errorf("got %d populations, want 3", len(pops))
+	}
+	// s_orphan dropped — not present in any mut_assignments entry.
+	if got := findMutAssPop(t, result, "ssms", "s_orphan"); got != -1 {
+		t.Errorf("s_orphan was reassigned to pop %d but should have been dropped (no read data)", got)
+	}
+}
+
+// TestRemoveSmallNodes_NoReadDataForOneOnly verifies graceful handling when
+// some orphans have read data and others don't: those with data get
+// reassigned, those without get dropped.
+func TestRemoveSmallNodes_ZeroTotalReads(t *testing.T) {
+	summary := buildSummary(t,
+		map[string]interface{}{
+			"0": map[string]interface{}{"cellular_prevalence": []interface{}{1.0}, "num_ssms": 0, "num_cnvs": 0},
+			"1": map[string]interface{}{"cellular_prevalence": []interface{}{0.9}, "num_ssms": 50, "num_cnvs": 0},
+			"2": map[string]interface{}{"cellular_prevalence": []interface{}{0.5}, "num_ssms": 1, "num_cnvs": 0},
+			"3": map[string]interface{}{"cellular_prevalence": []interface{}{0.2}, "num_ssms": 49, "num_cnvs": 0},
+		},
+		map[string]interface{}{"0": []interface{}{1, 2, 3}},
+		map[string]interface{}{
+			"1": map[string]interface{}{"ssms": []interface{}{"s0"}, "cnvs": []interface{}{}},
+			"2": map[string]interface{}{"ssms": []interface{}{"s_zero"}, "cnvs": []interface{}{}},
+			"3": map[string]interface{}{"ssms": []interface{}{"s1"}, "cnvs": []interface{}{}},
+		},
+	)
+	ssms := []*SSM{
+		{ID: "s_zero", A: []int{0}, D: []int{0}}, // total=0 → no usable phi
+	}
+	result := removeSmallNodes(summary, 0.05, ssms, nil)
+	if got := findMutAssPop(t, result, "ssms", "s_zero"); got != -1 {
+		t.Errorf("s_zero with zero total reads was reassigned to pop %d but should have been dropped", got)
+	}
+}
+
+// ── pickBestSample tests ────────────────────────────────────────────────────
+
+// TestPickBestSample_BestIsMidChain ensures the helper returns the index of
+// the best-LLH sample, not the last sample.
+func TestPickBestSample_BestIsMidChain(t *testing.T) {
+	results := []ChainResult{
+		{
+			SampleLLH: []float64{-200, -100, -50, -300}, // best at index 2
+			Trees: []TreeSample{
+				{LLH: -200}, {LLH: -100}, {LLH: -50}, {LLH: -300},
+			},
+		},
+	}
+	chain, sample, llh, err := pickBestSample(results, []int{0})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if chain != 0 || sample != 2 || llh != -50 {
+		t.Errorf("got (chain=%d, sample=%d, llh=%v), want (0, 2, -50)", chain, sample, llh)
+	}
+}
+
+// TestPickBestSample_AcrossChains ensures the helper finds the best sample
+// across multiple included chains.
+func TestPickBestSample_AcrossChains(t *testing.T) {
+	results := []ChainResult{
+		{
+			SampleLLH: []float64{-200, -150},
+			Trees:     []TreeSample{{LLH: -200}, {LLH: -150}},
+		},
+		{
+			SampleLLH: []float64{-50, -100},
+			Trees:     []TreeSample{{LLH: -50}, {LLH: -100}},
+		},
+	}
+	chain, sample, llh, err := pickBestSample(results, []int{0, 1})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if chain != 1 || sample != 0 || llh != -50 {
+		t.Errorf("got (chain=%d, sample=%d, llh=%v), want (1, 0, -50)", chain, sample, llh)
+	}
+}
+
+// TestPickBestSample_RespectsIncluded ensures excluded chains are ignored,
+// even if they contain a higher-LLH sample.
+func TestPickBestSample_RespectsIncluded(t *testing.T) {
+	results := []ChainResult{
+		{
+			SampleLLH: []float64{-100, -150},
+			Trees:     []TreeSample{{LLH: -100}, {LLH: -150}},
+		},
+		{
+			SampleLLH: []float64{-50, -200}, // -50 is global best but chain excluded
+			Trees:     []TreeSample{{LLH: -50}, {LLH: -200}},
+		},
+	}
+	chain, sample, llh, err := pickBestSample(results, []int{0}) // chain 1 excluded
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if chain != 0 || sample != 0 || llh != -100 {
+		t.Errorf("got (chain=%d, sample=%d, llh=%v), want (0, 0, -100)", chain, sample, llh)
+	}
+}
+
+// TestPickBestSample_TieGoesToFirst ensures LLH ties resolve to the
+// first-seen sample (matching the sequential argmax behavior of the loop).
+func TestPickBestSample_TieGoesToFirst(t *testing.T) {
+	results := []ChainResult{
+		{
+			SampleLLH: []float64{-100, -100, -100},
+			Trees:     []TreeSample{{LLH: -100}, {LLH: -100}, {LLH: -100}},
+		},
+	}
+	chain, sample, _, err := pickBestSample(results, []int{0})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if chain != 0 || sample != 0 {
+		t.Errorf("tie should resolve to first sample; got (chain=%d, sample=%d)", chain, sample)
+	}
+}
+
+// TestPickBestSample_NoSamples ensures the helper returns an error when no
+// included chain has any samples (rather than panicking or returning bad indices).
+func TestPickBestSample_NoSamples(t *testing.T) {
+	results := []ChainResult{
+		{SampleLLH: nil, Trees: nil},
+	}
+	_, _, _, err := pickBestSample(results, []int{0})
+	if err == nil {
+		t.Error("expected error for empty SampleLLH, got nil")
+	}
+}
+
+// TestPickBestSample_LengthMismatch ensures the helper detects a
+// SampleLLH/Trees length mismatch and returns an error rather than reading
+// past Trees.
+func TestPickBestSample_LengthMismatch(t *testing.T) {
+	results := []ChainResult{
+		{
+			SampleLLH: []float64{-100, -50, -75},
+			Trees:     []TreeSample{{LLH: -100}, {LLH: -50}}, // missing one
+		},
+	}
+	_, _, _, err := pickBestSample(results, []int{0})
+	if err == nil {
+		t.Error("expected error for length mismatch, got nil")
 	}
 }

@@ -23,9 +23,9 @@ import (
 
 // Global GPU engine (shared across chains)
 var (
-	gpuEngine          *cuda.GPULikelihoodEngine
-	useGPU             bool
-	gpuMu              sync.Mutex
+	gpuEngine *cuda.GPULikelihoodEngine
+	useGPU    bool
+	gpuMu     sync.Mutex
 )
 
 // ============================================================================
@@ -2520,8 +2520,8 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 			D:               append([]int{}, cnv.D...),
 			LogBinNormConst: append([]float64{}, cnv.LogBinNormConst...),
 			AffectedSSMs:    cnv.AffectedSSMs, // read-only during MCMC
-			SSMLinks:        cnv.SSMLinks,      // read-only during MCMC
-			PhysicalCNVs:    cnv.PhysicalCNVs,  // read-only during MCMC
+			SSMLinks:        cnv.SSMLinks,     // read-only during MCMC
+			PhysicalCNVs:    cnv.PhysicalCNVs, // read-only during MCMC
 			// Node is assigned by newTSSB and updated by resampleAssignments
 		}
 		chainCNVs[i] = chainCNV
@@ -2777,6 +2777,39 @@ func filterChainsByInclusion(results []ChainResult, factor float64) (included []
 	return included, excluded
 }
 
+// pickBestSample finds the (chain index, sample index) of the highest-LLH
+// post-burnin sample among the included chains. The returned indices satisfy
+// results[chainIdx].Trees[sampleIdx].LLH == llh == max over included samples.
+//
+// Returns an error if no included chain has any samples. The first-seen sample
+// wins on LLH ties (matching Python's sequential argmax over chain samples).
+func pickBestSample(results []ChainResult, included []int) (chainIdx, sampleIdx int, llh float64, err error) {
+	chainIdx, sampleIdx = -1, -1
+	llh = math.Inf(-1)
+	for _, i := range included {
+		if i < 0 || i >= len(results) {
+			continue
+		}
+		r := results[i]
+		if len(r.SampleLLH) != len(r.Trees) {
+			return -1, -1, math.Inf(-1), fmt.Errorf(
+				"chain %d has SampleLLH/Trees length mismatch (%d vs %d)",
+				i, len(r.SampleLLH), len(r.Trees))
+		}
+		for j, v := range r.SampleLLH {
+			if v > llh {
+				llh = v
+				chainIdx = i
+				sampleIdx = j
+			}
+		}
+	}
+	if chainIdx < 0 || sampleIdx < 0 {
+		return -1, -1, math.Inf(-1), fmt.Errorf("no samples found across included chains %v", included)
+	}
+	return chainIdx, sampleIdx, llh, nil
+}
+
 func writeResults(outDir string, results []ChainResult, chainInclusionFactor float64) error {
 	if err := os.MkdirAll(outDir, 0755); err != nil {
 		return err
@@ -2867,59 +2900,77 @@ func writeResults(outDir string, results []ChainResult, chainInclusionFactor flo
 		}
 	}
 
-	// Write best_tree.json from the best sample among included chains only
-	bestChainIdx := 0
-	bestOverallLLH := math.Inf(-1)
-	for _, i := range includedChains {
-		r := results[i]
-		for _, llhVal := range r.SampleLLH {
-			if llhVal > bestOverallLLH {
-				bestOverallLLH = llhVal
-				bestChainIdx = i
-			}
+	// Write best_tree.json from the snapshot of the best-LLH sample (matching
+	// Python: it picks the actual best-LLH tree from all sampled trees, not
+	// the final MCMC state).
+	bestChainIdx, bestSampleIdx, bestOverallLLH, err := pickBestSample(results, includedChains)
+	if err != nil {
+		return err
+	}
+	selected := results[bestChainIdx].Trees[bestSampleIdx]
+	// Defence-in-depth: snapshotTree appends to Trees in lockstep with
+	// SampleLLH (same iteration body). If a future change ever desyncs them,
+	// fail loudly rather than silently writing the wrong tree.
+	if selected.LLH != bestOverallLLH {
+		return fmt.Errorf(
+			"internal error: SampleLLH/Trees desync — Trees[%d].LLH=%v, SampleLLH[%d]=%v",
+			bestSampleIdx, selected.LLH, bestSampleIdx, bestOverallLLH)
+	}
+	if selected.Snapshot == nil {
+		return fmt.Errorf(
+			"internal error: best-LLH sample has nil Snapshot (chain=%d sample=%d)",
+			bestChainIdx, bestSampleIdx)
+	}
+
+	var generic map[string]interface{}
+	if err := json.Unmarshal(selected.Snapshot, &generic); err != nil {
+		return fmt.Errorf("failed to unmarshal best-LLH snapshot: %w", err)
+	}
+	if _, ok := generic["populations"].(map[string]interface{}); !ok {
+		return fmt.Errorf("best-LLH snapshot missing 'populations' map")
+	}
+	if _, ok := generic["mut_assignments"].(map[string]interface{}); !ok {
+		return fmt.Errorf("best-LLH snapshot missing 'mut_assignments' map")
+	}
+
+	// SSM/CNV data is shared across all samples in a chain (only tree
+	// structure varies between snapshots), so use the chain's FinalTree as
+	// the source.
+	ssmData := results[bestChainIdx].FinalTree.Data
+	cnvData := results[bestChainIdx].FinalTree.CNVData
+
+	// Apply remaining post-processing. snapshotTree already ran
+	// postProcessSummary (remove empty pops), so we only need to apply
+	// removeSmallNodes and removeSuperclones.
+	//
+	// Adaptive threshold max(1%, 2/M): at low M (30-100) this prunes
+	// singleton over-splits more aggressively than Python's fixed 1%; at
+	// high M (200+) it collapses to 1%, matching Python's default. Validated
+	// improvement over flat 0.01 in earlier benchmarks.
+	totalSSMs := 0
+	for _, v := range generic["populations"].(map[string]interface{}) {
+		pop := v.(map[string]interface{})
+		totalSSMs += int(pop["num_ssms"].(float64))
+	}
+	minFrac := 0.01
+	if totalSSMs > 0 {
+		if adaptive := 2.0 / float64(totalSSMs); adaptive > minFrac {
+			minFrac = adaptive
 		}
 	}
-	if tssb := results[bestChainIdx].FinalTree; tssb != nil {
-		removeEmptyNodes(tssb.Root, nil)
-		treeSummary := summarizePops(tssb, bestOverallLLH, results[bestChainIdx].ChainID)
+	generic = removeSmallNodes(generic, minFrac, ssmData, cnvData)
+	generic = removeSuperclones(generic)
 
-		// JSON round-trip to normalize concrete types to map[string]interface{}
-		rawJSON, _ := json.Marshal(treeSummary)
-		var generic map[string]interface{}
-		json.Unmarshal(rawJSON, &generic)
-
-		// Apply Python-equivalent post-processing pipeline:
-		// 1. Remove empty populations (postProcessSummary = remove_empty_nodes)
-		generic = postProcessSummary(generic)
-		// 2. Remove small populations using adaptive threshold: max(1%, 2/M).
-		//    At low M (30-100) this prunes singleton over-splits more aggressively
-		//    than Python's fixed 1%, matching or beating Python's K accuracy.
-		//    At high M (200+) it falls back to 1%, matching Python's default.
-		totalSSMs := 0
-		for _, v := range generic["populations"].(map[string]interface{}) {
-			pop := v.(map[string]interface{})
-			totalSSMs += int(pop["num_ssms"].(float64))
-		}
-		minFrac := 0.01
-		if totalSSMs > 0 {
-			adaptive := 2.0 / float64(totalSSMs)
-			if adaptive > minFrac {
-				minFrac = adaptive
-			}
-		}
-		generic = removeSmallNodes(generic, minFrac)
-		// 3. Remove superclones — matches Python's default (--keep-superclones
-		//    not set)
-		generic = removeSuperclones(generic)
-
-		treeData, _ := json.MarshalIndent(generic, "", "  ")
-		treePath := filepath.Join(outDir, "best_tree.json")
-		if err := os.WriteFile(treePath, treeData, 0644); err != nil {
-			return err
-		}
-		if err := writeMutList(outDir, tssb.Data, tssb.CNVData); err != nil {
-			return err
-		}
+	treeData, err := json.MarshalIndent(generic, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal best_tree.json: %w", err)
+	}
+	treePath := filepath.Join(outDir, "best_tree.json")
+	if err := os.WriteFile(treePath, treeData, 0644); err != nil {
+		return err
+	}
+	if err := writeMutList(outDir, ssmData, cnvData); err != nil {
+		return err
 	}
 
 	return nil
@@ -3501,10 +3552,16 @@ func getCNVsFromMutAss(mutAss map[string]interface{}, popIdx string) []interface
 
 // removeSmallNodes implements Python's ResultMunger.remove_small_nodes().
 // Any non-root population with fewer than ceil(minFrac * totalSSMs) SSMs is
-// removed. Its mutations are reassigned to the remaining population with the
-// closest cellular prevalence. Children of removed nodes are reparented to
-// their grandparent. Remaining nodes are renumbered contiguously.
-func removeSmallNodes(summary map[string]interface{}, minFrac float64) map[string]interface{} {
+// removed. Its mutations are reassigned per Python's _move_muts_to_best_node
+// (result_munger.py:247-269): each mutation gets implied_phi = 2*(D-A)/D
+// computed from its read counts, and goes to the non-root population whose
+// mean cellular_prevalence is closest. Children of removed nodes are
+// reparented to their grandparent. Remaining nodes are renumbered contiguously.
+//
+// ssmData and cnvData provide the read counts needed for the VAF math. Either
+// can be nil (e.g. in tests that only exercise structural changes); mutations
+// without read-data lookups are silently dropped from the output.
+func removeSmallNodes(summary map[string]interface{}, minFrac float64, ssmData []*SSM, cnvData []*CNV) map[string]interface{} {
 	popsRaw := summary["populations"].(map[string]interface{})
 	structRaw := summary["structure"].(map[string]interface{})
 	mutAssRaw := summary["mut_assignments"].(map[string]interface{})
@@ -3639,37 +3696,106 @@ func removeSmallNodes(summary map[string]interface{}, minFrac float64) map[strin
 		delete(newStruct, idxStr)
 	}
 
-	// Reassign deleted mutations to closest-CP node (destination='best')
+	// Reassign deleted mutations to closest-CP node, matching Python's
+	// _move_muts_to_best_node (result_munger.py:247-269). For each mutation,
+	// compute implied_phi = 2 * mean(variant)/mean(total) from read counts,
+	// then assign it to the non-root population whose mean cellular_prevalence
+	// is nearest.
+	ssmByID := make(map[string]*SSM, len(ssmData))
+	for _, s := range ssmData {
+		ssmByID[s.ID] = s
+	}
+	cnvByID := make(map[string]*CNV, len(cnvData))
+	for _, c := range cnvData {
+		cnvByID[c.ID] = c
+	}
+
+	// implyPhi computes Python's implied_phi from mean ref/total reads.
+	// Returns false if there are no usable read counts (no data, zero total).
+	implyPhi := func(a, d []int) (float64, bool) {
+		if len(a) == 0 || len(d) == 0 {
+			return 0, false
+		}
+		n := len(a)
+		if len(d) < n {
+			n = len(d)
+		}
+		sumRef := 0.0
+		sumTotal := 0.0
+		for tp := 0; tp < n; tp++ {
+			sumRef += float64(a[tp])
+			sumTotal += float64(d[tp])
+		}
+		meanRef := sumRef / float64(n)
+		meanTotal := sumTotal / float64(n)
+		if meanTotal <= 0 {
+			return 0, false
+		}
+		phi := 2 * (meanTotal - meanRef) / meanTotal
+		if phi > 1.0 {
+			phi = 1.0
+		}
+		return phi, true
+	}
+
+	// Sort population indices ascending so iteration order is deterministic.
+	// Combined with strict `<` comparison below, lowest pidx wins on ties —
+	// matching Python's insertion-order dict iteration where populations are
+	// inserted in pre-order with monotonically increasing pidx.
+	popKeys := make([]int, 0, len(newPops))
+	for k := range newPops {
+		if kidx, err := strconv.Atoi(k); err == nil && kidx != 0 {
+			popKeys = append(popKeys, kidx)
+		}
+	}
+	sort.Ints(popKeys)
+
 	for _, dm := range allDeletedMuts {
 		for _, mutType := range []struct {
 			name string
 			muts []interface{}
 		}{{"ssms", dm.ssms}, {"cnvs", dm.cnvs}} {
 			for _, mutID := range mutType.muts {
-				// Find remaining non-root population with closest CP
-				// Python uses implied_phi from VAF, but we don't have ref_reads here.
-				// Instead, like Python's _move_muts_to_best_node with simple heuristic,
-				// we use implied_phi ≈ 0.5 (middle of range) and find closest pop.
-				// Actually, Python uses the VAF from the mutlist, but since we don't
-				// have the mutlist in best_tree.json, we assign to the pop with the
-				// highest CP (most clonal). This matches the spirit of Python's
-				// approach for clonal-skewed data.
+				mutIDStr, isStr := mutID.(string)
+				if !isStr {
+					continue
+				}
+
+				var impliedPhi float64
+				var havePhi bool
+				switch mutType.name {
+				case "ssms":
+					if s, ok := ssmByID[mutIDStr]; ok {
+						impliedPhi, havePhi = implyPhi(s.A, s.D)
+					}
+				case "cnvs":
+					if c, ok := cnvByID[mutIDStr]; ok {
+						impliedPhi, havePhi = implyPhi(c.A, c.D)
+					}
+				}
+				if !havePhi {
+					// No read-count data available for this mutation —
+					// skip rather than guess. (Python would crash on a
+					// missing mutlist key; we degrade to drop.)
+					continue
+				}
+
 				bestIdx := -1
-				bestCP := -1.0
-				for k, v := range newPops {
-					kidx, _ := strconv.Atoi(k)
-					if kidx == 0 {
+				bestDelta := math.Inf(1)
+				for _, kidx := range popKeys {
+					pop := newPops[strconv.Itoa(kidx)].(map[string]interface{})
+					cpRaw := pop["cellular_prevalence"].([]interface{})
+					if len(cpRaw) == 0 {
 						continue
 					}
-					pop := v.(map[string]interface{})
-					cpRaw := pop["cellular_prevalence"].([]interface{})
-					meanCP := 0.0
+					sumCP := 0.0
 					for _, c := range cpRaw {
-						meanCP += c.(float64)
+						sumCP += c.(float64)
 					}
-					meanCP /= float64(len(cpRaw))
-					if meanCP > bestCP {
-						bestCP = meanCP
+					meanCP := sumCP / float64(len(cpRaw))
+					delta := math.Abs(meanCP - impliedPhi)
+					if delta < bestDelta {
+						bestDelta = delta
 						bestIdx = kidx
 					}
 				}
