@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"math"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strconv"
@@ -996,5 +998,52 @@ func TestPickBestSample_LengthMismatch(t *testing.T) {
 	_, _, _, err := pickBestSample(results, []int{0})
 	if err == nil {
 		t.Error("expected error for length mismatch, got nil")
+	}
+}
+
+func TestLoadSSMData_MissingMuColumns_DefaultsToZero(t *testing.T) {
+	// Python util2.py defaults SSMs to mu_r=0, mu_v=0 when those columns
+	// are absent from the header. Go must match.
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "ssm.txt")
+	content := "id\tgene\ta\td\n" +
+		"s0\tGENE1\t10\t100\n" +
+		"s1\tGENE2\t5\t50\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	ssms, err := loadSSMData(path)
+	if err != nil {
+		t.Fatalf("loadSSMData: %v", err)
+	}
+	if len(ssms) != 2 {
+		t.Fatalf("expected 2 SSMs, got %d", len(ssms))
+	}
+	for i, s := range ssms {
+		if s.MuR != 0 {
+			t.Errorf("ssm[%d].MuR = %v, want 0 (Python default when column absent)", i, s.MuR)
+		}
+		if s.MuV != 0 {
+			t.Errorf("ssm[%d].MuV = %v, want 0 (Python default when column absent)", i, s.MuV)
+		}
+	}
+}
+
+func TestLoadSSMData_PresentMuColumns_AreParsed(t *testing.T) {
+	// When mu_r / mu_v columns ARE present, Go uses them.
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "ssm.txt")
+	content := "id\tgene\ta\td\tmu_r\tmu_v\n" +
+		"s0\tGENE1\t10\t100\t0.999\t0.499\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	ssms, err := loadSSMData(path)
+	if err != nil {
+		t.Fatalf("loadSSMData: %v", err)
+	}
+	if ssms[0].MuR != 0.999 || ssms[0].MuV != 0.499 {
+		t.Errorf("got (MuR=%v, MuV=%v), want (0.999, 0.499)", ssms[0].MuR, ssms[0].MuV)
 	}
 }

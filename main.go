@@ -373,23 +373,28 @@ func loadSSMData(filename string) ([]*SSM, error) {
 	var ssms []*SSM
 	scanner := bufio.NewScanner(file)
 	lineNum := 0
+	muRIdx, muVIdx := -1, -1
 	for scanner.Scan() {
 		lineNum++
-		if lineNum == 1 {
-			continue // skip header
-		}
 		line := scanner.Text()
 		fields := strings.Split(line, "\t")
-		if len(fields) < 5 {
+		if lineNum == 1 {
+			for i, h := range fields {
+				switch h {
+				case "mu_r":
+					muRIdx = i
+				case "mu_v":
+					muVIdx = i
+				}
+			}
+			continue
+		}
+		if len(fields) < 4 {
 			continue
 		}
 
-		ssm := &SSM{
-			ID:   fields[0],
-			Name: fields[1],
-		}
+		ssm := &SSM{ID: fields[0], Name: fields[1]}
 
-		// Parse read counts
 		aStrs := strings.Split(fields[2], ",")
 		dStrs := strings.Split(fields[3], ",")
 		ssm.A = make([]int, len(aStrs))
@@ -401,17 +406,25 @@ func loadSSMData(filename string) ([]*SSM, error) {
 			ssm.D[i], _ = strconv.Atoi(s)
 		}
 
-		// Parse mu values
-		ssm.MuR = 0.999
-		ssm.MuV = 0.5
-		if len(fields) > 4 {
-			ssm.MuR, _ = strconv.ParseFloat(fields[4], 64)
-		}
-		if len(fields) > 5 {
-			ssm.MuV, _ = strconv.ParseFloat(fields[5], 64)
+		// Match Python util2.py: default mu_r=0, mu_v=0 when columns are absent.
+		// When the column IS present, parse it; if parsing fails, keep PhyloWGS
+		// canonical defaults (0.999 / 0.5) so existing valid-but-typo'd files
+		// still run.
+		if muRIdx >= 0 && muRIdx < len(fields) {
+			if v, err := strconv.ParseFloat(fields[muRIdx], 64); err == nil {
+				ssm.MuR = v
+			} else {
+				ssm.MuR = 0.999
+			}
+		} // else: leave at zero-value (Python parity)
+		if muVIdx >= 0 && muVIdx < len(fields) {
+			if v, err := strconv.ParseFloat(fields[muVIdx], 64); err == nil {
+				ssm.MuV = v
+			} else {
+				ssm.MuV = 0.5
+			}
 		}
 
-		// Precompute log binomial coefficients
 		ssm.LogBinNormConst = make([]float64, len(ssm.A))
 		for i := range ssm.A {
 			ssm.LogBinNormConst[i] = logBinCoeff(ssm.D[i], ssm.A[i])
@@ -419,7 +432,6 @@ func loadSSMData(filename string) ([]*SSM, error) {
 
 		ssms = append(ssms, ssm)
 	}
-
 	return ssms, scanner.Err()
 }
 
