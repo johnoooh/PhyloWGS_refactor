@@ -2004,7 +2004,7 @@ func (t *TSSB) resampleSticks(rng *rand.Rand) {
 		dataHere := len(root.Node.Data)
 		postAlpha := 1.0 + float64(dataHere)
 		postBeta := math.Pow(t.AlphaDecay, float64(depth))*t.DPAlpha + float64(dataDown)
-		if depth >= 1 { // min_depth = 0 typically
+		if t.MinDepth <= depth {
 			root.Main = boundBeta(postAlpha, postBeta, rng)
 		} else {
 			root.Main = 1e-30
