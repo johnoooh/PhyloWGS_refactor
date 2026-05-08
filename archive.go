@@ -4,8 +4,11 @@ import (
 	"archive/zip"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"sort"
 	"strconv"
+	"strings"
 )
 
 // TreeArchiveWriter writes one zip entry per MCMC sample. Entries are
@@ -108,3 +111,61 @@ func (w *MutassArchiveWriter) Close() error {
 	}
 	return w.f.Close()
 }
+
+// TreeArchiveReader reads back zip entries written by TreeArchiveWriter.
+// It exposes only non-burnin samples in idx-ascending order, matching
+// Python TreeReader semantics.
+type TreeArchiveReader struct {
+	r       *zip.ReadCloser
+	entries []treeEntry
+}
+
+type treeEntry struct {
+	idx int
+	llh float64
+	zf  *zip.File
+}
+
+func newTreeArchiveReader(path string) (*TreeArchiveReader, error) {
+	r, err := zip.OpenReader(path)
+	if err != nil {
+		return nil, err
+	}
+	var entries []treeEntry
+	for _, f := range r.File {
+		if !strings.HasPrefix(f.Name, "tree_") {
+			continue
+		}
+		// "tree_<idx>_<llh>"
+		parts := strings.SplitN(f.Name, "_", 3)
+		if len(parts) != 3 {
+			continue
+		}
+		idx, err1 := strconv.Atoi(parts[1])
+		llh, err2 := strconv.ParseFloat(parts[2], 64)
+		if err1 != nil || err2 != nil {
+			continue
+		}
+		entries = append(entries, treeEntry{idx, llh, f})
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].idx < entries[j].idx })
+	return &TreeArchiveReader{r: r, entries: entries}, nil
+}
+
+func (r *TreeArchiveReader) NumTrees() int { return len(r.entries) }
+
+func (r *TreeArchiveReader) LoadTree(i int) (json.RawMessage, float64, error) {
+	e := r.entries[i]
+	rc, err := e.zf.Open()
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rc.Close()
+	b, err := io.ReadAll(rc)
+	if err != nil {
+		return nil, 0, err
+	}
+	return json.RawMessage(b), e.llh, nil
+}
+
+func (r *TreeArchiveReader) Close() error { return r.r.Close() }

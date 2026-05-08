@@ -133,3 +133,33 @@ func TestMutassArchiveWriter_WritesPerTreeJSONEntries(t *testing.T) {
 		t.Errorf("0.json missing mut_assignments wrapper: %s", got["0.json"])
 	}
 }
+
+func TestTreeArchiveReader_LoadsAllNonBurninEntries(t *testing.T) {
+	tmp := t.TempDir()
+	zipPath := filepath.Join(tmp, "trees.zip")
+	w, _ := newTreeArchiveWriter(zipPath)
+	w.WriteSample(0, -100.0, false, json.RawMessage(`{"i":0}`))
+	w.WriteSample(1, -99.5, false, json.RawMessage(`{"i":1}`))
+	w.WriteSample(-1, -200.0, true, json.RawMessage(`{"i":-1}`))
+	w.Close()
+
+	r, err := newTreeArchiveReader(zipPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+
+	if r.NumTrees() != 2 {
+		t.Fatalf("NumTrees = %d, want 2", r.NumTrees())
+	}
+	tree, llh, err := r.LoadTree(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if llh != -100.0 {
+		t.Errorf("LLH = %v, want -100", llh)
+	}
+	if string(tree) != `{"i":0}` {
+		t.Errorf("content = %s, want {\"i\":0}", tree)
+	}
+}
