@@ -2,6 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -123,5 +126,48 @@ func TestGroupAndRank_AssignsCorrectPosteriorProbabilities(t *testing.T) {
 	}
 	if ranked[0].TreeIndices[0] != 0 || ranked[0].TreeIndices[1] != 1 {
 		t.Errorf("rank0 indices = %v, want [0 1]", ranked[0].TreeIndices)
+	}
+}
+
+func TestWritePosteriorTreeTeX_EmitsValidStandaloneDocument(t *testing.T) {
+	tmp := t.TempDir()
+	out := filepath.Join(tmp, "tree.tex")
+
+	// Single-tree group, single population, one SSM, two samples (so cell_prev is len-2).
+	rep := json.RawMessage(`{
+		"populations":{
+			"0":{"cellular_prevalence":[0.7,0.6],"num_ssms":1,"num_cnvs":0}
+		},
+		"structure":{"0":[]},
+		"mut_assignments":{"0":{"ssms":["s0"],"cnvs":[]}}
+	}`)
+	group := PosteriorGroup{
+		Signature:   "_0_;",
+		TreeIndices: []int{0},
+		Probability: 1.0,
+	}
+	freqs := map[string][][]float64{"0": {{0.7, 0.6}}}
+
+	if err := writePosteriorTreeTeX(out, rep, group, freqs); err != nil {
+		t.Fatal(err)
+	}
+
+	body, _ := os.ReadFile(out)
+	for _, want := range []string{
+		`\documentclass{standalone}`,
+		`\begin{tikzpicture}`,
+		`Posterior probability: 1`,
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("tex missing %q", want)
+		}
+	}
+
+	// Guard against a stray \\ (LaTeX line break) leaking into tikz scope.
+	if strings.Contains(string(body), `\\`+"\n"+`\node`) {
+		t.Errorf("found stray \\\\ before \\node — would break pdflatex")
+	}
+	if !strings.Contains(string(body), "\n"+`\node {1}`) {
+		t.Errorf("expected \\node {1} immediately after a newline; got: %s", body)
 	}
 }

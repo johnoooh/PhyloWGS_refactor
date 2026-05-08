@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"os"
 	"sort"
 	"strings"
 )
@@ -212,4 +214,137 @@ func rankGroups(groups map[string][]int, totalTrees int) []PosteriorGroup {
 		return out[i].TreeIndices[0] < out[j].TreeIndices[0]
 	})
 	return out
+}
+
+// writePosteriorTreeTeX writes one posterior group's standalone-LaTeX file.
+// `representative` is the JSON snapshot of one tree in the group (used for
+// structure + node membership); `freqs` provides cellular-prevalence stats
+// already aggregated across all trees in the group, keyed by node ID
+// (e.g. "0", "1") and shaped [n_aggregated_samples][n_timepoints].
+func writePosteriorTreeTeX(outPath string, representative json.RawMessage, g PosteriorGroup, freqs map[string][][]float64) error {
+	var s struct {
+		Populations map[string]struct {
+			CellularPrevalence []float64 `json:"cellular_prevalence"`
+			NumSSMs            int       `json:"num_ssms"`
+			NumCNVs            int       `json:"num_cnvs"`
+		} `json:"populations"`
+		Structure      map[string][]int               `json:"structure"`
+		MutAssignments map[string]map[string][]string `json:"mut_assignments"`
+	}
+	if err := json.Unmarshal(representative, &s); err != nil {
+		return err
+	}
+
+	var b strings.Builder
+	b.WriteString(`\documentclass{standalone}` + "\n")
+	b.WriteString(`\usepackage{tikz}` + "\n")
+	b.WriteString(`\usepackage{multicol}` + "\n")
+	b.WriteString(`\usetikzlibrary{fit,positioning}` + "\n")
+	b.WriteString(`\begin{document}` + "\n")
+	b.WriteString(`\begin{tikzpicture}` + "\n")
+	b.WriteString(`\node (a) at (0,0){` + "\n")
+	b.WriteString(`\begin{tikzpicture}` + "\n")
+	b.WriteString(`[grow=east, ->, level distance=20mm,` +
+		`every node/.style={circle, minimum size = 8mm, thick, draw =black,inner sep=2mm},` +
+		`every label/.append style={shape=rectangle, yshift=-1mm},` +
+		`level 2/.style={sibling distance=50mm},` +
+		`level 3/.style={sibling distance=20mm},` +
+		`level 4/.style={sibling distance=20mm},` +
+		`every edge/.style={-latex, thick}]` + "\n")
+
+	// Tree structure: \node {0} child {\node {1} child {...}}.
+	counter := 0
+	var emitNode func(node string)
+	emitNode = func(node string) {
+		counter++
+		mine := counter
+		b.WriteString(fmt.Sprintf(`\node {%d}`, mine))
+		for _, c := range s.Structure[node] {
+			b.WriteString("child {")
+			emitNode(fmt.Sprintf("%d", c))
+			b.WriteString("}")
+		}
+	}
+	b.WriteString("\n")
+	emitNode("0")
+	b.WriteString(";\n")
+	b.WriteString(`\end{tikzpicture}` + "\n")
+	b.WriteString(`};` + "\n")
+
+	// Index table.
+	b.WriteString(`\node (b) at (a.south)[anchor=north,yshift=-.5cm]{` + "\n")
+	b.WriteString(`\begin{tikzpicture}` + "\n")
+	b.WriteString(`\node (table){` + "\n")
+	// Determine n_timepoints from any population's cellular_prevalence.
+	nTP := 0
+	for _, p := range s.Populations {
+		if len(p.CellularPrevalence) > nTP {
+			nTP = len(p.CellularPrevalence)
+		}
+	}
+	b.WriteString(`\begin{tabular}{|c|l|l|`)
+	for i := 0; i < nTP; i++ {
+		b.WriteString("l|")
+	}
+	b.WriteString("}\n\\hline\n")
+	b.WriteString(fmt.Sprintf(`Node & \multicolumn{1}{|c|}{SSMs} & \multicolumn{1}{|c|}{CNVs} & \multicolumn{%d}{|c|}{Clonal frequencies}\\`, nTP))
+	b.WriteString("\n\\hline\n")
+
+	counter = 0
+	var emitRow func(node string)
+	emitRow = func(node string) {
+		counter++
+		mine := counter
+		ma := s.MutAssignments[node]
+		nSSM := len(ma["ssms"])
+		nCNV := len(ma["cnvs"])
+		f := freqs[node]
+		row := fmt.Sprintf("%d & %d & %d", mine, nSSM, nCNV)
+		for tp := 0; tp < nTP; tp++ {
+			mean, sd := meanSDColumn(f, tp)
+			row += fmt.Sprintf(` & %.3f $\pm$ %.3f`, mean, sd)
+		}
+		row += `\\` + "\n"
+		b.WriteString(row)
+		for _, c := range s.Structure[node] {
+			emitRow(fmt.Sprintf("%d", c))
+		}
+	}
+	emitRow("0")
+
+	b.WriteString("\\hline\n")
+	b.WriteString("\\end{tabular}\n};\n")
+	b.WriteString(`\end{tikzpicture}` + "\n")
+	b.WriteString(`};` + "\n")
+	b.WriteString(fmt.Sprintf(`\node at (b.south) [anchor=north,yshift=-.5cm]{Posterior probability: %g};`+"\n", g.Probability))
+	b.WriteString(`\end{tikzpicture}` + "\n")
+	b.WriteString(`\end{document}` + "\n")
+
+	return os.WriteFile(outPath, []byte(b.String()), 0644)
+}
+
+// meanSDColumn computes mean and (population) sd across rows of a 2D matrix.
+// Returns (0, 0) for empty input.
+func meanSDColumn(rows [][]float64, col int) (float64, float64) {
+	if len(rows) == 0 {
+		return 0, 0
+	}
+	var sum, sumSq float64
+	n := 0
+	for _, r := range rows {
+		if col < len(r) {
+			sum += r[col]
+			sumSq += r[col] * r[col]
+			n++
+		}
+	}
+	if n == 0 {
+		return 0, 0
+	}
+	mean := sum / float64(n)
+	variance := sumSq/float64(n) - mean*mean
+	if variance < 0 {
+		variance = 0
+	}
+	return mean, math.Sqrt(variance)
 }
