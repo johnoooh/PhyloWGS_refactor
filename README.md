@@ -59,6 +59,8 @@ export LD_LIBRARY_PATH=$PWD/cuda:/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 | `-O` | output | Output directory |
 | `-i` | 5000 | MH iterations per MCMC iteration |
 | `-r` | 0 | Random seed (0 = use time) |
+| `-I` | 1.0 | Chain inclusion factor (fraction of best-LLH chains kept in `trees.zip`/`mutass.zip`) |
+| `-D` | "" | Dataset name embedded in `mutass.zip` entries |
 | `--no-gpu` | false | Disable GPU acceleration (CUDA build only) |
 
 ### Example
@@ -80,8 +82,8 @@ Tab-separated file with columns:
 - `gene`: Gene name
 - `a`: Variant read counts per sample (comma-separated)
 - `d`: Total read depth per sample (comma-separated)
-- `mu_r`: Reference allele probability (default: 0.999)
-- `mu_v`: Variant allele probability (default: 0.5)
+- `mu_r`: Reference allele probability (default: 0 if column absent — matches Python `util2.py`)
+- `mu_v`: Variant allele probability (default: 0 if column absent — matches Python `util2.py`)
 
 ```tsv
 id	gene	a	d	mu_r	mu_v
@@ -103,9 +105,23 @@ cnv	a	d	ssms	physical_cnvs
 c0	66023,50883,62757	126755,100469,121941	s2,1,2;s4,0,1	chrom=1,start=1234,end=5678,...
 ```
 
-## Output
+## Outputs
 
-### summary.json
+After a run, `<output-dir>` contains:
+
+- `best_tree.json` — single-best tree (highest-LLH sample across all
+  included chains).
+- `mutlist.json` — mutation reference table.
+- `summary.json` — per-chain trace and global summary (see below).
+- `chain_<N>_trees.ndjson` — per-chain newline-delimited JSON snapshots.
+- `chain_<N>_samples.txt` — per-chain LLH trace.
+- `trees.zip` — every included sample's tree snapshot, named
+  `tree_<idx>_<llh>`. Matches Python `multievolve.py` `trees.zip`
+  layout, with JSON payloads instead of pickle.
+- `mutass.zip` — every included sample's mutation assignments, named
+  `<idx>.json`. Includes the dataset name supplied via `-D`.
+
+`summary.json` example:
 
 ```json
 {
@@ -117,15 +133,34 @@ c0	66023,50883,62757	126755,100469,121941	s2,1,2;s4,0,1	chrom=1,start=1234,end=5
 }
 ```
 
-### chain_N_samples.txt
+`chain_<N>_samples.txt` example:
 
-Per-chain MCMC samples:
 ```tsv
 Iteration	LLH	NumNodes
 0	-1748042.31	3
 1	-1748041.89	3
 ...
 ```
+
+## Posterior-tree summaries
+
+After a run, group MCMC trees by topology and emit per-group LaTeX
+summaries:
+
+```bash
+phylowgs-go posterior-trees [-n 5] [-no-pdf] <output-dir>
+```
+
+Reads `<output-dir>/trees.zip`, groups samples by topology signature,
+ranks groups by posterior probability, and writes
+`<output-dir>/posterior_trees/tree_<rank>_<probability>.tex` for the
+top groups (ranked by descending posterior probability). If `pdflatex`
+is on PATH, the corresponding PDFs are produced alongside.
+
+Flags:
+
+- `-n N` — number of top groups to emit (default 5).
+- `-no-pdf` — skip `pdflatex` invocation; emit `.tex` only.
 
 ## Performance
 

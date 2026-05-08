@@ -47,3 +47,46 @@ ties, empty, length-mismatch error paths).
 - Added `TestDirichletSample_NormalizesToOne` in `main_postprocess_test.go`
   to lock the contract: 1000 trials with alpha=[1,1,1,1] must produce
   non-negative components summing to 1 within 1e-12.
+
+### Added
+
+- **`trees.zip` and `mutass.zip` outputs after MCMC**
+  ([`c4e0160`](https://github.com/johnoooh/PhyloWGS_refactor/commit/c4e0160),
+  [`f1cf897`](https://github.com/johnoooh/PhyloWGS_refactor/commit/f1cf897),
+  [`8aeeee7`](https://github.com/johnoooh/PhyloWGS_refactor/commit/8aeeee7)).
+  Mirrors Python's `multievolve.py` / `write_results.py` file layout
+  (JSON content, not pickle). Aggregated across all chains that pass
+  the `-I` inclusion filter and indexed by global tree number.
+  - `trees.zip` entries are named `tree_<idx>_<llh>` and contain the
+    per-sample tree snapshot.
+  - `mutass.zip` entries are named `<idx>.json` and contain the
+    mutation-assignment payload for that sample.
+- **`-D / --dataset-name` flag**
+  ([`be3265c`](https://github.com/johnoooh/PhyloWGS_refactor/commit/be3265c)).
+  Embedded in mutass.zip entries so downstream tooling can identify
+  which run produced a given archive.
+- **`phylowgs-go posterior-trees [-n N] [-no-pdf] <output-dir>`
+  subcommand**
+  ([`3ce059f`](https://github.com/johnoooh/PhyloWGS_refactor/commit/3ce059f),
+  [`28a7a15`](https://github.com/johnoooh/PhyloWGS_refactor/commit/28a7a15),
+  [`9962dbd`](https://github.com/johnoooh/PhyloWGS_refactor/commit/9962dbd),
+  [`9f025dc`](https://github.com/johnoooh/PhyloWGS_refactor/commit/9f025dc),
+  [`f73b03b`](https://github.com/johnoooh/PhyloWGS_refactor/commit/f73b03b),
+  [`109c813`](https://github.com/johnoooh/PhyloWGS_refactor/commit/109c813),
+  [`94307be`](https://github.com/johnoooh/PhyloWGS_refactor/commit/94307be)).
+  Full port of `posterior_trees.py`: reads `trees.zip`, groups samples
+  by topology signature, ranks groups by posterior probability, and
+  writes per-group standalone-LaTeX summaries (with PDFs, when
+  `pdflatex` is on PATH).
+
+### Fixed
+
+- **SSM `mu_r` / `mu_v` default to 0 when columns are absent**
+  ([`5ee4450`](https://github.com/johnoooh/PhyloWGS_refactor/commit/5ee4450)).
+  Matches Python `util2.py`. Previously the Go parser hard-coded
+  defaults of 0.999 / 0.5, which silently changed likelihoods on
+  header-less or short-form inputs.
+- **`resampleSticks` honors `TSSB.MinDepth`**
+  ([`21056b0`](https://github.com/johnoooh/PhyloWGS_refactor/commit/21056b0))
+  instead of a hard-coded `depth >= 1`. Matches Python `tssb.py:186`.
+  Latent bug; default configuration unaffected.
