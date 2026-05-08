@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -347,6 +349,102 @@ func meanSDColumn(rows [][]float64, col int) (float64, float64) {
 		variance = 0
 	}
 	return mean, math.Sqrt(variance)
+}
+
+// posteriorTreesConfig parameterizes the runPosteriorTrees driver.
+//   - OutDir: directory containing trees.zip; posterior_trees/ output is
+//     written under it.
+//   - NumTrees: cap on top-K groups to write. 0 means "all groups".
+//   - SkipPDF: if true, skip pdflatex invocation entirely (tests/headless).
+type posteriorTreesConfig struct {
+	OutDir   string
+	NumTrees int  // 0 means "all groups"
+	SkipPDF  bool // tests / headless servers
+}
+
+// runPosteriorTrees is the top-level driver that mirrors Python's
+// posterior_trees.py main(): read trees.zip, group by topology signature,
+// rank by posterior probability, and write a .tex (+ optional .pdf) per
+// group up to NumTrees.
+func runPosteriorTrees(cfg posteriorTreesConfig) error {
+	zipPath := filepath.Join(cfg.OutDir, "trees.zip")
+	r, err := newTreeArchiveReader(zipPath)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", zipPath, err)
+	}
+	defer r.Close()
+	if r.NumTrees() == 0 {
+		return fmt.Errorf("no trees in archive")
+	}
+
+	// Build mutation-id index map from the first tree.
+	first, _, err := r.LoadTree(0)
+	if err != nil {
+		return err
+	}
+	idx, err := buildMutationIndexMap(first)
+	if err != nil {
+		return err
+	}
+
+	// Compute signatures for every tree.
+	records := make([]treeRecord, 0, r.NumTrees())
+	snapshots := make([]json.RawMessage, r.NumTrees())
+	for i := 0; i < r.NumTrees(); i++ {
+		raw, _, err := r.LoadTree(i)
+		if err != nil {
+			return err
+		}
+		snapshots[i] = raw
+		sig, err := treeSignature(raw, idx)
+		if err != nil {
+			return err
+		}
+		records = append(records, treeRecord{Idx: i, Sig: sig})
+	}
+
+	groups := groupTreesBySignature(records)
+	ranked := rankGroups(groups, len(records))
+
+	limit := cfg.NumTrees
+	if limit <= 0 || limit > len(ranked) {
+		limit = len(ranked)
+	}
+
+	outDir := filepath.Join(cfg.OutDir, "posterior_trees")
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		return err
+	}
+
+	for rank := 0; rank < limit; rank++ {
+		g := ranked[rank]
+		// Pull all snapshots for this group, then aggregate phi.
+		groupSnaps := make([]json.RawMessage, 0, len(g.TreeIndices))
+		for _, tidx := range g.TreeIndices {
+			groupSnaps = append(groupSnaps, snapshots[tidx])
+		}
+		freqs, err := aggregateFreqsByNode(groupSnaps)
+		if err != nil {
+			return err
+		}
+		texPath := filepath.Join(outDir, fmt.Sprintf("tree_%d_%g.tex", rank, g.Probability))
+		if err := writePosteriorTreeTeX(texPath, snapshots[g.TreeIndices[0]], g, freqs); err != nil {
+			return err
+		}
+		if !cfg.SkipPDF {
+			if _, err := exec.LookPath("pdflatex"); err == nil {
+				cmd := exec.Command("pdflatex",
+					"-interaction=nonstopmode",
+					"-output-directory="+outDir,
+					texPath,
+				)
+				_ = cmd.Run() // best-effort, mirrors Python (which also swallows OSError)
+			} else {
+				fmt.Fprintln(os.Stderr, "pdflatex not available; .tex files written without PDF")
+			}
+		}
+	}
+	return nil
 }
 
 // aggregateFreqsByNode pools cellular_prevalence vectors across all trees

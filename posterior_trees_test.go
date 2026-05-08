@@ -186,3 +186,38 @@ func TestAggregateFreqsByNode_AveragesAcrossTrees(t *testing.T) {
 		t.Fatalf("expected 2 rows for node 0, got %d", len(rows))
 	}
 }
+
+func TestRunPosteriorTrees_EndToEnd(t *testing.T) {
+	tmp := t.TempDir()
+
+	// Build a small trees.zip with 2 identical-topology trees.
+	zw, _ := newTreeArchiveWriter(filepath.Join(tmp, "trees.zip"))
+	snap := json.RawMessage(`{
+		"populations":{"0":{"cellular_prevalence":[0.7],"num_ssms":1,"num_cnvs":0}},
+		"structure":{"0":[]},
+		"mut_assignments":{"0":{"ssms":["s0"],"cnvs":[]}}
+	}`)
+	zw.WriteSample(0, -100.0, false, snap)
+	zw.WriteSample(1, -101.0, false, snap)
+	zw.Close()
+
+	if err := runPosteriorTrees(posteriorTreesConfig{
+		OutDir:   tmp,
+		NumTrees: 0, // 0 = all
+		SkipPDF:  true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Expect posterior_trees/tree_0_*.tex to exist.
+	entries, _ := os.ReadDir(filepath.Join(tmp, "posterior_trees"))
+	hasTex := false
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".tex") {
+			hasTex = true
+		}
+	}
+	if !hasTex {
+		t.Errorf("no .tex file written; got entries: %v", entries)
+	}
+}
