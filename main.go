@@ -4108,6 +4108,16 @@ func runMCMC(cfg runConfig) error {
 }
 
 func main() {
+	// Subcommand dispatch (must run before flag.Parse on the default flag set
+	// since subcommands manage their own flag parsing).
+	if len(os.Args) > 1 && os.Args[1] == "posterior-trees" {
+		if err := posteriorTreesSubcommand(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	// Parse command line flags
 	samples := flag.Int("s", 2500, "Number of MCMC samples")
 	burnin := flag.Int("B", 1000, "Burn-in samples")

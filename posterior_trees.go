@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"math"
 	"os"
@@ -445,6 +446,26 @@ func runPosteriorTrees(cfg posteriorTreesConfig) error {
 		}
 	}
 	return nil
+}
+
+// posteriorTreesSubcommand parses subcommand flags and dispatches to
+// runPosteriorTrees. args excludes the leading "posterior-trees" token.
+func posteriorTreesSubcommand(args []string) error {
+	fs := flag.NewFlagSet("posterior-trees", flag.ContinueOnError)
+	numTrees := fs.Int("n", 0, "Output only the top-N posterior groups (0 = all)")
+	noPDF := fs.Bool("no-pdf", false, "Skip pdflatex invocation; just emit .tex")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	rest := fs.Args()
+	if len(rest) != 1 {
+		return fmt.Errorf("usage: phylowgs-go posterior-trees [-n N] [-no-pdf] <output-dir>")
+	}
+	return runPosteriorTrees(posteriorTreesConfig{
+		OutDir:   rest[0],
+		NumTrees: *numTrees,
+		SkipPDF:  *noPDF,
+	})
 }
 
 // aggregateFreqsByNode pools cellular_prevalence vectors across all trees

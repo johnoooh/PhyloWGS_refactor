@@ -221,3 +221,21 @@ func TestRunPosteriorTrees_EndToEnd(t *testing.T) {
 		t.Errorf("no .tex file written; got entries: %v", entries)
 	}
 }
+
+func TestPosteriorTreesSubcommand_DispatchedFromArgs(t *testing.T) {
+	// Build args slice as if invoked from CLI.
+	tmp := t.TempDir()
+	zw, _ := newTreeArchiveWriter(filepath.Join(tmp, "trees.zip"))
+	snap := json.RawMessage(`{"populations":{"0":{"cellular_prevalence":[0.7],"num_ssms":1,"num_cnvs":0}},"structure":{"0":[]},"mut_assignments":{"0":{"ssms":["s0"],"cnvs":[]}}}`)
+	zw.WriteSample(0, -100.0, false, snap)
+	zw.Close()
+
+	// Direct call to the subcommand handler is enough — TestMain-style argv
+	// rewriting is overkill for a unit test.
+	if err := posteriorTreesSubcommand([]string{"-no-pdf", tmp}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "posterior_trees")); err != nil {
+		t.Errorf("posterior_trees dir missing: %v", err)
+	}
+}
