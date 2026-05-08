@@ -4118,6 +4118,7 @@ func main() {
 	noGPU := flag.Bool("no-gpu", false, "Disable GPU acceleration")
 	chainInclusionFactor := flag.Float64("I", 1.1, "Chain inclusion factor: chains with logSumExp(LLH) >= factor * best are included. "+
 		"Matches Python multievolve.py -I. Set to inf to include all chains, 1.0 for only the best.")
+	dataset := flag.String("D", "phylowgs", "Dataset name embedded in mutass.zip and best_tree.json")
 	cpuProfile := flag.String("cpuprofile", "", "Write CPU profile to file")
 
 	flag.Parse()
@@ -4153,9 +4154,7 @@ func main() {
 		Seed:                 *seed,
 		NoGPU:                *noGPU,
 		ChainInclusionFactor: *chainInclusionFactor,
-		// Task 2.4 will add a -D flag for the dataset name; for now default
-		// to "phylowgs" so existing CLI behavior is unchanged.
-		Dataset: "phylowgs",
+		Dataset:              *dataset,
 	}
 
 	if err := runMCMC(cfg); err != nil {

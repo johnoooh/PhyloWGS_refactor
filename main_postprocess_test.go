@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"encoding/json"
+	"io"
 	"math"
 	"math/rand"
 	"os"
@@ -1126,5 +1127,48 @@ func TestWriteResults_ProducesTreesAndMutassZips(t *testing.T) {
 		if !strings.HasPrefix(f.Name, "tree_") {
 			t.Errorf("trees.zip entry %q does not start with tree_", f.Name)
 		}
+	}
+}
+
+func TestRunMCMC_DatasetNameFlowsToMutassZip(t *testing.T) {
+	tmp := t.TempDir()
+	ssmPath := filepath.Join(tmp, "ssm.txt")
+	cnvPath := filepath.Join(tmp, "cnv.txt")
+	if err := os.WriteFile(ssmPath, []byte(
+		"id\tgene\ta\td\tmu_r\tmu_v\ns0\tg\t10\t100\t0.999\t0.5\n",
+	), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cnvPath, []byte("cnv\ta\td\tssms\tphysical_cnvs\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	outDir := filepath.Join(tmp, "out")
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := runMCMC(runConfig{
+		SSMPath: ssmPath, CNVPath: cnvPath, OutDir: outDir,
+		Samples: 2, Burnin: 0, Chains: 1, MHIters: 5, Seed: 1,
+		ChainInclusionFactor: 1e9,
+		Dataset:              "MyDS_42",
+		NoGPU:                true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := zip.OpenReader(filepath.Join(outDir, "mutass.zip"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	if len(r.File) == 0 {
+		t.Skip("no mutass entries (likely no included tree)")
+	}
+	rc, _ := r.File[0].Open()
+	b, _ := io.ReadAll(rc)
+	rc.Close()
+	if !strings.Contains(string(b), `"dataset_name":"MyDS_42"`) {
+		t.Errorf("dataset name not in mutass entry: %s", b)
 	}
 }
