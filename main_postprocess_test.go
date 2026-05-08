@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"encoding/json"
 	"math"
 	"math/rand"
@@ -9,6 +10,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -1051,6 +1053,78 @@ func TestDirichletSample_NormalizesToOne(t *testing.T) {
 		}
 		if math.Abs(sum-1.0) > 1e-12 {
 			t.Fatalf("trial %d: sum=%v, want 1", trial, sum)
+		}
+	}
+}
+
+// TestWriteResults_ProducesTreesAndMutassZips drives runMCMC end-to-end on a
+// tiny synthetic dataset and confirms that trees.zip and mutass.zip are
+// produced with at least one entry each. This is the first integration-level
+// test of the chain → archive write path.
+func TestWriteResults_ProducesTreesAndMutassZips(t *testing.T) {
+	// Smoke test: tiny synthetic input, 2 samples, 0 burnin, 1 chain.
+	tmp := t.TempDir()
+	ssmPath := filepath.Join(tmp, "ssm.txt")
+	cnvPath := filepath.Join(tmp, "cnv.txt")
+	if err := os.WriteFile(ssmPath, []byte(
+		"id\tgene\ta\td\tmu_r\tmu_v\n"+
+			"s0\tg\t10\t100\t0.999\t0.5\n"+
+			"s1\tg\t20\t100\t0.999\t0.5\n",
+	), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cnvPath, []byte("cnv\ta\td\tssms\tphysical_cnvs\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	outDir := filepath.Join(tmp, "out")
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := runMCMC(runConfig{
+		SSMPath: ssmPath, CNVPath: cnvPath, OutDir: outDir,
+		Samples: 2, Burnin: 0, Chains: 1, MHIters: 5, Seed: 42,
+		NoGPU:                true, // GPU not needed for a smoke test
+		ChainInclusionFactor: 1e9,  // include everything
+		Dataset:              "T",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"trees.zip", "mutass.zip"} {
+		p := filepath.Join(outDir, name)
+		st, err := os.Stat(p)
+		if err != nil {
+			t.Fatalf("%s missing: %v", name, err)
+		}
+		if st.Size() == 0 {
+			t.Errorf("%s is empty", name)
+			continue
+		}
+		// Verify the archive has at least one entry — a non-empty file
+		// could otherwise just be an empty zip header.
+		zr, err := zip.OpenReader(p)
+		if err != nil {
+			t.Fatalf("%s open: %v", name, err)
+		}
+		nEntries := len(zr.File)
+		zr.Close()
+		if nEntries == 0 {
+			t.Errorf("%s has no entries", name)
+		}
+	}
+
+	// Sanity-check trees.zip naming convention: entries should be
+	// "tree_<idx>_<llh>" for non-burnin samples.
+	zr, err := zip.OpenReader(filepath.Join(outDir, "trees.zip"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer zr.Close()
+	for _, f := range zr.File {
+		if !strings.HasPrefix(f.Name, "tree_") {
+			t.Errorf("trees.zip entry %q does not start with tree_", f.Name)
 		}
 	}
 }

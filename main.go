@@ -2810,7 +2810,7 @@ func pickBestSample(results []ChainResult, included []int) (chainIdx, sampleIdx 
 	return chainIdx, sampleIdx, llh, nil
 }
 
-func writeResults(outDir string, results []ChainResult, chainInclusionFactor float64) error {
+func writeResults(outDir string, results []ChainResult, chainInclusionFactor float64, datasetName string) error {
 	if err := os.MkdirAll(outDir, 0755); err != nil {
 		return err
 	}
@@ -2898,6 +2898,63 @@ func writeResults(outDir string, results []ChainResult, chainInclusionFactor flo
 		if len(excludedChains) > 0 {
 			log.Printf("Chain inclusion filter: excluding chains %v", excludedChains)
 		}
+	}
+
+	// Aggregate post-burnin samples across included chains into trees.zip and
+	// mutass.zip, matching Python's multievolve.py + write_results.py output.
+	// Both archives use a single global, monotonic index (chain-major then
+	// iteration-major over chain.Trees) so downstream consumers see one flat
+	// stream of samples rather than per-chain shards.
+	//
+	// Content is JSON, not pickle, for cross-language consumption — file naming
+	// and archive layout match Python so util2.TreeReader / pwgsresults can
+	// still parse them.
+	treesPath := filepath.Join(outDir, "trees.zip")
+	mutassPath := filepath.Join(outDir, "mutass.zip")
+	tw, err := newTreeArchiveWriter(treesPath)
+	if err != nil {
+		return fmt.Errorf("trees.zip: %w", err)
+	}
+	mw, err := newMutassArchiveWriter(mutassPath, datasetName)
+	if err != nil {
+		tw.Close()
+		return fmt.Errorf("mutass.zip: %w", err)
+	}
+
+	globalIdx := 0
+	for _, ci := range includedChains {
+		r := results[ci]
+		for _, sample := range r.Trees {
+			if sample.Snapshot == nil {
+				continue // burnin or skipped
+			}
+			// Extract mut_assignments from the snapshot for the mutass entry.
+			var s struct {
+				MutAssignments map[string]map[string][]string `json:"mut_assignments"`
+			}
+			_ = json.Unmarshal(sample.Snapshot, &s)
+
+			if err := tw.WriteSample(globalIdx, sample.LLH, false, sample.Snapshot); err != nil {
+				tw.Close()
+				mw.Close()
+				return fmt.Errorf("trees.zip write sample %d: %w", globalIdx, err)
+			}
+			if s.MutAssignments != nil {
+				if err := mw.WriteTree(globalIdx, s.MutAssignments); err != nil {
+					tw.Close()
+					mw.Close()
+					return fmt.Errorf("mutass.zip write tree %d: %w", globalIdx, err)
+				}
+			}
+			globalIdx++
+		}
+	}
+	if err := tw.Close(); err != nil {
+		mw.Close()
+		return fmt.Errorf("trees.zip close: %w", err)
+	}
+	if err := mw.Close(); err != nil {
+		return fmt.Errorf("mutass.zip close: %w", err)
 	}
 
 	// Write best_tree.json from the snapshot of the best-LLH sample (matching
@@ -3927,6 +3984,129 @@ func snapshotTree(tssb *TSSB, llh float64, iteration, chainID int) json.RawMessa
 // Main
 // ============================================================================
 
+// runConfig captures all parameters needed to run a complete MCMC pipeline.
+// It exists so tests can drive the full pipeline (data load → chains →
+// writeResults) without parsing command-line flags.
+type runConfig struct {
+	SSMPath, CNVPath, OutDir string
+	Samples, Burnin, Chains  int
+	MHIters                  int
+	Seed                     int64
+	NoGPU                    bool
+	ChainInclusionFactor     float64
+	Dataset                  string
+}
+
+// runMCMC executes the full pipeline: load data, spawn chains, write results.
+// Returns errors instead of fatally exiting so the caller (main or tests) can
+// decide how to surface failures. CPU-profile setup is intentionally left in
+// main() — this function is the "library" entry point.
+func runMCMC(cfg runConfig) error {
+	seed := cfg.Seed
+	if seed == 0 {
+		seed = time.Now().UnixNano()
+	}
+
+	log.Printf("PhyloWGS-Go starting")
+	log.Printf("  SSM file: %s", cfg.SSMPath)
+	log.Printf("  CNV file: %s", cfg.CNVPath)
+	log.Printf("  Burn-in: %d, Samples: %d, Chains: %d", cfg.Burnin, cfg.Samples, cfg.Chains)
+	log.Printf("  MH iterations: %d", cfg.MHIters)
+	log.Printf("  Random seed: %d", seed)
+	log.Printf("  CPUs: %d", runtime.NumCPU())
+
+	// Load data
+	ssms, err := loadSSMData(cfg.SSMPath)
+	if err != nil {
+		return fmt.Errorf("failed to load SSM data: %w", err)
+	}
+	if len(ssms) == 0 {
+		return fmt.Errorf("no SSMs loaded from %s", cfg.SSMPath)
+	}
+	log.Printf("Loaded %d SSMs with %d timepoints", len(ssms), len(ssms[0].A))
+
+	cnvs, err := loadCNVData(cfg.CNVPath, ssms)
+	if err != nil {
+		return fmt.Errorf("failed to load CNV data: %w", err)
+	}
+	log.Printf("Loaded %d CNVs", len(cnvs))
+
+	// Initialize GPU if available and not disabled
+	if !cfg.NoGPU && cuda.Available() {
+		nTimepoints := len(ssms[0].A)
+		engine, err := cuda.NewGPUEngine(len(ssms), nTimepoints)
+		if err != nil {
+			log.Printf("Warning: GPU initialization failed: %v", err)
+			log.Printf("Continuing with CPU-only mode")
+		} else {
+			gpuEngine = engine
+			useGPU = true
+			defer func() {
+				gpuEngine.Close()
+				gpuEngine = nil
+				useGPU = false
+			}()
+			log.Printf("GPU acceleration enabled")
+		}
+	} else if cfg.NoGPU {
+		log.Printf("GPU acceleration disabled by --no-gpu flag")
+	} else {
+		log.Printf("CUDA not available, using CPU-only mode")
+	}
+
+	// Run chains in parallel
+	start := time.Now()
+	results := make([]ChainResult, cfg.Chains)
+	var wg sync.WaitGroup
+
+	for i := 0; i < cfg.Chains; i++ {
+		wg.Add(1)
+		go func(chainID int) {
+			defer wg.Done()
+			chainSeed := seed + int64(chainID)*1000
+			results[chainID] = runChain(chainID, ssms, cnvs, cfg.Burnin, cfg.Samples, cfg.MHIters, chainSeed)
+		}(i)
+	}
+
+	wg.Wait()
+	totalTime := time.Since(start)
+
+	// Compute statistics
+	totalSamples := 0
+	var allLLH []float64
+	for _, r := range results {
+		totalSamples += len(r.Trees)
+		allLLH = append(allLLH, r.SampleLLH...)
+	}
+
+	if len(allLLH) > 0 {
+		// Sort LLH to find best
+		sort.Float64s(allLLH)
+		bestLLH := allLLH[len(allLLH)-1]
+		medianLLH := allLLH[len(allLLH)/2]
+
+		log.Printf("\n=== Results ===")
+		log.Printf("Total time: %v", totalTime.Round(time.Millisecond))
+		log.Printf("Total samples: %d", totalSamples)
+		if cfg.Chains > 0 && totalTime > 0 {
+			log.Printf("Throughput: %.2f samples/sec/chain", float64(totalSamples)/totalTime.Seconds()/float64(cfg.Chains))
+		}
+		log.Printf("Best LLH: %.2f", bestLLH)
+		log.Printf("Median LLH: %.2f", medianLLH)
+	} else {
+		log.Printf("\n=== Results ===")
+		log.Printf("Total time: %v", totalTime.Round(time.Millisecond))
+		log.Printf("No post-burnin samples collected")
+	}
+
+	// Write results
+	if err := writeResults(cfg.OutDir, results, cfg.ChainInclusionFactor, cfg.Dataset); err != nil {
+		return fmt.Errorf("failed to write results: %w", err)
+	}
+	log.Printf("Results written to %s", cfg.OutDir)
+	return nil
+}
+
 func main() {
 	// Parse command line flags
 	samples := flag.Int("s", 2500, "Number of MCMC samples")
@@ -3962,93 +4142,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	ssmFile := args[0]
-	cnvFile := args[1]
-
-	if *seed == 0 {
-		*seed = time.Now().UnixNano()
+	cfg := runConfig{
+		SSMPath:              args[0],
+		CNVPath:              args[1],
+		OutDir:               *outDir,
+		Samples:              *samples,
+		Burnin:               *burnin,
+		Chains:               *chains,
+		MHIters:              *mhIters,
+		Seed:                 *seed,
+		NoGPU:                *noGPU,
+		ChainInclusionFactor: *chainInclusionFactor,
+		// Task 2.4 will add a -D flag for the dataset name; for now default
+		// to "phylowgs" so existing CLI behavior is unchanged.
+		Dataset: "phylowgs",
 	}
 
-	log.Printf("PhyloWGS-Go starting")
-	log.Printf("  SSM file: %s", ssmFile)
-	log.Printf("  CNV file: %s", cnvFile)
-	log.Printf("  Burn-in: %d, Samples: %d, Chains: %d", *burnin, *samples, *chains)
-	log.Printf("  MH iterations: %d", *mhIters)
-	log.Printf("  Random seed: %d", *seed)
-	log.Printf("  CPUs: %d", runtime.NumCPU())
-
-	// Load data
-	ssms, err := loadSSMData(ssmFile)
-	if err != nil {
-		log.Fatalf("Failed to load SSM data: %v", err)
+	if err := runMCMC(cfg); err != nil {
+		log.Printf("Error: %v", err)
+		os.Exit(1)
 	}
-	log.Printf("Loaded %d SSMs with %d timepoints", len(ssms), len(ssms[0].A))
-
-	cnvs, err := loadCNVData(cnvFile, ssms)
-	if err != nil {
-		log.Fatalf("Failed to load CNV data: %v", err)
-	}
-	log.Printf("Loaded %d CNVs", len(cnvs))
-
-	// Initialize GPU if available and not disabled
-	if !*noGPU && cuda.Available() {
-		nTimepoints := len(ssms[0].A)
-		engine, err := cuda.NewGPUEngine(len(ssms), nTimepoints)
-		if err != nil {
-			log.Printf("Warning: GPU initialization failed: %v", err)
-			log.Printf("Continuing with CPU-only mode")
-		} else {
-			gpuEngine = engine
-			useGPU = true
-			defer gpuEngine.Close()
-			log.Printf("GPU acceleration enabled")
-		}
-	} else if *noGPU {
-		log.Printf("GPU acceleration disabled by --no-gpu flag")
-	} else {
-		log.Printf("CUDA not available, using CPU-only mode")
-	}
-
-	// Run chains in parallel
-	start := time.Now()
-	results := make([]ChainResult, *chains)
-	var wg sync.WaitGroup
-
-	for i := 0; i < *chains; i++ {
-		wg.Add(1)
-		go func(chainID int) {
-			defer wg.Done()
-			chainSeed := *seed + int64(chainID)*1000
-			results[chainID] = runChain(chainID, ssms, cnvs, *burnin, *samples, *mhIters, chainSeed)
-		}(i)
-	}
-
-	wg.Wait()
-	totalTime := time.Since(start)
-
-	// Compute statistics
-	totalSamples := 0
-	var allLLH []float64
-	for _, r := range results {
-		totalSamples += len(r.Trees)
-		allLLH = append(allLLH, r.SampleLLH...)
-	}
-
-	// Sort LLH to find best
-	sort.Float64s(allLLH)
-	bestLLH := allLLH[len(allLLH)-1]
-	medianLLH := allLLH[len(allLLH)/2]
-
-	log.Printf("\n=== Results ===")
-	log.Printf("Total time: %v", totalTime.Round(time.Millisecond))
-	log.Printf("Total samples: %d", totalSamples)
-	log.Printf("Throughput: %.2f samples/sec/chain", float64(totalSamples)/totalTime.Seconds()/float64(*chains))
-	log.Printf("Best LLH: %.2f", bestLLH)
-	log.Printf("Median LLH: %.2f", medianLLH)
-
-	// Write results
-	if err := writeResults(*outDir, results, *chainInclusionFactor); err != nil {
-		log.Printf("Warning: failed to write results: %v", err)
-	}
-	log.Printf("Results written to %s", *outDir)
 }
