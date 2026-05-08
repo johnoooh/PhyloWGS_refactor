@@ -171,3 +171,18 @@ func TestWritePosteriorTreeTeX_EmitsValidStandaloneDocument(t *testing.T) {
 		t.Errorf("expected \\node {1} immediately after a newline; got: %s", body)
 	}
 }
+
+func TestAggregateFreqsByNode_AveragesAcrossTrees(t *testing.T) {
+	// Two trees, same topology. Node 0 has cell_prev=[0.7] in tree A,
+	// [0.5] in tree B. Aggregate should record both rows.
+	a := json.RawMessage(`{"populations":{"0":{"cellular_prevalence":[0.7],"num_ssms":1,"num_cnvs":0}},"structure":{"0":[]},"mut_assignments":{"0":{"ssms":["s0"],"cnvs":[]}}}`)
+	b := json.RawMessage(`{"populations":{"0":{"cellular_prevalence":[0.5],"num_ssms":1,"num_cnvs":0}},"structure":{"0":[]},"mut_assignments":{"0":{"ssms":["s0"],"cnvs":[]}}}`)
+	freqs, err := aggregateFreqsByNode([]json.RawMessage{a, b})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := freqs["0"]
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 rows for node 0, got %d", len(rows))
+	}
+}

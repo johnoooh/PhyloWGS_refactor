@@ -348,3 +348,24 @@ func meanSDColumn(rows [][]float64, col int) (float64, float64) {
 	}
 	return mean, math.Sqrt(variance)
 }
+
+// aggregateFreqsByNode pools cellular_prevalence vectors across all trees
+// in a posterior group, indexed by node id. Caller guarantees all trees
+// share the same topology+mutation-set signature, so node IDs are stable.
+func aggregateFreqsByNode(trees []json.RawMessage) (map[string][][]float64, error) {
+	out := map[string][][]float64{}
+	for _, t := range trees {
+		var s struct {
+			Populations map[string]struct {
+				CellularPrevalence []float64 `json:"cellular_prevalence"`
+			} `json:"populations"`
+		}
+		if err := json.Unmarshal(t, &s); err != nil {
+			return nil, err
+		}
+		for node, p := range s.Populations {
+			out[node] = append(out[node], p.CellularPrevalence)
+		}
+	}
+	return out, nil
+}
