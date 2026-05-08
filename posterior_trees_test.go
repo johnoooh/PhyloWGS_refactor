@@ -101,3 +101,27 @@ func TestTreeSignature_BranchInheritance(t *testing.T) {
 		t.Errorf("sig = %q, want %q", sig, want)
 	}
 }
+
+func TestGroupAndRank_AssignsCorrectPosteriorProbabilities(t *testing.T) {
+	// Three trees: two share signature "A;", one has signature "B;".
+	// Expect group A: prob 2/3, group B: prob 1/3.
+	groups := groupTreesBySignature([]treeRecord{
+		{Idx: 0, Sig: "A;"},
+		{Idx: 1, Sig: "A;"},
+		{Idx: 2, Sig: "B;"},
+	})
+	ranked := rankGroups(groups, 3 /* total trees */)
+	if len(ranked) != 2 {
+		t.Fatalf("expected 2 groups, got %d", len(ranked))
+	}
+	// Highest prob first.
+	if ranked[0].Probability != 2.0/3.0 {
+		t.Errorf("rank0 prob = %v, want %v", ranked[0].Probability, 2.0/3.0)
+	}
+	if ranked[1].Probability != 1.0/3.0 {
+		t.Errorf("rank1 prob = %v, want %v", ranked[1].Probability, 1.0/3.0)
+	}
+	if ranked[0].TreeIndices[0] != 0 || ranked[0].TreeIndices[1] != 1 {
+		t.Errorf("rank0 indices = %v, want [0 1]", ranked[0].TreeIndices)
+	}
+}

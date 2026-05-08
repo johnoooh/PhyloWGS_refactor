@@ -171,3 +171,45 @@ func buildMutationIndexMap(snapshot json.RawMessage) (map[string]string, error) 
 	}
 	return out, nil
 }
+
+// treeRecord pairs an archive tree index with its computed signature.
+type treeRecord struct {
+	Idx int
+	Sig string
+}
+
+// PosteriorGroup is one cluster of trees sharing a topology signature.
+type PosteriorGroup struct {
+	Signature   string
+	TreeIndices []int
+	Probability float64
+}
+
+func groupTreesBySignature(records []treeRecord) map[string][]int {
+	out := map[string][]int{}
+	for _, r := range records {
+		out[r.Sig] = append(out[r.Sig], r.Idx)
+	}
+	return out
+}
+
+// rankGroups returns groups sorted descending by posterior probability,
+// ties broken by lowest first tree index for determinism.
+func rankGroups(groups map[string][]int, totalTrees int) []PosteriorGroup {
+	out := make([]PosteriorGroup, 0, len(groups))
+	for sig, idxs := range groups {
+		sort.Ints(idxs)
+		out = append(out, PosteriorGroup{
+			Signature:   sig,
+			TreeIndices: idxs,
+			Probability: float64(len(idxs)) / float64(totalTrees),
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Probability != out[j].Probability {
+			return out[i].Probability > out[j].Probability
+		}
+		return out[i].TreeIndices[0] < out[j].TreeIndices[0]
+	})
+	return out
+}
