@@ -4,6 +4,99 @@ All notable changes to the Go port (`phylowgs-go`) are recorded here.
 Format: reverse-chronological, grouped by date. Each entry references the
 landing commit short SHA on `go-port`.
 
+## 2026-05-08 — branch `claude/go-port-gaps-and-correctness`
+
+Closes the remaining behavioral gaps with the Python `multievolve.py` /
+`posterior_trees.py` pipeline and fixes three latent or silent-divergence
+bugs in the MCMC layer.
+
+### Added — `trees.zip` and `mutass.zip` outputs after MCMC
+
+Mirrors Python's `multievolve.py` / `write_results.py` archive layout
+(JSON payloads instead of pickle). Aggregated across all chains that
+pass the `-I` inclusion filter and indexed by global tree number.
+
+- `trees.zip` entries are named `tree_<idx>_<llh>` and contain the
+  per-sample tree snapshot
+  ([`d7aa848`](https://github.com/johnoooh/PhyloWGS_refactor/commit/d7aa848),
+  [`b508915`](https://github.com/johnoooh/PhyloWGS_refactor/commit/b508915)).
+- `mutass.zip` entries are named `<idx>.json` and contain the
+  mutation-assignment payload
+  ([`77f83c7`](https://github.com/johnoooh/PhyloWGS_refactor/commit/77f83c7)).
+- New `-D / --dataset-name` flag is embedded in `mutass.zip` entries so
+  downstream tooling can identify which run produced a given archive
+  ([`d599e49`](https://github.com/johnoooh/PhyloWGS_refactor/commit/d599e49)).
+
+### Added — `posterior-trees` subcommand
+
+```
+phylowgs-go posterior-trees [-n N] [-no-pdf] <output-dir>
+```
+
+Full port of `posterior_trees.py`: reads `trees.zip`, groups samples by
+topology signature, ranks groups by posterior probability, and writes
+per-group standalone-LaTeX summaries to
+`<output-dir>/posterior_trees/tree_<rank>_<probability>.tex`. PDFs are
+produced alongside when `pdflatex` is on `PATH`.
+
+Implementation landed in pieces:
+[`67f387d`](https://github.com/johnoooh/PhyloWGS_refactor/commit/67f387d) `TreeArchiveReader`,
+[`c5370ca`](https://github.com/johnoooh/PhyloWGS_refactor/commit/c5370ca) topology signatures,
+[`5c16082`](https://github.com/johnoooh/PhyloWGS_refactor/commit/5c16082) grouping + ranking,
+[`6604333`](https://github.com/johnoooh/PhyloWGS_refactor/commit/6604333) LaTeX writer,
+[`549bc52`](https://github.com/johnoooh/PhyloWGS_refactor/commit/549bc52) per-group phi aggregation,
+[`7a43968`](https://github.com/johnoooh/PhyloWGS_refactor/commit/7a43968) `runPosteriorTrees` driver,
+[`6e061ae`](https://github.com/johnoooh/PhyloWGS_refactor/commit/6e061ae) subcommand wiring.
+
+### Reverted — `dirichletSample` keeps the `0.0001` pseudocount
+
+A prior commit on this branch (`d4c39ea`) removed the pseudocount on the
+argument that the binomial-likelihood `mu` clamp made it unnecessary.
+Code review caught that the clamp protects `mu` in the SSM binomial
+path, but `piNew` from `dirichletSample` is also passed directly to
+`dirichletLogPDF` in the MH acceptance step, which does
+`(alpha[i]-1)·log(x[i])` and returns `-Inf` whenever `x[i] <= 0`. A
+zero-valued draw therefore stalls the sampler at the affected node and
+biases toward fewer-node trees — exactly the failure mode the original
+fix in `4e427b4` ("add pseudocount to dirichletSample to match C++
+util.cpp") was added to prevent. The pseudocount is restored.
+
+Locked by `TestDirichletSample_PseudocountFloor`: 1000 trials with
+`alpha=[0.0001, 1000, 1000]` must produce strictly positive components
+(min `~5e-8` given the pseudocount). `TestDirichletSample_NormalizesToOne`
+still verifies the simplex constraint.
+
+### Fixed — SSM `mu_r` / `mu_v` default to 0 when columns are absent ([`37ccfb6`](https://github.com/johnoooh/PhyloWGS_refactor/commit/37ccfb6))
+
+Matches Python `util2.py:63` (`mu_r=mu_v=0` when columns absent) and
+the `Datum` class defaults in `data.py:7`. Previously the Go parser
+hard-coded defaults of `0.999` / `0.5`, which silently changed
+likelihoods on header-less or short-form inputs without warning.
+
+### Fixed — `resampleSticks` honors `TSSB.MinDepth` *and* preserves the depth-0 pin ([`99207e8`](https://github.com/johnoooh/PhyloWGS_refactor/commit/99207e8))
+
+The MinDepth gate was previously hard-coded to `depth >= 1`. The
+initial fix changed it to `t.MinDepth <= depth` to match Python
+`tssb.py:186`, but missed `tssb.py:187`, which unconditionally pins
+`root['main'] = 1e-30` at depth 0 ("shankar"). With the default
+`MinDepth=0` the old `depth >= 1` accidentally produced the same end
+state, so the regression was only visible against the Python reference.
+Both lines of the Python contract are now ported: the conditional
+`boundBeta` resample plus the unconditional depth-0 pin.
+
+Locked by `TestResampleSticks_RootStickIsPinnedAtDepthZero`: after
+`resampleSticks` from any seed and starting value, `root.Main` must
+equal `1e-30` within `1e-40`.
+
+### Docs
+
+- README updated with the `-I`, `-D` flags, the `mu_r` / `mu_v` default
+  change, the new `Outputs` section listing every file produced by a
+  run, and a `Posterior-tree summaries` section documenting the new
+  subcommand
+  ([`2143b0a`](https://github.com/johnoooh/PhyloWGS_refactor/commit/2143b0a)).
+- This CHANGELOG entry.
+
 ## 2026-05-07
 
 ### Fixed — best tree selection and orphan reassignment ([`459b2d2`](https://github.com/johnoooh/PhyloWGS_refactor/commit/459b2d2))
@@ -35,58 +128,3 @@ reassignment, CNV path, deterministic tie-breaking (20-trial run),
 missing-data drop, zero-total-reads drop, and the extracted
 `pickBestSample` helper (mid-chain best, multi-chain, included-only,
 ties, empty, length-mismatch error paths).
-
-### Changed — `dirichletSample` no longer adds a pseudocount
-
-- `dirichletSample` no longer adds the C++-style 0.0001 pseudocount.
-  The pseudocount masks rather than fixes -Inf likelihoods on near-zero
-  pi components and biases acceptance ratios. Validation showed our
-  downstream binomial likelihood already clamps mu to [1e-15, 1-1e-15],
-  so a zero pi cannot produce -Inf in the LLH path. If a numerical issue
-  arises downstream, fix it at the LLH site, not in the proposal.
-- Added `TestDirichletSample_NormalizesToOne` in `main_postprocess_test.go`
-  to lock the contract: 1000 trials with alpha=[1,1,1,1] must produce
-  non-negative components summing to 1 within 1e-12.
-
-### Added
-
-- **`trees.zip` and `mutass.zip` outputs after MCMC**
-  ([`c4e0160`](https://github.com/johnoooh/PhyloWGS_refactor/commit/c4e0160),
-  [`f1cf897`](https://github.com/johnoooh/PhyloWGS_refactor/commit/f1cf897),
-  [`8aeeee7`](https://github.com/johnoooh/PhyloWGS_refactor/commit/8aeeee7)).
-  Mirrors Python's `multievolve.py` / `write_results.py` file layout
-  (JSON content, not pickle). Aggregated across all chains that pass
-  the `-I` inclusion filter and indexed by global tree number.
-  - `trees.zip` entries are named `tree_<idx>_<llh>` and contain the
-    per-sample tree snapshot.
-  - `mutass.zip` entries are named `<idx>.json` and contain the
-    mutation-assignment payload for that sample.
-- **`-D / --dataset-name` flag**
-  ([`be3265c`](https://github.com/johnoooh/PhyloWGS_refactor/commit/be3265c)).
-  Embedded in mutass.zip entries so downstream tooling can identify
-  which run produced a given archive.
-- **`phylowgs-go posterior-trees [-n N] [-no-pdf] <output-dir>`
-  subcommand**
-  ([`3ce059f`](https://github.com/johnoooh/PhyloWGS_refactor/commit/3ce059f),
-  [`28a7a15`](https://github.com/johnoooh/PhyloWGS_refactor/commit/28a7a15),
-  [`9962dbd`](https://github.com/johnoooh/PhyloWGS_refactor/commit/9962dbd),
-  [`9f025dc`](https://github.com/johnoooh/PhyloWGS_refactor/commit/9f025dc),
-  [`f73b03b`](https://github.com/johnoooh/PhyloWGS_refactor/commit/f73b03b),
-  [`109c813`](https://github.com/johnoooh/PhyloWGS_refactor/commit/109c813),
-  [`94307be`](https://github.com/johnoooh/PhyloWGS_refactor/commit/94307be)).
-  Full port of `posterior_trees.py`: reads `trees.zip`, groups samples
-  by topology signature, ranks groups by posterior probability, and
-  writes per-group standalone-LaTeX summaries (with PDFs, when
-  `pdflatex` is on PATH).
-
-### Fixed
-
-- **SSM `mu_r` / `mu_v` default to 0 when columns are absent**
-  ([`5ee4450`](https://github.com/johnoooh/PhyloWGS_refactor/commit/5ee4450)).
-  Matches Python `util2.py`. Previously the Go parser hard-coded
-  defaults of 0.999 / 0.5, which silently changed likelihoods on
-  header-less or short-form inputs.
-- **`resampleSticks` honors `TSSB.MinDepth`**
-  ([`21056b0`](https://github.com/johnoooh/PhyloWGS_refactor/commit/21056b0))
-  instead of a hard-coded `depth >= 1`. Matches Python `tssb.py:186`.
-  Latent bug; default configuration unaffected.
