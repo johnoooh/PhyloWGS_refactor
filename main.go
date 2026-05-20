@@ -1997,6 +1997,13 @@ func (t *TSSB) resampleSticks(rng *rand.Rand) {
 		} else {
 			root.Main = 1e-30
 		}
+		// Python tssb.py:187 — after the conditional resample, the root node
+		// (depth == 0) is unconditionally pinned to 1e-30 to keep it empty
+		// ("shankar"). Reproducing this is required for parity even when
+		// MinDepth=0 makes the boundBeta branch above fire at depth 0.
+		if depth == 0 {
+			root.Main = 1e-30
+		}
 	}
 	descend(t.Root, 0)
 	t.invalidateWeightsCache()

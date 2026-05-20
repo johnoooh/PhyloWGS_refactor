@@ -1002,11 +1002,13 @@ func TestLoadSSMData_PresentMuColumns_AreParsed(t *testing.T) {
 	}
 }
 
-// TestResampleSticks_RootStickIsResampledAtDefaultMinDepth verifies that with
-// MinDepth=0 (the default), resampleSticks resamples the root stick rather
-// than pinning it to ~1e-30. The Python reference (tssb.py:186) gates on
-// `self.min_depth <= depth`, not `depth >= 1`.
-func TestResampleSticks_RootStickIsResampledAtDefaultMinDepth(t *testing.T) {
+// TestResampleSticks_RootStickIsPinnedAtDepthZero verifies that
+// resampleSticks reproduces the full Python contract at depth 0:
+// regardless of the MinDepth gate on line 186 of tssb.py, line 187
+// unconditionally pins the root node's main stick to 1e-30 ("shankar").
+// With MinDepth=0 (the default) the resample branch fires first, so the
+// final pin must come from the unconditional override.
+func TestResampleSticks_RootStickIsPinnedAtDepthZero(t *testing.T) {
 	rng := rand.New(rand.NewSource(42))
 	tssb := newTSSB(buildTinyTreeForTest(t), nil, 25.0, 1.0, 0.25, rng)
 	root := tssb.Root
@@ -1014,8 +1016,8 @@ func TestResampleSticks_RootStickIsResampledAtDefaultMinDepth(t *testing.T) {
 
 	tssb.resampleSticks(rng)
 
-	if root.Main < 1e-20 {
-		t.Fatalf("root.Main = %v; expected resampling, looks pinned to ~1e-30", root.Main)
+	if math.Abs(root.Main-1e-30) > 1e-40 {
+		t.Fatalf("root.Main = %v; expected 1e-30 (Python tssb.py:187 unconditional pin at depth 0)", root.Main)
 	}
 }
 
