@@ -308,6 +308,22 @@ func dirichletSample(alpha []float64, rng *rand.Rand) []float64 {
 	for i := range result {
 		result[i] /= sum
 	}
+	// Match C++ util.cpp:dirichlet_sample — add small pseudocount to prevent
+	// zero-valued components, then renormalize. Without this, small populations
+	// can get pi=0 from the Dirichlet draw, which propagates as math.Log(0) =
+	// -Inf inside dirichletLogPDF (used in MH acceptance), rejecting every
+	// proposal at that node and biasing the sampler toward fewer-node trees.
+	// The earlier "remove pseudocount" change argued the binomial mu-clamp
+	// makes this safe; that clamp only protects mu, not the proposal density
+	// path. See commit 4e427b4 and the d4c39ea reversal rationale.
+	sum = 0.0
+	for i := range result {
+		result[i] += 0.0001
+		sum += result[i]
+	}
+	for i := range result {
+		result[i] /= sum
+	}
 	return result
 }
 

@@ -1039,9 +1039,7 @@ func buildTinyTreeForTest(t *testing.T) []*SSM {
 
 // TestDirichletSample_NormalizesToOne locks in the contract that
 // dirichletSample produces a valid probability simplex: all components
-// non-negative and summing to exactly 1 (within float tolerance). This
-// guards against re-introduction of the C++-style 0.0001 pseudocount or
-// any other transformation that would bias the proposal distribution.
+// non-negative and summing to exactly 1 (within float tolerance).
 func TestDirichletSample_NormalizesToOne(t *testing.T) {
 	rng := rand.New(rand.NewSource(7))
 	alpha := []float64{1.0, 1.0, 1.0, 1.0}
@@ -1057,6 +1055,36 @@ func TestDirichletSample_NormalizesToOne(t *testing.T) {
 		if math.Abs(sum-1.0) > 1e-12 {
 			t.Fatalf("trial %d: sum=%v, want 1", trial, sum)
 		}
+	}
+}
+
+// TestDirichletSample_PseudocountFloor verifies that the C++-style 0.0001
+// pseudocount keeps every component strictly above zero, even when the raw
+// Dirichlet draw would produce a near-zero component. This is the property
+// that prevents math.Log(0) = -Inf inside dirichletLogPDF (used in MH
+// acceptance), which would otherwise stall the sampler at affected nodes.
+// Matches the protection in C++ util.cpp:dirichlet_sample.
+func TestDirichletSample_PseudocountFloor(t *testing.T) {
+	rng := rand.New(rand.NewSource(123))
+	// alpha values that would yield a near-zero component without the floor.
+	alpha := []float64{0.0001, 1000.0, 1000.0}
+	minSeen := 1.0
+	for trial := 0; trial < 1000; trial++ {
+		result := dirichletSample(alpha, rng)
+		for _, v := range result {
+			if v <= 0 {
+				t.Fatalf("trial %d: component <= 0 (%e) — pseudocount missing?", trial, v)
+			}
+			if v < minSeen {
+				minSeen = v
+			}
+		}
+	}
+	// With pseudocount 0.0001 the smallest possible component is roughly
+	// 0.0001 / (2000 + 3*0.0001) ≈ 5e-8. Anything significantly below that
+	// indicates the pseudocount block has regressed.
+	if minSeen < 1e-10 {
+		t.Errorf("min component %e is suspiciously small — pseudocount may not be applied", minSeen)
 	}
 }
 
