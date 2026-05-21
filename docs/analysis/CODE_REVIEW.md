@@ -2,6 +2,33 @@
 
 _Manual line-by-line comparison vs the original Python/C++ implementation, 2026-04-04._
 
+---
+
+## Status as of 2026-05-20
+
+This review is a point-in-time snapshot from 2026-04-04. Four of the five
+bugs it identified have since been fixed on `go-port`; the fifth is
+performance-only and remains intentionally open. Each row below maps a
+finding from the original review to its current resolution.
+
+| # | Bug | Severity (in original) | Resolution |
+|---|---|---|---|
+| 1 | `findOrCreateNode` missing root-index prepend (§4a) | MEDIUM | **Fixed** — [`866e08d`](https://github.com/johnoooh/PhyloWGS_refactor/commit/866e08d) "fix: prepend root index in findOrCreateNode path". Current `findOrCreateNode` explicitly prepends `index` in both `depth > 0` and `depth == 0` branches with a comment citing Python `find_node`. |
+| 2 | MH proposal reimplements C++ `mh.o` (§11) | UNKNOWN | **Partly addressed.** The pseudocount mismatch surfaced and was restored in [`01c0114`](https://github.com/johnoooh/PhyloWGS_refactor/commit/01c0114) "fix: restore dirichletSample pseudocount to prevent log(0) in MH proposal density". A full Go-vs-C++ proposal-distribution match is still unverified end-to-end. |
+| 3 | Slice sampler 100-iteration cap (§4b) | LOW | **Fixed** — [`87e24c0`](https://github.com/johnoooh/PhyloWGS_refactor/commit/87e24c0) incidentally replaced the `for iter := 0; iter < 100` caps in `resampleAssignments` with unbounded `for {}` loops, matching Python's `while True`. |
+| 4 | `boundBeta` clamps to 1e-6 instead of `~1e-16` (§6) | LOW | **Fixed** — [`87e24c0`](https://github.com/johnoooh/PhyloWGS_refactor/commit/87e24c0). `boundBeta` now uses Python's exact affine shrinkage with `eps = 2.220446049250313e-16` (numpy.finfo(float64).eps). The hard 1e-6 clamp had been creating a systematic bias in `dpAlphaLLH` that drove `alpha_decay` upward at high M. |
+| 5 | Slice-sampler LLH caching absent (§4c) | LOW (perf only) | **Open.** No correctness impact; intentionally unaddressed. |
+
+### Superseded micro-claim
+
+§7 of the original review notes "Go avoids a wasted RNG call at depth=0 (goes directly to 1e-30 instead of sampling then overriding)." After [`be7a235`](https://github.com/johnoooh/PhyloWGS_refactor/commit/be7a235) "fix: preserve Python tssb.py:187 depth-0 pin in resampleSticks", the current code does call `boundBeta` at depth 0 (because `MinDepth <= 0` is true) and then unconditionally pins the root's main stick to `1e-30`. The end-state matches Python `tssb.py:186–187` exactly, but the previously-claimed micro-optimization is gone.
+
+### Read the rest of this document as a historical snapshot
+
+The component-by-component analysis below reflects the codebase as of 2026-04-04. Trees and structure are mostly unchanged; specific line numbers, comparator expressions, and the absence of certain fixes (notably items 1, 3, 4 above) describe pre-fix state.
+
+---
+
 ## Executive Summary
 
 The Go port is a **substantially faithful reimplementation** of the original Python MCMC. After the overnight fix session (commits f925127, 0c58226), most critical bugs were resolved. One **medium-severity bug** remains in the slice sampler path comparison, plus one **unknown-severity divergence** in the MH proposal (Go reimplements C++ `mh.o` from scratch). Several minor differences exist but are acceptable.
