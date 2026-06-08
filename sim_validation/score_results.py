@@ -62,6 +62,50 @@ def compute_auprc(true_matrix, pred_matrix):
     return float(auprc)
 
 
+# ── Population counting (Go-merge-consistent) ────────────────────────────────
+
+def count_populations_merged(populations_dict, total_mutations=None):
+    """Count populations whose size survives Go's removeSmallNodes merge.
+
+    Go merges any node whose mutation fraction is below max(1%, 2/M) into its
+    parent (see Go removeSmallNodes), where M is the total number of mutations.
+    Equivalently, a node is kept iff its absolute size (num_ssms + num_cnvs)
+    >= max(0.01 * M, 2). This mirrors the Go threshold so that a Python tree
+    (which is NOT pre-merged) can be counted the same way Go's best_tree.json
+    already reports its num_populations.
+
+    Args:
+        populations_dict: mapping pop_id -> {"num_ssms": int, "num_cnvs": int, ...}
+        total_mutations:  M, the total mutation count. If None, it is computed
+                          as the sum of (num_ssms + num_cnvs) over all pops.
+
+    Returns:
+        int count of populations that meet the merge-survival threshold.
+    """
+    sizes = []
+    for pop in populations_dict.values():
+        sizes.append(pop.get("num_ssms", 0) + pop.get("num_cnvs", 0))
+
+    if total_mutations is None:
+        total_mutations = sum(sizes)
+
+    # max(1%, 2/M) on the *fraction* == max(0.01 * M, 2) on the *absolute* size.
+    threshold = max(0.01 * total_mutations, 2)
+    return sum(1 for size in sizes if size >= threshold)
+
+
+def count_populations_raw(populations_dict):
+    """Count raw non-empty populations (num_ssms > 0 or num_cnvs > 0).
+
+    This is the historical count and is NOT comparable to Go's pre-merged
+    best_tree.json num_populations; kept for backward compatibility.
+    """
+    return sum(
+        1 for p in populations_dict.values()
+        if p.get("num_ssms", 0) > 0 or p.get("num_cnvs", 0) > 0
+    )
+
+
 # ── Parse Go port output ─────────────────────────────────────────────────────
 
 def load_truth(fixture_dir):
@@ -175,7 +219,19 @@ def load_best_tree(result_dir):
     go_path = result_path / "best_tree.json"
     if go_path.exists():
         with open(go_path) as f:
-            return json.load(f)
+            tree = json.load(f)
+        # Go's best_tree.json is ALREADY post-merge: its reported
+        # num_populations was counted after removeSmallNodes ran. We keep that
+        # as the authoritative Go count and ALSO expose raw / merged counts
+        # computed directly from the populations dict so Go and Python are
+        # counted by the identical formula downstream.
+        go_pops = tree.get("populations", {})
+        tree["num_populations_raw"] = count_populations_raw(go_pops)
+        # Recompute the merge-survival count from the dict for symmetry with
+        # Python. For Go this should agree with its reported num_populations
+        # (Go already merged), but we surface it explicitly for verification.
+        tree["num_populations_merged"] = count_populations_merged(go_pops)
+        return tree
 
     # Original Python format (from write_results.py)
     py_path = result_path / "tree_summaries.json.gz"
@@ -203,12 +259,21 @@ def load_best_tree(result_dir):
                 except KeyError:
                     pass
 
-        num_pops = len([p for p in best.get("populations", {}).values()
-                       if p.get("num_ssms", 0) > 0 or p.get("num_cnvs", 0) > 0])
+        # Python's tree_summaries.json.gz is NOT pre-merged (no removeSmallNodes
+        # equivalent was applied). To compare apples-to-apples with Go's
+        # pre-merged best_tree.json num_populations, we count Python populations
+        # using the SAME merge-survival threshold Go uses (max(1%, 2/M)).
+        py_pops = best.get("populations", {})
+        num_pops_raw = count_populations_raw(py_pops)
+        num_pops_merged = count_populations_merged(py_pops)
         return {
-            "num_populations": num_pops,
+            # num_populations is the Go-comparable count: Python merged here to
+            # mirror Go's removeSmallNodes (Go best_tree.json is already merged).
+            "num_populations": num_pops_merged,
+            "num_populations_merged": num_pops_merged,
+            "num_populations_raw": num_pops_raw,
             "llh": best.get("llh"),
-            "populations": best.get("populations", {}),
+            "populations": py_pops,
             "structure": best.get("structure", {}),
             "mut_assignments": mut_assignments,
         }
@@ -240,6 +305,11 @@ def score_fixture(fixture_dir, result_dir):
 
     scores = {
         "fixture": os.path.basename(fixture_dir),
+        # seed identifies the *fixture instance*. Emitting it lets the
+        # comparison step (compare_implementations.py) assert that the Go and
+        # Python results being paired came from the SAME simulated instance,
+        # guarding against the seed-set-mismatch bug.
+        "seed": params.get("seed"),
         "K": true_K,
         "S": params["S"],
         "T": params["T"],
@@ -265,10 +335,20 @@ def score_fixture(fixture_dir, result_dir):
     best_tree = load_best_tree(result_dir)
 
     # ── Population count ─────────────────────────────────────────────────
+    # NOTE: inferred_K is the Go-merge-consistent count. For Go this is its
+    # pre-merged best_tree.json num_populations; for Python it is the count
+    # after applying Go's removeSmallNodes threshold (see load_best_tree).
+    # The raw (non-merged) count is also surfaced for transparency.
     if best_tree and "num_populations" in best_tree:
         inferred_K = best_tree["num_populations"]
         scores["inferred_K"] = inferred_K
         scores["K_error"] = abs(inferred_K - true_K)
+        if "num_populations_merged" in best_tree:
+            scores["inferred_K_merged"] = best_tree["num_populations_merged"]
+            scores["K_error_merged"] = abs(best_tree["num_populations_merged"] - true_K)
+        if "num_populations_raw" in best_tree:
+            scores["inferred_K_raw"] = best_tree["num_populations_raw"]
+            scores["K_error_raw"] = abs(best_tree["num_populations_raw"] - true_K)
     elif traces:
         # Fallback: use NumNodes from chain files (less accurate, includes
         # structural TSSB nodes — see INVESTIGATION_NumNodes.md)

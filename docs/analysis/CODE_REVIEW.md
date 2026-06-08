@@ -4,6 +4,30 @@ _Manual line-by-line comparison vs the original Python/C++ implementation, 2026-
 
 ---
 
+## Update 2026-06-04 — MH proposal verified against C++ `mh.cpp`
+
+Item #2 below ("MH proposal reimplements C++ `mh.o`", originally **UNKNOWN**
+severity, later "Partly addressed") was re-verified this session against the
+C++ `mh.cpp` reference **line-by-line**. The Go MH proposal matches:
+
+- The asymmetric **`+1`** pseudocount in `sample_cons_params` (Dirichlet
+  proposal uses `alpha[i] = std*pi[i] + 1`), which is present in the proposal
+  draw but **not** applied in the dirichlet density used for the MH correction
+  term — Go reproduces this asymmetry exactly.
+- The GSL `dirichlet_lnpdf` formula (`lgamma(Σα) − Σ lgamma(α_i) + Σ (α_i−1)·ln(x_i)`)
+  used to evaluate the proposal density for the acceptance ratio.
+- The leaf-to-root params accumulation and the LLH-difference acceptance ratio.
+
+No divergence from C++ was found. This was a **verification only** — no change
+to sampler behavior. The item is reclassified from UNKNOWN to **Verified — matches C++**
+in the status table below.
+
+This note is part of closing out the K=10 "under-recovery" investigation, which
+concluded there is **no sampler bug and no regression** (the gap was a
+validation-harness artifact — see `sim_validation/BUGS_FOUND.md` and `HANDOFF.md`).
+
+---
+
 ## Status as of 2026-05-20
 
 This review is a point-in-time snapshot from 2026-04-04. Four of the five
@@ -14,7 +38,7 @@ finding from the original review to its current resolution.
 | # | Bug | Severity (in original) | Resolution |
 |---|---|---|---|
 | 1 | `findOrCreateNode` missing root-index prepend (§4a) | MEDIUM | **Fixed** — [`866e08d`](https://github.com/johnoooh/PhyloWGS_refactor/commit/866e08d) "fix: prepend root index in findOrCreateNode path". Current `findOrCreateNode` explicitly prepends `index` in both `depth > 0` and `depth == 0` branches with a comment citing Python `find_node`. |
-| 2 | MH proposal reimplements C++ `mh.o` (§11) | UNKNOWN | **Partly addressed.** The pseudocount mismatch surfaced and was restored in [`01c0114`](https://github.com/johnoooh/PhyloWGS_refactor/commit/01c0114) "fix: restore dirichletSample pseudocount to prevent log(0) in MH proposal density". A full Go-vs-C++ proposal-distribution match is still unverified end-to-end. |
+| 2 | MH proposal reimplements C++ `mh.o` (§11) | UNKNOWN → **Verified (2026-06-04)** | **Verified — matches C++ `mh.cpp` line-by-line.** Earlier the pseudocount mismatch surfaced and was restored in [`01c0114`](https://github.com/johnoooh/PhyloWGS_refactor/commit/01c0114) "fix: restore dirichletSample pseudocount to prevent log(0) in MH proposal density". On 2026-06-04 the full Go-vs-C++ proposal distribution was checked against `mh.cpp`: the asymmetric `+1` in `sample_cons_params` (present in the proposal draw, absent from the dirichlet correction density) and the GSL `dirichlet_lnpdf` formula both match. See the 2026-06-04 update note at the top of this document. |
 | 3 | Slice sampler 100-iteration cap (§4b) | LOW | **Fixed** — [`87e24c0`](https://github.com/johnoooh/PhyloWGS_refactor/commit/87e24c0) incidentally replaced the `for iter := 0; iter < 100` caps in `resampleAssignments` with unbounded `for {}` loops, matching Python's `while True`. |
 | 4 | `boundBeta` clamps to 1e-6 instead of `~1e-16` (§6) | LOW | **Fixed** — [`87e24c0`](https://github.com/johnoooh/PhyloWGS_refactor/commit/87e24c0). `boundBeta` now uses Python's exact affine shrinkage with `eps = 2.220446049250313e-16` (numpy.finfo(float64).eps). The hard 1e-6 clamp had been creating a systematic bias in `dpAlphaLLH` that drove `alpha_decay` upward at high M. |
 | 5 | Slice-sampler LLH caching absent (§4c) | LOW (perf only) | **Open.** No correctness impact; intentionally unaddressed. |
@@ -226,7 +250,7 @@ CNV: id, a, d, ssm_refs with maternal_cn/paternal_cn parsed correctly.
 | # | Component | Severity | Description |
 |---|-----------|----------|-------------|
 | 1 | findOrCreateNode depth-0 | **MEDIUM** | Root index not prepended to path, causing asymmetric pathLT comparison in slice sampler |
-| 2 | MH proposal | **UNKNOWN** | Go reimplements C++ mh.o; proposal distribution may differ |
+| 2 | MH proposal | ~~UNKNOWN~~ **Verified (2026-06-04)** | Go reimplements C++ mh.o; proposal distribution verified to match `mh.cpp` line-by-line (asymmetric `+1` in `sample_cons_params`, GSL `dirichlet_lnpdf`). See 2026-06-04 update note. |
 | 3 | Slice sampler limit | LOW | 100 iteration cap vs Python's unlimited |
 | 4 | boundBeta boundary | LOW | 1e-6 vs ~1e-16 clamping |
 | 5 | LLH caching | LOW | No caching in slice sampler (performance only) |

@@ -1314,6 +1314,17 @@ func (t *TSSB) resampleAssignments(rng *rand.Rand) {
 		// first visit. Python masks this by returning the cached value. Without
 		// the cache, existing nodes become progressively less attractive as more
 		// children spawn, creating a positive feedback loop that worsens with M.
+		//
+		// CODE_REVIEW §4c ("Slice-sampler LLH caching absent") is STALE: this map
+		// IS the llhmap port. The cache is seeded with oldNode's LLH (below) and
+		// hit for every repeat proposal, line-for-line with tssb.py:99–129. There
+		// is no remaining un-cached recompute in this loop that would be a pure
+		// (identical-value) memoization: oldNode is cached before the loop, and
+		// each distinct proposed node is computed at most once. Caching any further
+		// (e.g. across the surrounding sweep) would diverge from Python because the
+		// cache deliberately returns intentionally-stale values within one datum's
+		// loop and must be discarded per datum — so no additional memoization is
+		// added here on purpose.
 		llhMap := make(map[*Node]float64)
 
 		// Get path indices for current assignment
@@ -2000,9 +2011,10 @@ func (t *TSSB) resampleSticks(rng *rand.Rand) {
 		// later children to earlier ones. For child i, data_down = sum_{j>i}(n_j).
 		// This matches the standard GEM posterior:
 		//   v_i ~ Beta(1 + n_i, gamma + sum_{j>i} n_j)
-		// NOTE: Python iterates forward with a different accumulation convention,
-		// but both produce equivalent posteriors because the stick-breaking
-		// parameterization interacts with the iteration order.
+		// This is line-for-line equivalent to Python tssb.py resample_sticks,
+		// which does `indices = range(len(children)); indices.reverse()` and
+		// iterates in REVERSE, identical to this loop. Both compute
+		// post_alpha = 1 + child_data and post_beta = dp_gamma + data_down.
 		for i := len(root.Children) - 1; i >= 0; i-- {
 			child := root.Children[i]
 			childData := countData(child)

@@ -59,19 +59,81 @@ def main():
 
     print(f"Comparing {len(common)} common fixtures")
 
+    # ── Matched-seed guard ───────────────────────────────────────────────
+    # The Go and Python results for a given fixture name MUST come from the
+    # SAME simulated instance, identified by truth.json params.seed. A previous
+    # validation run silently compared Go (seed set B) against Python (seed set
+    # A) under the same fixture *names*, producing meaningless apples-to-oranges
+    # numbers. Refuse to score any fixture whose seeds disagree.
+    #
+    # If neither side carries a seed (older scores.json), we cannot verify and
+    # warn loudly rather than silently trusting the pairing.
+    seed_mismatches = []
+    seed_unknown = []
+    verified_common = []
+    for name in common:
+        g_seed = go[name].get("seed")
+        p_seed = py[name].get("seed")
+        if g_seed is None or p_seed is None:
+            seed_unknown.append((name, g_seed, p_seed))
+            # Cannot verify; keep it but flag (see warning below).
+            verified_common.append(name)
+        elif g_seed != p_seed:
+            seed_mismatches.append((name, g_seed, p_seed))
+        else:
+            verified_common.append(name)
+
+    if seed_mismatches:
+        print("\n" + "!" * 70)
+        print("ERROR: SEED MISMATCH between Go and Python results.")
+        print("These fixtures share a name but were simulated from DIFFERENT")
+        print("seeds — comparing them would be apples-to-oranges. REFUSING to")
+        print("score the following pairs:")
+        for name, gs, ps in seed_mismatches:
+            print(f"  {name}: go_seed={gs}  py_seed={ps}")
+        print("!" * 70)
+
+    if seed_unknown:
+        print("\n" + "*" * 70)
+        print("WARNING: could not verify fixture seeds (missing 'seed' field in")
+        print("scores.json). Re-run score_results.py to embed seeds so the")
+        print("matched-seed guard can confirm these pairs:")
+        for name, gs, ps in seed_unknown[:10]:
+            print(f"  {name}: go_seed={gs}  py_seed={ps}")
+        if len(seed_unknown) > 10:
+            print(f"  ... and {len(seed_unknown) - 10} more")
+        print("*" * 70)
+
+    if not verified_common:
+        print("\nNo seed-verified common fixtures to compare. Aborting.")
+        return
+
+    if len(verified_common) != len(common):
+        print(f"\nScoring {len(verified_common)}/{len(common)} seed-verified fixtures "
+              f"({len(seed_mismatches)} refused for seed mismatch).")
+    common = verified_common
+
     # ── Build comparison table ───────────────────────────────────────────
     rows = []
     for name in common:
         g, p = go[name], py[name]
         row = {
             "fixture": name,
+            # seed is identical on both sides here (guaranteed by the guard
+            # above); recording it makes the matched pairing auditable in the TSV.
+            "seed": g.get("seed"),
             "K": g["K"], "S": g["S"], "T": g["T"], "M": g["M"],
             "go_time_s": g.get("total_time_s"),
             "py_time_s": p.get("total_time_s"),
+            # K_error / inferred_K are the Go-merge-consistent counts (Go is
+            # pre-merged; Python merged with the same threshold in score_results).
             "go_K_error": g.get("K_error"),
             "py_K_error": p.get("K_error"),
             "go_inferred_K": g.get("inferred_K"),
             "py_inferred_K": p.get("inferred_K"),
+            # Raw (non-merged) population counts, for transparency only.
+            "go_inferred_K_raw": g.get("inferred_K_raw"),
+            "py_inferred_K_raw": p.get("inferred_K_raw"),
             "go_best_llh": g.get("best_llh"),
             "py_best_llh": p.get("best_llh"),
             "go_auprc": g.get("cocluster_auprc"),

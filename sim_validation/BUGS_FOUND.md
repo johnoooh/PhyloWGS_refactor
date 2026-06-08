@@ -92,3 +92,78 @@ tssb := newTSSB(ssmsCopy, chainCNVs, ...)
 | K5_S3_T200_M50_C2_rep0 | −18,644 | **−19,005** | −25,418 | ✅ Go better |
 
 Multi-seed variance (5 seeds, `K3_S1_C2_rep1`): σ ≈ 2.7, best range −6513 to −6521. Stable.
+
+---
+
+# Harness / Methodology Bugs (NOT sampler bugs)
+
+_Discovered 2026-06-04 while investigating an apparent "K=10 under-recovery vs
+Python" regression. The investigation concluded there is **no sampler bug and
+no regression** — the Go sampler is a verified-faithful port. The "regression"
+was an artifact of the two validation-harness bugs below. These are bugs in the
+**comparison methodology**, not in `main.go`._
+
+---
+
+## Harness Bug A — comparison ran against a mismatched-seed Python baseline
+
+**Severity:** High (invalidated the headline K=10 comparison)
+**Where:** validation/comparison procedure (not `main.go`)
+
+### What was wrong
+The Go run under analysis (`results/go-cpu/go-cpu/`) used **seed set B** (the
+sweep intended for the `sim_validation_juno_529` output path). It was compared
+against an original-Python reference (`junoresults/results/original-python/`)
+generated from a **different seed set, A**. On a stochastic, multimodal sampler,
+comparing best-of-N-chains population recovery across two different seed sets is
+not apples-to-apples: the observed "Go under-recovers" gap reflected
+seed/mode-selection differences, not a sampler difference.
+
+The correctly-matched Python baseline is **`junoresultsmulti`**, which uses
+**seed set B (216/216 identical seeds)**. Against the matched baseline the gap
+disappears.
+
+### Fix
+Always pair Go and Python runs by **identical seeds** before comparing. Use
+`junoresultsmulti` (seed set B) as the baseline for the seed-set-B Go run, not
+`junoresults` (seed set A).
+
+---
+
+## Harness Bug B — inconsistent population counting (Go-merged vs Python-raw)
+
+**Severity:** High (was the bulk of the apparent K=10 gap)
+**Where:** scoring/`npop` extraction (not `main.go`)
+
+### What was wrong
+The two implementations' population counts were extracted by **different
+conventions**:
+
+- **Go `npop`** came from `best_tree.json` `num_populations`, which is counted
+  **after** `removeSmallNodes` merging. A population is "small" (and merged
+  away) if its mutation fraction is `< max(1%, 2/M)`.
+- **Python `npop`** was counted as the **raw** number of non-empty populations
+  in the best-LLH tree, with **no** merge step.
+
+So Go was reporting a post-merge count and Python a pre-merge count. This made
+Go look like it systematically recovered fewer populations ("truncates trees
+prematurely") when in fact it was just counted after a merge that Python's count
+never applied.
+
+### Fix
+Count populations the **same way** on both sides. Counted consistently, Go
+(~5.3) ≈ Python (~5.7) at K=10. Both implementations badly under-recover K=10 —
+that is inherent TSSB difficulty at high K (multimodal posterior;
+~40% of chains stick in a worse mode; best-of-N-chains is luck-sensitive),
+present in Python as well, **not** a Go defect.
+
+---
+
+## Why these are NOT sampler bugs
+
+`dirichletSample`, `resampleSticks`, and the MH proposal were all re-verified
+against the Python/C++ references this session and match line-by-line (the MH
+proposal vs C++ `mh.cpp` — including the asymmetric `+1` in `sample_cons_params`
+and the GSL `dirichlet_lnpdf` formula). No statistical/mathematical behavior was
+changed. See `docs/analysis/CODE_REVIEW.md` (2026-06-04 note) and `HANDOFF.md`
+(RESOLVED / CORRECTION section).
