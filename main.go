@@ -100,12 +100,12 @@ type CNVRef struct {
 // Parsed from the physical_cnvs column of cnv_data.txt.
 // Fields map directly to the Python cnv_logical_physical_mapping output.
 type PhysicalCNV struct {
-	Chrom    string `json:"chrom"`
-	Start    int    `json:"start"`
-	End      int    `json:"end"`
-	MajorCN  int    `json:"major_cn"`
-	MinorCN  int    `json:"minor_cn"`
-	CellPrev string `json:"cell_prev"` // raw "0.0|0.718" string, one value per timepoint
+	Chrom    string    `json:"chrom"`
+	Start    int       `json:"start"`
+	End      int       `json:"end"`
+	MajorCN  int       `json:"major_cn"`
+	MinorCN  int       `json:"minor_cn"`
+	CellPrev []float64 `json:"cell_prev"` // one value per timepoint, parsed from "0.0|0.718"
 }
 
 // CNVSSMLink holds the SSM ID and copy numbers for one SSM affected by a CNV.
@@ -470,7 +470,11 @@ func parsePhysicalCNVs(raw string) []PhysicalCNV {
 			case "minor_cn":
 				p.MinorCN, _ = strconv.Atoi(val)
 			case "cell_prev":
-				p.CellPrev = val
+				// Python util2.py:71 — [float(C) for C in cell_prev.split('|')]
+				for _, c := range strings.Split(val, "|") {
+					f, _ := strconv.ParseFloat(c, 64)
+					p.CellPrev = append(p.CellPrev, f)
+				}
 			}
 		}
 		result = append(result, p)
@@ -1123,15 +1127,12 @@ func (t *TSSB) completeDataLogLikelihood() float64 {
 					gpuLLH += logLikelihoodWithCNVTree(ssm, t)
 				}
 			}
+			// CNV datums are data in the tree too; the GPU kernel only handles
+			// SSMs, so add their contribution here to match the CPU path.
+			gpuLLH += t.cnvDatumLogLikelihood(weights, nodes)
 			return gpuLLH
 		}
 		// Fall through to CPU path on error
-	}
-
-	// Build node → weight map for CNV datum contribution
-	nodeWeightMap := make(map[*Node]float64)
-	for i, node := range nodes {
-		nodeWeightMap[node] = weights[i]
 	}
 
 	// CPU path - use tree traversal for CNV SSMs
@@ -1151,10 +1152,24 @@ func (t *TSSB) completeDataLogLikelihood() float64 {
 		}
 	}
 
-	// Include CNV datum likelihoods (matching Python: CNVs are data in the tree too)
-	// Python treats CNV datums identically to SSMs without their own CNV context.
-	// Each CNV datum contributes: log(weight_of_its_node) + binomial_llh(a, d, mu)
-	// where mu = (1-phi)*0.999 + phi*0.5 and phi = cnv.Node.Params
+	llh += t.cnvDatumLogLikelihood(weights, nodes)
+
+	return llh
+}
+
+// cnvDatumLogLikelihood returns the total contribution of CNV datums to the
+// complete-data log-likelihood. Matching Python (tssb.py:374-380), CNVs are
+// ordinary data in the tree: each CNV datum contributes
+// log(weight_of_its_node) + binomial_llh(a, d, mu), where
+// mu = (1-phi)*0.999 + phi*0.5 and phi = cnv.Node.Params. Called from both the
+// GPU and CPU branches of completeDataLogLikelihood so the totals agree.
+func (t *TSSB) cnvDatumLogLikelihood(weights []float64, nodes []*Node) float64 {
+	nodeWeightMap := make(map[*Node]float64, len(nodes))
+	for i, node := range nodes {
+		nodeWeightMap[node] = weights[i]
+	}
+
+	llh := 0.0
 	cnvNodeCounts := make(map[*Node]int)
 	for _, cnv := range t.CNVData {
 		if cnv.Node != nil {
@@ -1171,7 +1186,6 @@ func (t *TSSB) completeDataLogLikelihood() float64 {
 			continue
 		}
 		phi := cnv.Node.Params
-		cnvLLH := 0.0
 		for tp := range cnv.A {
 			p := phi[tp]
 			if p < 0 {
@@ -1180,7 +1194,6 @@ func (t *TSSB) completeDataLogLikelihood() float64 {
 			if p > 1 {
 				p = 1
 			}
-			// CNV datums use same formula: mu = (1-phi)*muR + phi*muV
 			mu := (1-p)*0.999 + p*0.5
 			if mu < 1e-15 {
 				mu = 1e-15
@@ -1188,11 +1201,9 @@ func (t *TSSB) completeDataLogLikelihood() float64 {
 			if mu > 1-1e-15 {
 				mu = 1 - 1e-15
 			}
-			cnvLLH += logBinomialLikelihood(cnv.A[tp], cnv.D[tp], mu) + cnv.LogBinNormConst[tp]
+			llh += logBinomialLikelihood(cnv.A[tp], cnv.D[tp], mu) + cnv.LogBinNormConst[tp]
 		}
-		llh += cnvLLH
 	}
-
 	return llh
 }
 
@@ -2679,7 +2690,7 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 // writeMutList writes mutlist.json to outDir, matching the Python
 // write_results.py / result_generator.py output format.
 // ssms and cnvs come from the best chain's FinalTree.
-func writeMutList(outDir string, ssms []*SSM, cnvs []*CNV) error {
+func writeMutList(outDir string, ssms []*SSM, cnvs []*CNV, datasetName string) error {
 	// --- SSM section ---
 	type ssmEntry struct {
 		RefReads             []int   `json:"ref_reads"`
@@ -2734,11 +2745,13 @@ func writeMutList(outDir string, ssms []*SSM, cnvs []*CNV) error {
 	}
 
 	out := struct {
-		SSMs map[string]ssmEntry `json:"ssms"`
-		CNVs map[string]cnvEntry `json:"cnvs"`
+		SSMs        map[string]ssmEntry `json:"ssms"`
+		CNVs        map[string]cnvEntry `json:"cnvs"`
+		DatasetName string              `json:"dataset_name"`
 	}{
-		SSMs: ssmsOut,
-		CNVs: cnvsOut,
+		SSMs:        ssmsOut,
+		CNVs:        cnvsOut,
+		DatasetName: datasetName,
 	}
 
 	data, err := json.MarshalIndent(out, "", "  ")
@@ -3049,7 +3062,7 @@ func writeResults(outDir string, results []ChainResult, chainInclusionFactor flo
 	if err := os.WriteFile(treePath, treeData, 0644); err != nil {
 		return err
 	}
-	if err := writeMutList(outDir, ssmData, cnvData); err != nil {
+	if err := writeMutList(outDir, ssmData, cnvData, datasetName); err != nil {
 		return err
 	}
 
