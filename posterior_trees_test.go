@@ -47,6 +47,16 @@ func TestTreeSignature_TwoNodeChain(t *testing.T) {
 // child's genotype lookup of an empty parent returns "" (the initial value),
 // not the grandparent's genotype.
 //
+// This is a RAW-INPUT unit test of treeSignature's algorithm in isolation.
+// The real pipeline can no longer produce this exact input at the point
+// treeSignature runs on an archived snapshot: since M6, snapshotTree computes
+// the topology signature BEFORE postProcessSummary removes empty nodes,
+// specifically so this inheritance-break logic fires on real data (an
+// archived snapshot has already had its empty nodes spliced out by the time
+// it's read back). Kept as a direct algorithm-level test — see
+// TestSnapshotTree_StampsSignatureBeforeCleanup for the end-to-end case that
+// exercises the real call path.
+//
 // Tree: 0 -> 1 -> 2, data: 0=[s0], 1=[], 2=[s2], idx={s0:"0", s2:"1"}.
 //
 //	node 0: data=[s0], parent=None -> gtype = "0_"   -> _sort -> "_0_"
@@ -102,6 +112,67 @@ func TestTreeSignature_BranchInheritance(t *testing.T) {
 	want := "_0_;_0_1_;_0_1_2_;"
 	if sig != want {
 		t.Errorf("sig = %q, want %q", sig, want)
+	}
+}
+
+// TestSnapshotTree_StampsSignatureBeforeCleanup is the M6 end-to-end
+// regression test. It builds a real TSSB with a genuinely empty
+// intermediate node (root -> P[data] -> E[empty] -> C[data]) and runs it
+// through the actual snapshotTree call path, proving the stamped
+// topology_signature reflects the pre-cleanup tree (where E's emptiness
+// breaks genotype inheritance) rather than the post-cleanup one (where E
+// has already been spliced out and C would incorrectly inherit P's
+// genotype). This is the scenario TestTreeSignature_SkipsEmptyNodes tests
+// in isolation; this test proves it actually fires on the real pipeline.
+func TestSnapshotTree_StampsSignatureBeforeCleanup(t *testing.T) {
+	ssms := []*SSM{{ID: "s0"}, {ID: "s1"}}
+
+	cNode := &Node{ID: 3, Params: []float64{0.6}, Data: []int{1}} // s1
+	eNode := &Node{ID: 2, Params: []float64{0.5}}                 // empty
+	pNode := &Node{ID: 1, Params: []float64{0.7}, Data: []int{0}} // s0
+	rootNode := &Node{ID: 0, Params: []float64{1.0}}
+
+	cTSSB := &TSSBNode{Node: cNode}
+	eTSSB := &TSSBNode{Node: eNode, Children: []*TSSBNode{cTSSB}}
+	pTSSB := &TSSBNode{Node: pNode, Children: []*TSSBNode{eTSSB}}
+	rootTSSB := &TSSBNode{Node: rootNode, Children: []*TSSBNode{pTSSB}}
+
+	tssb := &TSSB{Root: rootTSSB, Data: ssms}
+	mutIdx := buildMutationIndexMapFromDataset(tssb.Data, tssb.CNVData)
+
+	raw := snapshotTree(tssb, -10.0, 0, 0, mutIdx)
+	if raw == nil {
+		t.Fatal("snapshotTree returned nil")
+	}
+
+	var parsed struct {
+		TopologySignature *string `json:"topology_signature"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatalf("unmarshal snapshot: %v", err)
+	}
+	if parsed.TopologySignature == nil {
+		t.Fatal("topology_signature field missing from snapshot")
+	}
+
+	// Pre-cleanup signature: E's emptiness breaks inheritance, so C reads
+	// "" from its parent rather than P's genotype.
+	want := "_0_;_1_;"
+	if *parsed.TopologySignature != want {
+		t.Errorf("topology_signature = %q, want %q (pre-cleanup, break-at-empty-node)", *parsed.TopologySignature, want)
+	}
+
+	// Sanity: confirm E really was spliced out of the returned (cleaned)
+	// structure, so we know this test is exercising the actual pre- vs
+	// post-cleanup distinction and not just echoing an untouched tree.
+	var cleaned struct {
+		Populations map[string]json.RawMessage `json:"populations"`
+	}
+	if err := json.Unmarshal(raw, &cleaned); err != nil {
+		t.Fatalf("unmarshal cleaned snapshot: %v", err)
+	}
+	if len(cleaned.Populations) != 3 {
+		t.Errorf("cleaned snapshot has %d populations, want 3 (empty node E should have been removed)", len(cleaned.Populations))
 	}
 }
 

@@ -2591,6 +2591,11 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 	// Initialize TSSB with chain-local SSMs and CNVs
 	tssb := newTSSB(ssmsCopy, chainCNVs, 25.0, 1.0, 0.25, rng)
 
+	// Mutation-index map for topology-signature computation (M6). Built
+	// once from dataset load order — the SSM/CNV set and order is fixed
+	// for the chain's lifetime, only their tree assignments change.
+	mutIdx := buildMutationIndexMapFromDataset(ssmsCopy, chainCNVs)
+
 	// Initialize GPU for this TSSB (uploads static SSM data)
 	if err := tssb.initGPUForTSSB(); err != nil {
 		log.Printf("Chain %d: GPU init failed, using CPU: %v", chainID, err)
@@ -2655,7 +2660,7 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 			// Capture a full tree snapshot for the posterior output file.
 			// snapshotTree calls postProcessSummary to filter empty pops
 			// from the JSON output without modifying the live TSSB tree.
-			snap := snapshotTree(tssb, llh, iter, chainID)
+			snap := snapshotTree(tssb, llh, iter, chainID, mutIdx)
 			trees = append(trees, TreeSample{
 				Iteration: iter,
 				LLH:       llh,
@@ -3069,81 +3074,47 @@ func writeResults(outDir string, results []ChainResult, chainInclusionFactor flo
 	return nil
 }
 
-// removeEmptyNodes strips empty nodes from the TSSB tree.
-// Matches Python's remove_empty_nodes (util2.py:128-155):
-//   - Empty leaf: remove from parent
-//   - Empty internal node: reparent children to grandparent
-//   - Root is never removed
-func removeEmptyNodes(root *TSSBNode, parent *TSSBNode) {
-	// Process children depth-first (copy slice since we modify it)
-	children := make([]*TSSBNode, len(root.Children))
-	copy(children, root.Children)
-	for _, child := range children {
-		removeEmptyNodes(child, root)
-	}
-
-	if len(root.Node.Data) > 0 {
-		return // Node has data, keep it
-	}
-
-	if parent == nil {
-		return // Never remove root
-	}
-
-	// Find this node's index in parent
-	idx := -1
-	for i, c := range parent.Children {
-		if c == root {
-			idx = i
-			break
-		}
-	}
-	if idx < 0 {
-		return // Already removed
-	}
-
-	if len(root.Children) == 0 {
-		// Empty leaf: remove from parent
-		parent.Children = append(parent.Children[:idx], parent.Children[idx+1:]...)
-		if idx < len(parent.Sticks) {
-			parent.Sticks = append(parent.Sticks[:idx], parent.Sticks[idx+1:]...)
-		}
-		// Remove from Node.Children
-		for i, c := range parent.Node.Children {
-			if c == root.Node {
-				parent.Node.Children = append(parent.Node.Children[:i], parent.Node.Children[i+1:]...)
-				break
-			}
-		}
-	} else {
-		// Empty internal node: reparent children to grandparent
-		for i, child := range root.Children {
-			parent.Children = append(parent.Children, child)
-			if i < len(root.Sticks) {
-				parent.Sticks = append(parent.Sticks, root.Sticks[i])
-			}
-			child.Node.Parent = parent.Node
-			parent.Node.Children = append(parent.Node.Children, child.Node)
-		}
-		// Remove this node from parent
-		parent.Children = append(parent.Children[:idx], parent.Children[idx+1:]...)
-		if idx < len(parent.Sticks) {
-			parent.Sticks = append(parent.Sticks[:idx], parent.Sticks[idx+1:]...)
-		}
-		for i, c := range parent.Node.Children {
-			if c == root.Node {
-				parent.Node.Children = append(parent.Node.Children[:i], parent.Node.Children[i+1:]...)
-				break
-			}
-		}
-	}
-}
-
 // summarizePops traverses the cleaned tree and extracts population summaries.
 // Matches Python's ResultGenerator._summarize_pops (result_generator.py:43-88):
 //   - Population 0 = root (normal cells)
 //   - Children sorted by decreasing mean phi
 //   - Preorder traversal assigns population IDs
+//
+// meanPhi returns the arithmetic mean of a phi/cellular-prevalence vector,
+// used to order sibling populations by descending phi (Python's
+// result_generator.py:81). Returns 0 for an empty vector.
+func meanPhi(params []float64) float64 {
+	if len(params) == 0 {
+		return 0
+	}
+	sum := 0.0
+	for _, v := range params {
+		sum += v
+	}
+	return sum / float64(len(params))
+}
+
+// cellPrevFromRaw extracts a population's cellular_prevalence vector from
+// its generic (post-JSON-round-trip) map[string]interface{} representation.
+// Returns nil if the shape doesn't match.
+func cellPrevFromRaw(popRaw interface{}) []float64 {
+	pop, ok := popRaw.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	cpRaw, ok := pop["cellular_prevalence"].([]interface{})
+	if !ok {
+		return nil
+	}
+	out := make([]float64, 0, len(cpRaw))
+	for _, v := range cpRaw {
+		if f, ok := v.(float64); ok {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
 func summarizePops(tssb *TSSB, llh float64, chainID int) map[string]interface{} {
 	type popSummary struct {
 		CellPrev []float64 `json:"cellular_prevalence"`
@@ -3160,9 +3131,12 @@ func summarizePops(tssb *TSSB, llh float64, chainID int) map[string]interface{} 
 	mutAss := make(map[string]mutAssignment)
 	popIdx := 0
 
-	// Traverse TSSBNode tree (not Node.Children) since removeEmptyNodes
-	// operates on TSSBNode.Children. This matches Python's result_generator.py
-	// which traverses the TSSB dict structure (root['children']).
+	// Traverse TSSBNode tree (not Node.Children). Empty-node removal
+	// happens downstream at the JSON level in postProcessSummary, which
+	// operates on this function's output map — not on the live TSSB, since
+	// mutating the live tree mid-MCMC has no safe deep-copy path here. This
+	// matches Python's result_generator.py, which traverses the TSSB dict
+	// structure (root['children']).
 	var traverse func(tn *TSSBNode, parentIdx int)
 	traverse = func(tn *TSSBNode, parentIdx int) {
 		currentIdx := popIdx
@@ -3203,21 +3177,7 @@ func summarizePops(tssb *TSSB, llh float64, chainID int) map[string]interface{} 
 		sortedChildren := make([]*TSSBNode, len(tn.Children))
 		copy(sortedChildren, tn.Children)
 		sort.Slice(sortedChildren, func(i, j int) bool {
-			meanI := 0.0
-			for _, v := range sortedChildren[i].Node.Params {
-				meanI += v
-			}
-			if len(sortedChildren[i].Node.Params) > 0 {
-				meanI /= float64(len(sortedChildren[i].Node.Params))
-			}
-			meanJ := 0.0
-			for _, v := range sortedChildren[j].Node.Params {
-				meanJ += v
-			}
-			if len(sortedChildren[j].Node.Params) > 0 {
-				meanJ /= float64(len(sortedChildren[j].Node.Params))
-			}
-			return meanI > meanJ
+			return meanPhi(sortedChildren[i].Node.Params) > meanPhi(sortedChildren[j].Node.Params)
 		})
 
 		for _, child := range sortedChildren {
@@ -3327,49 +3287,51 @@ func postProcessSummary(summary map[string]interface{}) map[string]interface{} {
 		delete(childrenOf, idx)
 	}
 
-	// Build renumbering map (contiguous IDs, skipping removed nodes)
+	// Renumber via phi-descending preorder DFS over the reparented
+	// childrenOf map, matching Python's result_generator.py:81-86:
+	// population numbering happens AFTER empty-node removal, ordered by
+	// descending mean cellular_prevalence at each level. (The previous
+	// ascending-old-index renumbering only matched Python by coincidence,
+	// when a reparented grandchild's phi happened to already rank behind
+	// its new siblings by old index too — see
+	// TestPostProcessSummary_RenumbersByDescendingPhi for a case where it
+	// doesn't.) Building the structure list in the same DFS pass keeps
+	// child order consistent with the new numbering; ties broken by
+	// ascending old index for determinism.
 	renumber := make(map[int]int) // old → new
-	newIdx := 0
-	for idx := 0; idx <= maxIdx; idx++ {
-		if emptySet[idx] {
-			continue
+	newStruct := make(map[string]interface{})
+	nextIdx := 0
+	var walk func(idx int)
+	walk = func(idx int) {
+		renumber[idx] = nextIdx
+		myNewIdx := nextIdx
+		nextIdx++
+
+		kids := append([]int(nil), childrenOf[idx]...)
+		sort.SliceStable(kids, func(i, j int) bool {
+			mi := meanPhi(cellPrevFromRaw(popsRaw[strconv.Itoa(kids[i])]))
+			mj := meanPhi(cellPrevFromRaw(popsRaw[strconv.Itoa(kids[j])]))
+			if mi != mj {
+				return mi > mj
+			}
+			return kids[i] < kids[j]
+		})
+
+		var newKids []interface{}
+		for _, kid := range kids {
+			walk(kid)
+			newKids = append(newKids, float64(renumber[kid]))
 		}
-		if _, exists := popsRaw[strconv.Itoa(idx)]; !exists {
-			continue
+		if len(newKids) > 0 {
+			newStruct[strconv.Itoa(myNewIdx)] = newKids
 		}
-		renumber[idx] = newIdx
-		newIdx++
 	}
+	walk(0)
 
 	// Build new populations
 	newPops := make(map[string]interface{})
 	for oldIdx, newIdx := range renumber {
 		newPops[strconv.Itoa(newIdx)] = popsRaw[strconv.Itoa(oldIdx)]
-	}
-
-	// Build new structure
-	newStruct := make(map[string]interface{})
-	for parentIdx, kids := range childrenOf {
-		if emptySet[parentIdx] {
-			continue
-		}
-		newParent, ok := renumber[parentIdx]
-		if !ok {
-			continue
-		}
-		// Renumber and filter children
-		newKids := []interface{}{}
-		for _, kid := range kids {
-			if emptySet[kid] {
-				continue // shouldn't happen after reparenting, but safety
-			}
-			if newKidIdx, ok := renumber[kid]; ok {
-				newKids = append(newKids, float64(newKidIdx))
-			}
-		}
-		if len(newKids) > 0 {
-			newStruct[strconv.Itoa(newParent)] = newKids
-		}
 	}
 
 	// Build new mut_assignments
@@ -4011,7 +3973,20 @@ func removeSmallNodes(summary map[string]interface{}, minFrac float64, ssmData [
 // one line of an all_trees.ndjson file. It calls summarizePops then
 // postProcessSummary to filter empty populations, matching Python's
 // tree_summaries.json.gz format. The live TSSB tree is not modified.
-func snapshotTree(tssb *TSSB, llh float64, iteration, chainID int) json.RawMessage {
+//
+// mutIdx is the chain-level mutation-index map from buildMutationIndexMap
+// FromDataset, used to compute the tree's topology signature (M6). The
+// signature MUST be computed on the pre-cleanup summary — before
+// postProcessSummary removes empty nodes — because treeSignature's
+// genotype-inheritance-break logic only fires on nodes that are still
+// genuinely empty at that point. Computing it after cleanup (as this
+// function used to, implicitly, by never computing it at all and leaving
+// posterior_trees.go to derive it from the already-cleaned archive) means
+// every empty node has already been spliced out, so the break-at-empty-node
+// case can never trigger and topologies that Python keeps separate get
+// silently over-merged. See docs/analysis/2026-06-24-go-python-equivalence
+// -audit.md, M6.
+func snapshotTree(tssb *TSSB, llh float64, iteration, chainID int, mutIdx map[string]string) json.RawMessage {
 	summary := summarizePops(tssb, llh, chainID)
 
 	// Round-trip through JSON so postProcessSummary receives uniform
@@ -4021,6 +3996,15 @@ func snapshotTree(tssb *TSSB, llh float64, iteration, chainID int) json.RawMessa
 	if err != nil {
 		return nil
 	}
+
+	// Compute the topology signature on the pre-cleanup JSON, before any
+	// empty nodes are removed. Best-effort: if this fails, the field is
+	// simply omitted and posterior_trees.go falls back to computing it
+	// from the (already-cleaned) archived snapshot.
+	var sig string
+	var sigErr error
+	sig, sigErr = treeSignature(raw, mutIdx)
+
 	var generic map[string]interface{}
 	if err := json.Unmarshal(raw, &generic); err != nil {
 		return nil
@@ -4029,6 +4013,9 @@ func snapshotTree(tssb *TSSB, llh float64, iteration, chainID int) json.RawMessa
 	generic = postProcessSummary(generic)
 	// Stamp iteration into the snapshot so each line is self-contained
 	generic["iteration"] = iteration
+	if sigErr == nil {
+		generic["topology_signature"] = sig
+	}
 	data, err := json.Marshal(generic)
 	if err != nil {
 		// This should not happen; summarizePops only uses serializable types.

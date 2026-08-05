@@ -180,3 +180,61 @@ unreachable-path corrections, each pure-extraction or additive.
    the *same seed* for the first N iterations, not just final population counts.
 5. **Rounding edge cases (m2, m4)** — only if exact output parity is a release
    requirement.
+
+## 6. Follow-up (2026-08-05) — M3/M4/M6/M7 + rounding investigated and fixed
+
+A follow-up multi-agent investigation (six independent deep-dives, one per
+open item, each re-reading the actual Go and reference source rather than
+trusting this doc's summaries) resulted in a planned, sequenced set of
+fixes. Status:
+
+- **Rounding-mode bug** (found incidentally while investigating M3, not part
+  of M3 itself): `main.go`'s `removeSmallNodes` used `math.Round`
+  (half-away-from-zero) where Python 3's `int(round(...))` is
+  round-half-to-even. **Fixed** — `roundHalfEven` helper added.
+- **M3** — investigated and **deliberately left as-is**. Python's fixed-1%
+  threshold degenerates to a no-op below M≈100 (banker's rounding of
+  `0.01*M` collapses to 0), so it isn't a considered design choice to
+  replicate; Go's adaptive `max(1%, 2/M)` measurably beats it (mean |K
+  error| 2.90 vs 3.89 at low M, 743-fixture benchmark). Divergence window
+  narrowed from the audit's stated M<200 to the verified M<150.
+- **M7** — confirmed real and more pervasive than originally stated (no
+  ties/symmetric subtrees required — any two siblings with overlapping phi
+  posteriors across samples trigger it). **Fixed** — `aggregateFreqsByNode`
+  now keys by mutation content (`nodeMutKey`) instead of node ID.
+- **M4** — confirmed real, but the audit's proposed remedy ("wire in
+  `removeEmptyNodes`") was rejected: `removeEmptyNodes` has no deep-copy
+  support and would corrupt the live MCMC tree if ever invoked mid-run.
+  **Fixed** at the JSON level instead — `postProcessSummary`'s renumbering
+  now walks the reparented tree in phi-descending preorder (matching
+  Python's post-removal numbering), rather than by ascending old index.
+  `removeEmptyNodes` deleted as confirmed-dead code.
+- **M6** — confirmed real; root cause was the *call site*, not
+  `treeSignature`'s algorithm (which was already a faithful port). The
+  signature was being computed on an already-empty-node-cleaned snapshot,
+  so the inheritance-break logic could never fire. **Fixed** —
+  `snapshotTree` now computes and stamps a `topology_signature` field
+  before `postProcessSummary` runs; `posterior_trees.go` reads the stamped
+  field with a logged fallback for pre-fix archives. Also fixed in passing:
+  the mutation-index map used for the fallback path was lexically sorted
+  rather than dataset-load-order; the new stamped path uses true dataset
+  order (`buildMutationIndexMapFromDataset`), matching Python's
+  `enumerate(codes)`.
+- **M1** — investigated in depth; confirmed real and scoped tightly to the
+  MH sampling step (Go's assignment-resampling and complete-data-LLH paths
+  were already correct — the reference pipeline itself runs `data.py` for
+  those and `mh.hpp`/`mh.o` for MH sampling, at different steps; Go had
+  collapsed all three onto `data.py`'s logic). **Not yet fixed** — reserved
+  as the last, highest-risk phase since it's the only item in this batch
+  that changes inference output rather than reporting/output-schema. See
+  the follow-up investigation transcript for the concrete fix sketch
+  (static `params.py:213-219` state-collapse ported into `computeSSMStates`,
+  unconditional 4-term reduction with `nr+nv>0` guard replacing the dynamic
+  `nv>0` filter) and required regression tests (independent hand-computed
+  LOH fixture, 2-state bit-identical regression, fallback-path deletion).
+
+Additionally noted, filed but **not fixed** (out of scope for this batch):
+Python's `result_munger.py` `_remove_nodes` (backing `removeSmallNodes`)
+does not renumber populations after removal — it asserts fixed indices on
+the original numbering. Go's `removeSmallNodes` renumbers contiguously.
+Separate divergence from M3/M4, previously unflagged.

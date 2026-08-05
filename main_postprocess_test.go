@@ -159,6 +159,92 @@ func TestPostProcessSummary_AllNonEmpty(t *testing.T) {
 	}
 }
 
+// TestPostProcessSummary_RenumbersByDescendingPhi is the M4 regression test.
+// TestPostProcessSummary_RemovesEmptyPops (above) passes under BOTH
+// ascending-old-index renumbering and phi-descending renumbering, by
+// coincidence: after empty-node removal, root's surviving children happen
+// to already be in descending-phi order by old index too. This fixture
+// breaks that coincidence deliberately.
+//
+//	0 (root, empty, phi=1.0)
+//	1 (has SSMs, phi=0.2)
+//	2 (empty internal, phi=0.5), children=[3]
+//	3 (has SSMs, phi=0.7)
+//
+// Structure: 0→[1,2], 2→[3]
+//
+// After removing empty node 2, its child 3 reparents to root. Root's
+// surviving children are old-1 (phi=0.2) and old-3 (phi=0.7). Python's
+// result_generator.py:81-86 numbers AFTER removal, by descending phi — so
+// old-3 (higher phi) must become new-1, and old-1 must become new-2. The
+// old ascending-old-index renumbering would instead give new-1=old-1,
+// new-2=old-3 — backwards.
+func TestPostProcessSummary_RenumbersByDescendingPhi(t *testing.T) {
+	pops := map[string]interface{}{
+		"0": map[string]interface{}{"cellular_prevalence": []interface{}{1.0}, "num_ssms": float64(0), "num_cnvs": float64(0)},
+		"1": map[string]interface{}{"cellular_prevalence": []interface{}{0.2}, "num_ssms": float64(4), "num_cnvs": float64(0)},
+		"2": map[string]interface{}{"cellular_prevalence": []interface{}{0.5}, "num_ssms": float64(0), "num_cnvs": float64(0)},
+		"3": map[string]interface{}{"cellular_prevalence": []interface{}{0.7}, "num_ssms": float64(6), "num_cnvs": float64(0)},
+	}
+	structure := map[string]interface{}{
+		"0": []interface{}{float64(1), float64(2)},
+		"2": []interface{}{float64(3)},
+	}
+	mutAss := map[string]interface{}{
+		"1": map[string]interface{}{"ssms": []interface{}{"s_lo"}, "cnvs": []interface{}{}},
+		"3": map[string]interface{}{"ssms": []interface{}{"s_hi"}, "cnvs": []interface{}{}},
+	}
+	summary := map[string]interface{}{
+		"chain_id":        0,
+		"llh":             -100.0,
+		"num_populations": 2,
+		"populations":     pops,
+		"structure":       structure,
+		"mut_assignments": mutAss,
+	}
+
+	result := postProcessSummary(summary)
+
+	resultPops := result["populations"].(map[string]interface{})
+	if len(resultPops) != 3 {
+		t.Fatalf("got %d populations, want 3", len(resultPops))
+	}
+
+	// New pop "1" must be old-3 (phi=0.7, s_hi), not old-1.
+	pop1 := resultPops["1"].(map[string]interface{})
+	cp1 := pop1["cellular_prevalence"].([]interface{})
+	if cp1[0].(float64) != 0.7 {
+		t.Errorf("populations[\"1\"].cellular_prevalence = %v, want [0.7] (should be old pop 3, the higher-phi survivor)", cp1)
+	}
+
+	// New pop "2" must be old-1 (phi=0.2, s_lo).
+	pop2 := resultPops["2"].(map[string]interface{})
+	cp2 := pop2["cellular_prevalence"].([]interface{})
+	if cp2[0].(float64) != 0.2 {
+		t.Errorf("populations[\"2\"].cellular_prevalence = %v, want [0.2] (should be old pop 1, the lower-phi survivor)", cp2)
+	}
+
+	// mut_assignments must follow the same remap.
+	resultMutAss := result["mut_assignments"].(map[string]interface{})
+	ma1 := resultMutAss["1"].(map[string]interface{})
+	ssms1 := ma1["ssms"].([]interface{})
+	if len(ssms1) != 1 || ssms1[0].(string) != "s_hi" {
+		t.Errorf("mut_assignments[\"1\"].ssms = %v, want [s_hi]", ssms1)
+	}
+	ma2 := resultMutAss["2"].(map[string]interface{})
+	ssms2 := ma2["ssms"].([]interface{})
+	if len(ssms2) != 1 || ssms2[0].(string) != "s_lo" {
+		t.Errorf("mut_assignments[\"2\"].ssms = %v, want [s_lo]", ssms2)
+	}
+
+	// structure["0"] must list children in new-index (phi-descending) order: [1, 2].
+	resultStruct := result["structure"].(map[string]interface{})
+	root0 := resultStruct["0"].([]interface{})
+	if len(root0) != 2 || root0[0].(float64) != 1 || root0[1].(float64) != 2 {
+		t.Errorf("structure[\"0\"] = %v, want [1 2]", root0)
+	}
+}
+
 // ── removeSuperclones tests ─────────────────────────────────────────────────
 
 // buildSummary is a helper that constructs a summary map from typed inputs,

@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -139,12 +140,38 @@ func sortAndMerge(gtypes []string) string {
 	return b.String()
 }
 
-// buildMutationIndexMap returns mutation-id -> canonical index string for
-// use as the `idx` argument of treeSignature. Python's posterior_trees.py
-// builds this from `load_data` order: `dict([(datum.name, str(i)) for
-// i, datum in enumerate(codes)])`. We derive the same ordering by sorting
-// the mutation IDs observed in the snapshot's mut_assignments and
-// assigning 0,1,2,... in that order.
+// buildMutationIndexMapFromDataset returns mutation-id -> canonical index
+// string built directly from dataset load order (ssms then cnvs, in their
+// original slice order), matching Python's posterior_trees.py: `dict([
+// (datum.name, str(i)) for i, datum in enumerate(codes)])`. This is what
+// snapshotTree uses to stamp a topology_signature at MCMC time — call it
+// once per chain (the SSM/CNV set and order is fixed for a chain's
+// lifetime; only their tree assignments change).
+func buildMutationIndexMapFromDataset(ssms []*SSM, cnvs []*CNV) map[string]string {
+	out := make(map[string]string, len(ssms)+len(cnvs))
+	n := 0
+	for _, s := range ssms {
+		out[s.ID] = strconv.Itoa(n)
+		n++
+	}
+	for _, c := range cnvs {
+		out[c.ID] = strconv.Itoa(n)
+		n++
+	}
+	return out
+}
+
+// buildMutationIndexMap is the fallback path for archives written before
+// topology_signature was stamped at snapshot time (see
+// buildMutationIndexMapFromDataset). It returns mutation-id -> canonical
+// index string for use as the `idx` argument of treeSignature, derived by
+// sorting the mutation IDs observed in one snapshot's mut_assignments and
+// assigning 0,1,2,... in that order — NOT the same numbering Python's
+// enumerate(codes) load order would produce. That's fine for grouping
+// correctness (the signature is a canonical sorted-multiset of sorted
+// label sets, invariant to any consistent relabeling), but the resulting
+// signature strings are not byte-comparable to Python's or to a
+// dataset-order-keyed signature.
 //
 // Stable across archive reads as long as the same mutation set is present
 // in every snapshot — which is the invariant for an MCMC archive over a
@@ -378,7 +405,9 @@ func runPosteriorTrees(cfg posteriorTreesConfig) error {
 		return fmt.Errorf("no trees in archive")
 	}
 
-	// Build mutation-id index map from the first tree.
+	// Build mutation-id index map from the first tree, for the fallback
+	// path (archives written before topology_signature was stamped at
+	// snapshot time — see buildMutationIndexMapFromDataset / M6).
 	first, _, err := r.LoadTree(0)
 	if err != nil {
 		return err
@@ -388,18 +417,40 @@ func runPosteriorTrees(cfg posteriorTreesConfig) error {
 		return err
 	}
 
-	// Compute signatures for every tree.
+	// Compute signatures for every tree. Prefer the topology_signature
+	// stamped by snapshotTree at MCMC time (computed before empty-node
+	// removal, per M6) over recomputing it here from the already-cleaned
+	// archived snapshot, which can no longer distinguish a spliced empty
+	// node from true siblings.
 	records := make([]treeRecord, 0, r.NumTrees())
 	snapshots := make([]json.RawMessage, r.NumTrees())
+	loggedFallback := false
 	for i := 0; i < r.NumTrees(); i++ {
 		raw, _, err := r.LoadTree(i)
 		if err != nil {
 			return err
 		}
 		snapshots[i] = raw
-		sig, err := treeSignature(raw, idx)
-		if err != nil {
+
+		var stamped struct {
+			TopologySignature *string `json:"topology_signature"`
+		}
+		if err := json.Unmarshal(raw, &stamped); err != nil {
 			return err
+		}
+
+		var sig string
+		if stamped.TopologySignature != nil {
+			sig = *stamped.TopologySignature
+		} else {
+			if !loggedFallback {
+				fmt.Fprintln(os.Stderr, "posterior-trees: archive has no stamped topology_signature (pre-M6 archive); falling back to post-cleanup signature computation")
+				loggedFallback = true
+			}
+			sig, err = treeSignature(raw, idx)
+			if err != nil {
+				return err
+			}
 		}
 		records = append(records, treeRecord{Idx: i, Sig: sig})
 	}
