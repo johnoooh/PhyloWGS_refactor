@@ -1763,8 +1763,13 @@ func (t *TSSB) precomputeMHStates() {
 }
 
 // computeSSMStates fills ssm.MHStates with per-node (nr, nv) coefficients for
-// each of the 4 timing cases. Matches computeNGenomes case-by-case exactly, but
-// stores the pi-independent coefficient rather than aggregating across nodes.
+// each of the 4 timing cases. The per-node case classification (Cases 1-4
+// below) matches computeNGenomes exactly, storing the pi-independent
+// coefficient rather than aggregating across nodes — but the two no longer
+// agree overall: after the per-node loop, a static state collapse (mirroring
+// params.py:213-219, see below) is applied that computeNGenomes/data.py does
+// not perform. That divergence is the M1 fix, not a bug — see
+// logLikelihoodWithCNVTreeMHPrecomputed's doc comment.
 func computeSSMStates(ssm *SSM, nodes []*Node) {
 	ssmNode := ssm.Node
 	if cap(ssm.MHStates) < len(nodes) {
@@ -3602,17 +3607,6 @@ func getCNVsFromMutAss(mutAss map[string]interface{}, popIdx string) []interface
 	return cnvs.([]interface{})
 }
 
-// removeSmallNodes implements Python's ResultMunger.remove_small_nodes().
-// Any non-root population with fewer than ceil(minFrac * totalSSMs) SSMs is
-// removed. Its mutations are reassigned per Python's _move_muts_to_best_node
-// (result_munger.py:247-269): each mutation gets implied_phi = 2*(D-A)/D
-// computed from its read counts, and goes to the non-root population whose
-// mean cellular_prevalence is closest. Children of removed nodes are
-// reparented to their grandparent. Remaining nodes are renumbered contiguously.
-//
-// ssmData and cnvData provide the read counts needed for the VAF math. Either
-// can be nil (e.g. in tests that only exercise structural changes); mutations
-// without read-data lookups are silently dropped from the output.
 // roundHalfEven rounds x to the nearest integer, breaking exact .5 ties
 // toward the nearest even integer — matching Python 3's round() (and
 // int(round(...)) as used by result_munger.py's min_ssms computation).
@@ -3635,6 +3629,17 @@ func roundHalfEven(x float64) int {
 	}
 }
 
+// removeSmallNodes implements Python's ResultMunger.remove_small_nodes().
+// Any non-root population with fewer than ceil(minFrac * totalSSMs) SSMs is
+// removed. Its mutations are reassigned per Python's _move_muts_to_best_node
+// (result_munger.py:247-269): each mutation gets implied_phi = 2*(D-A)/D
+// computed from its read counts, and goes to the non-root population whose
+// mean cellular_prevalence is closest. Children of removed nodes are
+// reparented to their grandparent. Remaining nodes are renumbered contiguously.
+//
+// ssmData and cnvData provide the read counts needed for the VAF math. Either
+// can be nil (e.g. in tests that only exercise structural changes); mutations
+// without read-data lookups are silently dropped from the output.
 func removeSmallNodes(summary map[string]interface{}, minFrac float64, ssmData []*SSM, cnvData []*CNV) map[string]interface{} {
 	popsRaw := summary["populations"].(map[string]interface{})
 	structRaw := summary["structure"].(map[string]interface{})

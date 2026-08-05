@@ -403,3 +403,55 @@ func TestLogLikelihoodWithCNVTreeMHPrecomputed_TwoStateInvariantUnderCollapse(t 
 		t.Errorf("4-term reduction diverges from 2-term reference: got %.15e, want %.15e (diff %.2e)", got, want, math.Abs(got-want))
 	}
 }
+
+// TestLogLikelihoodWithCNVTreeMHPrecomputed_HomozygousDeletionAllTermsGuardedOff
+// covers the largest single behavioral delta of the M1 fix: a homozygous
+// deletion (total_cn=0) co-located with its SSM. Every one of the four
+// (nr,nv) pairs works out to (0,0) — cp=cm=0 makes all four Case-4
+// sub-formulas degenerate to zero, and the collapse (both nv1Total and
+// nv2Total are already zero) is a no-op — so all four terms hit the
+// nr+nv>0 guard's else branch (log(1e-99)), where mh.hpp gives
+// logsumexp([log(1e-99)]*4) = log(4) + log(1e-99), an explicitly-accepted
+// +log(4)≈+1.386 nat shift from the old single-term log(1e-99) the dynamic
+// nv>0 filter produced when it found zero valid pairs. Fixture is a single
+// node (pi=1, no separate ancestor) so no other node's Case-1/2/3
+// contribution masks the all-zero aggregate.
+func TestLogLikelihoodWithCNVTreeMHPrecomputed_HomozygousDeletionAllTermsGuardedOff(t *testing.T) {
+	nodeX := &Node{ID: 0, Pi: []float64{1.0}}
+	cnv := &CNV{ID: "c0", Node: nodeX}
+	ssm := &SSM{
+		ID:              "s0",
+		A:               []int{3},
+		D:               []int{100},
+		MuR:             0.999,
+		MuV:             0.5,
+		LogBinNormConst: []float64{logBinCoeff(100, 3)},
+		Node:            nodeX,
+		CNVs:            []*CNVRef{{CNV: cnv, MaternalCN: 0, PaternalCN: 0}}, // total_cn=0
+	}
+
+	computeSSMStates(ssm, []*Node{nodeX})
+	if !ssm.UseFourStates {
+		t.Fatal("expected UseFourStates=true for a co-located SSM+CNV")
+	}
+	s := &ssm.MHStates[0]
+	for _, pair := range []struct {
+		label  string
+		nr, nv float64
+	}{
+		{"Nr1,Nv1", s.Nr1, s.Nv1},
+		{"Nr2,Nv2", s.Nr2, s.Nv2},
+		{"Nr3,Nv3", s.Nr3, s.Nv3},
+		{"Nr4,Nv4", s.Nr4, s.Nv4},
+	} {
+		if pair.nr != 0 || pair.nv != 0 {
+			t.Fatalf("fixture invariant violated: %s = (%v,%v), want (0,0)", pair.label, pair.nr, pair.nv)
+		}
+	}
+
+	want := math.Log(4) + math.Log(1e-99)
+	got := logLikelihoodWithCNVTreeMHPrecomputed(ssm, false)
+	if math.Abs(got-want) > 1e-9 {
+		t.Errorf("got %.15e, want %.15e (diff %.2e)", got, want, math.Abs(got-want))
+	}
+}

@@ -249,8 +249,9 @@ func rankGroups(groups map[string][]int, totalTrees int) []PosteriorGroup {
 // writePosteriorTreeTeX writes one posterior group's standalone-LaTeX file.
 // `representative` is the JSON snapshot of one tree in the group (used for
 // structure + node membership); `freqs` provides cellular-prevalence stats
-// already aggregated across all trees in the group, keyed by node ID
-// (e.g. "0", "1") and shaped [n_aggregated_samples][n_timepoints].
+// already aggregated across all trees in the group, keyed by nodeMutKey
+// (mutation content, not node id — see nodeMutKey) and shaped
+// [n_aggregated_samples][n_timepoints].
 func writePosteriorTreeTeX(outPath string, representative json.RawMessage, g PosteriorGroup, freqs map[string][][]float64) error {
 	var s struct {
 		Populations map[string]struct {
@@ -558,6 +559,16 @@ func aggregateFreqsByNode(trees []json.RawMessage) (map[string][][]float64, erro
 		}
 		for node, p := range s.Populations {
 			key := nodeMutKey(s.MutAssignments[node])
+			// Matches Python's posterior_trees.py:101 guard: an empty
+			// mutation-content key is only valid for the root (which has
+			// no parent). Today this can only be reached by root anyway —
+			// postProcessSummary strips every other empty population
+			// before a snapshot is archived — but that's an implicit
+			// dependency on upstream cleanup having already run; this
+			// makes the invariant explicit instead of assuming it.
+			if key == "" && node != "0" {
+				continue
+			}
 			out[key] = append(out[key], p.CellularPrevalence)
 		}
 	}
