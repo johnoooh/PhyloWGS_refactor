@@ -1838,17 +1838,72 @@ func computeSSMStates(ssm *SSM, nodes []*Node) {
 
 	// Decide whether to return 2 or 4 pairs at runtime. Matches computeNGenomes.
 	ssm.UseFourStates = len(ssm.CNVs) == 1 && ssm.CNVs[0].CNV.Node == ssm.Node
+
+	// Static state collapse (M1 fix), mirrors params.py:213-219. This runs
+	// ONCE here — at write_data_state/precompute time, using node.Pi at
+	// tp=0 (the pre-MH mixture weights) — and its result is held fixed for
+	// every MH sub-iteration and every timepoint that follows, exactly as
+	// Python computes poss_n_genomes = dat.compute_n_genomes(0) once per
+	// metropolis() call rather than per proposal.
+	//
+	// This is NOT the same computation as computeNGenomes/data.py's dynamic
+	// nv>0 filter (used by logLikelihoodWithCNVTree for assignment
+	// resampling and complete-data LLH, which stay on data.py semantics —
+	// those are already correct and must not change). This mirrors the
+	// separate C++ mh.hpp/mh.cpp kernel that the reference *pipeline*
+	// actually compiles and runs for MH phi sampling: an always-four-term
+	// reduction, guarded per term on nr+nv>0 with a fixed log(0.25) prior,
+	// fed by states that have first been collapsed here so that a state
+	// with globally zero variant-read mass borrows its sibling's
+	// coefficients instead of contributing a structural, unconditional
+	// zero. See docs/analysis/2026-06-24-go-python-equivalence-audit.md, M1.
+	var nv1Total, nv2Total float64
+	for i := range ssm.MHStates {
+		s := &ssm.MHStates[i]
+		if len(s.Node.Pi) > 0 {
+			nv1Total += s.Node.Pi[0] * s.Nv1
+			nv2Total += s.Node.Pi[0] * s.Nv2
+		}
+	}
+	switch {
+	case nv1Total == 0:
+		for i := range ssm.MHStates {
+			s := &ssm.MHStates[i]
+			s.Nr1, s.Nv1 = s.Nr2, s.Nv2
+		}
+	case nv2Total == 0:
+		for i := range ssm.MHStates {
+			s := &ssm.MHStates[i]
+			s.Nr2, s.Nv2 = s.Nr1, s.Nv1
+		}
+	}
+	if !ssm.UseFourStates {
+		for i := range ssm.MHStates {
+			s := &ssm.MHStates[i]
+			s.Nr3, s.Nv3 = s.Nr1, s.Nv1
+			s.Nr4, s.Nv4 = s.Nr2, s.Nv2
+		}
+	}
+
 	ssm.MHStateValid = true
 }
 
 // logLikelihoodWithCNVTreeMHPrecomputed is the O(K) fast path used during MH
-// when ssm.MHStateValid is true. Mirrors Python's mh.cpp log_complete_ll inner
-// loop: a plain dot product of precomputed (nr, nv) factors with node.Pi[tp]
-// (or node.Pi1[tp] when newState=true).
+// when ssm.MHStateValid is true. Mirrors the reference C++ mh.hpp/mh.cpp
+// log_complete_ll kernel that the pipeline actually compiles and runs for MH
+// phi sampling (NOT the dynamic data.py nv>0 filter used elsewhere for
+// assignment resampling and complete-data LLH — those stay unchanged; see
+// logLikelihoodWithCNVTree). Always reduces over all four (nr, nv) states —
+// computeSSMStates has already collapsed states 1/2 (and duplicated into
+// 3/4 for the non-co-located case) so that a state with globally zero
+// variant-read mass borrows its sibling's coefficients rather than being
+// silently dropped from the mixture (M1). Each term is guarded individually
+// on nr+nv>0 (mh.hpp's guard, not data.py's nv>0), and the prior is the
+// fixed log(0.25) mh.hpp uses — not a dynamic log(1/n_valid) over survivors.
 func logLikelihoodWithCNVTreeMHPrecomputed(ssm *SSM, newState bool) float64 {
 	llh := 0.0
 	states := ssm.MHStates
-	useFour := ssm.UseFourStates
+	const prior = -1.3862943611198906 // math.Log(0.25)
 
 	for tp := range ssm.A {
 		var nr1, nv1, nr2, nv2, nr3, nv3, nr4, nv4 float64
@@ -1860,12 +1915,10 @@ func logLikelihoodWithCNVTreeMHPrecomputed(ssm *SSM, newState bool) float64 {
 				nv1 += pi * s.Nv1
 				nr2 += pi * s.Nr2
 				nv2 += pi * s.Nv2
-				if useFour {
-					nr3 += pi * s.Nr3
-					nv3 += pi * s.Nv3
-					nr4 += pi * s.Nr4
-					nv4 += pi * s.Nv4
-				}
+				nr3 += pi * s.Nr3
+				nv3 += pi * s.Nv3
+				nr4 += pi * s.Nr4
+				nv4 += pi * s.Nv4
 			}
 		} else {
 			for k := range states {
@@ -1875,60 +1928,31 @@ func logLikelihoodWithCNVTreeMHPrecomputed(ssm *SSM, newState bool) float64 {
 				nv1 += pi * s.Nv1
 				nr2 += pi * s.Nr2
 				nv2 += pi * s.Nv2
-				if useFour {
-					nr3 += pi * s.Nr3
-					nv3 += pi * s.Nv3
-					nr4 += pi * s.Nr4
-					nv4 += pi * s.Nv4
-				}
+				nr3 += pi * s.Nr3
+				nv3 += pi * s.Nv3
+				nr4 += pi * s.Nr4
+				nv4 += pi * s.Nv4
 			}
 		}
 
-		// Build pairs and apply the same nv > 0 filter as computeNGenomes.
-		var pairs [4][2]float64
-		n := 0
-		if nv1 > 0 {
-			pairs[n] = [2]float64{nr1, nv1}
-			n++
-		}
-		if nv2 > 0 {
-			pairs[n] = [2]float64{nr2, nv2}
-			n++
-		}
-		if useFour {
-			if nv3 > 0 {
-				pairs[n] = [2]float64{nr3, nv3}
-				n++
-			}
-			if nv4 > 0 {
-				pairs[n] = [2]float64{nr4, nv4}
-				n++
-			}
-		}
-
-		if n == 0 {
-			llh += math.Log(1e-99)
-			continue
-		}
-
-		prior := math.Log(1.0 / float64(n))
+		pairs := [4][2]float64{{nr1, nv1}, {nr2, nv2}, {nr3, nv3}, {nr4, nv4}}
 		var lls [4]float64
-		for i := 0; i < n; i++ {
+		for i := 0; i < 4; i++ {
 			nr, nv := pairs[i][0], pairs[i][1]
-			total := nr + nv
-			if total < 1e-15 {
-				total = 1e-15
+			if nr+nv > 0 {
+				mu := (nr*ssm.MuR + nv*(1-ssm.MuR)) / (nr + nv)
+				if mu < 1e-15 {
+					mu = 1e-15
+				}
+				if mu > 1-1e-15 {
+					mu = 1 - 1e-15
+				}
+				lls[i] = logBinomialLikelihood(ssm.A[tp], ssm.D[tp], mu) + prior + ssm.LogBinNormConst[tp]
+			} else {
+				lls[i] = math.Log(1e-99)
 			}
-			mu := (nr*ssm.MuR + nv*(1-ssm.MuR)) / total
-			if mu < 1e-15 {
-				mu = 1e-15
-			}
-			if mu > 1-1e-15 {
-				mu = 1 - 1e-15
-			}
-			lls[i] = logBinomialLikelihood(ssm.A[tp], ssm.D[tp], mu) + prior + ssm.LogBinNormConst[tp]
 		}
-		llh += logsumexp(lls[:n])
+		llh += logsumexp(lls[:])
 	}
 	return llh
 }
@@ -1945,49 +1969,22 @@ func logLikelihoodWithCNVTreeMH(ssm *SSM, tssb *TSSB, newState bool) float64 {
 		return ssm.logLikelihoodNoCNV(params)
 	}
 
-	// Fast path: precomputed per-node (nr, nv) factors (mirrors Python mh.cpp).
-	if ssm.MHStateValid {
-		return logLikelihoodWithCNVTreeMHPrecomputed(ssm, newState)
+	// Precomputed per-node (nr, nv) factors mirroring the reference
+	// mh.hpp/mh.cpp kernel (M1). This used to be a fast-path optimization
+	// with a slow-path fallback via computeNGenomes when MHStateValid was
+	// false; the fallback computed a DIFFERENT (data.py-style dynamic
+	// nv>0-filtered) reduction than the precomputed path's mh.hpp-style
+	// static-collapse reduction, so keeping both alive risked silently
+	// switching between two inequivalent likelihoods depending on cache
+	// state. MHStateValid is now a hard precondition instead: every call
+	// site (runChain's precomputeMHStates, called once per MCMC iteration
+	// before metropolis()) guarantees it's true whenever a CNV-affected
+	// SSM's likelihood is needed during MH. A panic here means that
+	// invariant broke, not that a valid degraded path was available.
+	if !ssm.MHStateValid {
+		panic(fmt.Sprintf("logLikelihoodWithCNVTreeMH: SSM %s has CNVs but MHStateValid=false — precomputeMHStates was not called (or was invalidated) before this MH likelihood evaluation", ssm.ID))
 	}
-
-	llh := 0.0
-	for tp := range ssm.A {
-		// Compute (nr, nv) pairs for this timepoint using newState flag
-		possNGenomes := computeNGenomes(ssm, tssb, tp, newState)
-
-		// Filter out pairs where nv <= 0
-		var validPairs [][2]float64
-		for _, ng := range possNGenomes {
-			if ng[1] > 0 {
-				validPairs = append(validPairs, ng)
-			}
-		}
-
-		if len(validPairs) == 0 {
-			llh += math.Log(1e-99)
-			continue
-		}
-
-		prior := math.Log(1.0 / float64(len(validPairs)))
-		lls := make([]float64, len(validPairs))
-		for i, ng := range validPairs {
-			nr, nv := ng[0], ng[1]
-			total := nr + nv
-			if total < 1e-15 {
-				total = 1e-15
-			}
-			mu := (nr*ssm.MuR + nv*(1-ssm.MuR)) / total
-			if mu < 1e-15 {
-				mu = 1e-15
-			}
-			if mu > 1-1e-15 {
-				mu = 1 - 1e-15
-			}
-			lls[i] = logBinomialLikelihood(ssm.A[tp], ssm.D[tp], mu) + prior + ssm.LogBinNormConst[tp]
-		}
-		llh += logsumexp(lls)
-	}
-	return llh
+	return logLikelihoodWithCNVTreeMHPrecomputed(ssm, newState)
 }
 
 func (t *TSSB) resampleSticks(rng *rand.Rand) {

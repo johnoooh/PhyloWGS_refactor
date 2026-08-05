@@ -12,6 +12,15 @@ effort, every claimed divergence independently re-verified by a skeptic agent
 defaulting to *refute*, then synthesized. 34 candidates → **13 confirmed, 21
 refuted**. Companion to `CODE_REVIEW.md`.
 
+> **Update (2026-08-05):** all 13 confirmed items now resolved — M2/M5/b1
+> were already fixed as of this doc's original writing; M3/M4/M6/M7 and a
+> rounding-mode bug found along the way were fixed in a follow-up session
+> (see §6); M1 — the only item affecting actual inference rather than
+> reporting/output-schema — was investigated in depth (reframing its scope)
+> and fixed last (see the updated M1 entry in §2 and §6). Sections 1–5 below
+> are left as originally written for the historical record of the initial
+> audit; §6 has the current status.
+
 ## 1. Bottom line
 
 The **core MCMC sampler is faithful**. TSSB construction & stick-breaking, tree
@@ -39,26 +48,59 @@ None.
 ### Major
 
 **M1 — Co-located CNV-SSM likelihood: Go/Python drop `nv==0` timing states + use
-`log(1/n_valid)` prior; C++ `mh.hpp` keeps all 4 with fixed `log(0.25)`.**
-- Go: `main.go` fast MH path (`logLikelihoodWithCNVTreeMHPrecomputed`) and slow
+`log(1/n_valid)` prior; C++ `mh.hpp` keeps all 4 with fixed `log(0.25)`.** ✅ FIXED
+(2026-08-05)
+- Was: `main.go` fast MH path (`logLikelihoodWithCNVTreeMHPrecomputed`) and slow
   path (`logLikelihoodWithCNVTree`) filter channels on `nv>0`, prior
-  `math.Log(1.0/n)`, logsumexp over survivors.
+  `math.Log(1.0/n)`, logsumexp over survivors — both mirroring `data.py`.
 - Ref: `phylowgs/mh.hpp` `log_complete_ll` keeps 4 terms each guarded
-  `if(nr+nv>0) else log(1e-99)`, fixed `log(0.25)` prior; `params.py:159-166`
-  applies static state corrections before invoking the compiled `mh.o`.
-- Consequence: for an SSM co-located on its own CNV (`len(poss_n_genomes)==4`)
-  where an aggregated timing state has `nv_k==0` but `nr_k>0` (LOH `minor_cn=0`
-  or homozygous deletion `total_cn=0`), Go follows Python's `data.py`
-  drop+renormalize while the C++ kernel keeps the term. ≈0.29 nats per affected
-  datum per timepoint; the channel mix changes between old/new proposed states so
-  it does **not** cancel in `newLLH − oldLLH` → shifts MH acceptance for that
-  SSM's φ. **Go faithfully matches Python; Python and C++ genuinely disagree.**
-- Status: **not fixed — reference-authority decision required.** The reference
-  *pipeline* compiles and runs `mh.o`, so for true pipeline parity the Go MH
-  kernel should mirror `mh.hpp` (4 terms keyed on `nr+nv>0`, fixed `log(0.25)`,
-  plus the `params.py:159-166` static pre-collapse) rather than the dynamic
-  `data.py` filter. Also: the comment at `main.go:1834` ("Mirrors Python's
-  mh.cpp log_complete_ll inner loop") is misleading — it mirrors `data.py`.
+  `if(nr+nv>0) else log(1e-99)`, fixed `log(0.25)` prior; `params.py:213-219`
+  applies a static per-metropolis()-call state collapse before invoking the
+  compiled `mh.o`.
+- **Reframing that changed the fix's scope**: the reference pipeline is not
+  "Python vs C++, pick one" — it runs `data.py` for assignment resampling and
+  complete-data LLH, and the separate `mh.hpp`/`mh.o` kernel for MH phi
+  sampling, at different steps. Go had collapsed all three call sites onto
+  `data.py`'s semantics; it was already correct for 2 of 3. Only the MH
+  sampling step (`paramPost` → `logLikelihoodWithCNVTreeMH` →
+  `logLikelihoodWithCNVTreeMHPrecomputed`) needed to change — assignment
+  resampling and complete-data LLH (`logLikelihoodWithCNVTree`,
+  `computeNGenomes`) are unchanged and remain faithful to `data.py`.
+- Fix: ported the static `params.py:213-219` collapse into `computeSSMStates`
+  (runs once per MCMC iteration, using `node.Pi[0]` — the pre-MH mixture
+  weight — matching `compute_n_genomes(0)` computed once per `metropolis()`
+  call rather than per proposal); replaced the dynamic `nv>0` filter +
+  `log(1/n_valid)` prior in `logLikelihoodWithCNVTreeMHPrecomputed` with the
+  unconditional four-term `nr+nv>0`-guarded reduction and fixed `log(0.25)`
+  prior mh.hpp actually uses. Deleted the now-dead/inequivalent
+  slow-path fallback in `logLikelihoodWithCNVTreeMH` (it computed a
+  different, `data.py`-style reduction than the collapsed precomputed path —
+  keeping both alive risked silently switching between two disagreeing
+  likelihoods depending on cache state); `MHStateValid` is now a hard
+  precondition, panicking if violated, rather than degrading silently.
+- Magnitude, corrected: the audit's "channel mix changes between proposals"
+  reasoning was wrong (n_valid is structural, identical for old/new
+  proposals — a pure prior offset would cancel). It doesn't cancel because
+  both retained likelihood terms are themselves functions of phi, making the
+  ≈0.29-nat gap a nonlinear phi-dependent reweighting, not a constant offset.
+  Also corrected: an all-four-terms-guarded-off case (e.g. total_cn=0
+  homozygous deletion) shifts by `log(4)` ≈ +1.386 nats, not the ~1e5 nats
+  an earlier pass estimated — accepted explicitly as matching the reference
+  exactly.
+- Verified: independent hand-derived LOH fixture
+  (`TestComputeSSMStates_StaticCollapse_LOHColocated`,
+  `TestLogLikelihoodWithCNVTreeMHPrecomputed_LOHFixture` — expected values
+  computed on paper from the case-4 timing rules + collapse rule, not by
+  running any Go code path first); algebraic invariance of the common
+  non-co-located case pinned to 1e-12
+  (`TestLogLikelihoodWithCNVTreeMHPrecomputed_TwoStateInvariantUnderCollapse`);
+  full suite + `-race` clean across a real multi-chain LOH-bearing run
+  (1200+ MCMC samples, no panics, all finite). Local smoke run only — a full
+  `sim_validation/` cross-check against the Python/C++ reference on HPC
+  (comparing recovered structure and phi on real LOH fixtures) is still
+  recommended before trusting this in a publication-facing run; no local
+  Python/GSL/mh.o environment was available in this session to do that
+  comparison directly.
 
 **M2 — GPU complete-data LLH path dropped all CNV-datum contributions.** ✅ FIXED
 - Was: `completeDataLogLikelihood` GPU branch returned `gpuLLH` before the
@@ -144,8 +186,8 @@ None.
 | Hyperparameter resampling | Faithful | |
 | Math primitives & RNG | Faithful | |
 | MCMC chain drivers & deep-copy | Faithful | SSM.CNVs + per-chain `*CNV` deep-copy preserved |
-| SSM likelihood & CNV genome-count | Faithful to Python; diverges from C++ | M1 edge case |
-| Metropolis-Hastings params | Mostly faithful; edge-case only | common case identical (`log(2)+log(0.25)=log(0.5)`) |
+| SSM likelihood & CNV genome-count (assignment resampling, complete-data LLH) | Faithful to Python `data.py` | unchanged by M1 fix |
+| Metropolis-Hastings params (phi sampling) | Faithful to C++ `mh.hpp` (M1 fixed) | separate code path from the row above; common case identical (`log(2)+log(0.25)=log(0.5)`) |
 | Complete-data LLH | CPU faithful; GPU fixed | M2 (now fixed) |
 | Post-MCMC summarization & pruning | Divergent (labels/counts) | M3, M4, m1, m2 — not sampling |
 | Data loading & output serialization | Schema fixes applied | M5, b1 fixed; m3 open |
@@ -220,18 +262,15 @@ fixes. Status:
   rather than dataset-load-order; the new stamped path uses true dataset
   order (`buildMutationIndexMapFromDataset`), matching Python's
   `enumerate(codes)`.
-- **M1** — investigated in depth; confirmed real and scoped tightly to the
+- **M1** — investigated in depth, confirmed real and scoped tightly to the
   MH sampling step (Go's assignment-resampling and complete-data-LLH paths
   were already correct — the reference pipeline itself runs `data.py` for
   those and `mh.hpp`/`mh.o` for MH sampling, at different steps; Go had
-  collapsed all three onto `data.py`'s logic). **Not yet fixed** — reserved
-  as the last, highest-risk phase since it's the only item in this batch
-  that changes inference output rather than reporting/output-schema. See
-  the follow-up investigation transcript for the concrete fix sketch
-  (static `params.py:213-219` state-collapse ported into `computeSSMStates`,
-  unconditional 4-term reduction with `nr+nv>0` guard replacing the dynamic
-  `nv>0` filter) and required regression tests (independent hand-computed
-  LOH fixture, 2-state bit-identical regression, fallback-path deletion).
+  collapsed all three onto `data.py`'s logic). **Fixed** (2026-08-05) — see
+  the updated M1 entry above for the full writeup, corrected magnitude
+  analysis, and verification detail. This was the only item in the batch
+  that changes inference output rather than reporting/output-schema, so it
+  was landed last, after M3/M4/M6/M7/rounding were stable.
 
 Additionally noted, filed but **not fixed** (out of scope for this batch):
 Python's `result_munger.py` `_remove_nodes` (backing `removeSmallNodes`)
