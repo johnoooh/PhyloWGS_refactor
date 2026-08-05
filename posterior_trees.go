@@ -301,7 +301,7 @@ func writePosteriorTreeTeX(outPath string, representative json.RawMessage, g Pos
 		ma := s.MutAssignments[node]
 		nSSM := len(ma["ssms"])
 		nCNV := len(ma["cnvs"])
-		f := freqs[node]
+		f := freqs[nodeMutKey(ma)]
 		row := fmt.Sprintf("%d & %d & %d", mine, nSSM, nCNV)
 		for tp := 0; tp < nTP; tp++ {
 			mean, sd := meanSDColumn(f, tp)
@@ -468,9 +468,31 @@ func posteriorTreesSubcommand(args []string) error {
 	})
 }
 
+// nodeMutKey returns a stable, cross-sample identifier for a node based on
+// its assigned mutation content (SSM + CNV names), matching Python's
+// posterior_trees.py:88-107 which keys by the ';'-joined set of datum
+// names. Node IDs are per-sample DFS ordinals assigned after sorting
+// siblings by that sample's own resampled cellular prevalence (see
+// summarizePops's comparator) — they carry no identity across independent
+// MCMC samples, so two samples sharing a topology signature can still have
+// their sibling subtrees numbered differently. Keying by mutation content
+// instead is invariant to that reordering. The key is purely internal
+// (never printed), so any canonical, collision-free encoding works; exact
+// byte-parity with Python's separator is not required.
+func nodeMutKey(ma map[string][]string) string {
+	all := make([]string, 0, len(ma["ssms"])+len(ma["cnvs"]))
+	all = append(all, ma["ssms"]...)
+	all = append(all, ma["cnvs"]...)
+	sort.Strings(all)
+	return strings.Join(all, "\x00")
+}
+
 // aggregateFreqsByNode pools cellular_prevalence vectors across all trees
-// in a posterior group, indexed by node id. Caller guarantees all trees
-// share the same topology+mutation-set signature, so node IDs are stable.
+// in a posterior group, indexed by nodeMutKey rather than node id — see
+// nodeMutKey for why node id is not a valid cross-sample key. Caller
+// guarantees all trees share the same topology+mutation-set signature, so
+// the set of mutation-content keys is stable across trees even though node
+// ids are not.
 func aggregateFreqsByNode(trees []json.RawMessage) (map[string][][]float64, error) {
 	out := map[string][][]float64{}
 	for _, t := range trees {
@@ -478,12 +500,14 @@ func aggregateFreqsByNode(trees []json.RawMessage) (map[string][][]float64, erro
 			Populations map[string]struct {
 				CellularPrevalence []float64 `json:"cellular_prevalence"`
 			} `json:"populations"`
+			MutAssignments map[string]map[string][]string `json:"mut_assignments"`
 		}
 		if err := json.Unmarshal(t, &s); err != nil {
 			return nil, err
 		}
 		for node, p := range s.Populations {
-			out[node] = append(out[node], p.CellularPrevalence)
+			key := nodeMutKey(s.MutAssignments[node])
+			out[key] = append(out[key], p.CellularPrevalence)
 		}
 	}
 	return out, nil

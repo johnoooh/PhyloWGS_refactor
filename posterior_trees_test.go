@@ -146,7 +146,8 @@ func TestWritePosteriorTreeTeX_EmitsValidStandaloneDocument(t *testing.T) {
 		TreeIndices: []int{0},
 		Probability: 1.0,
 	}
-	freqs := map[string][][]float64{"0": {{0.7, 0.6}}}
+	// Keyed by mutation content ("s0"), not node id — see nodeMutKey.
+	freqs := map[string][][]float64{nodeMutKey(map[string][]string{"ssms": {"s0"}}): {{0.7, 0.6}}}
 
 	if err := writePosteriorTreeTeX(out, rep, group, freqs); err != nil {
 		t.Fatal(err)
@@ -174,16 +175,72 @@ func TestWritePosteriorTreeTeX_EmitsValidStandaloneDocument(t *testing.T) {
 
 func TestAggregateFreqsByNode_AveragesAcrossTrees(t *testing.T) {
 	// Two trees, same topology. Node 0 has cell_prev=[0.7] in tree A,
-	// [0.5] in tree B. Aggregate should record both rows.
+	// [0.5] in tree B. Aggregate should record both rows, keyed by the
+	// node's mutation set ("s0"), not its node id.
 	a := json.RawMessage(`{"populations":{"0":{"cellular_prevalence":[0.7],"num_ssms":1,"num_cnvs":0}},"structure":{"0":[]},"mut_assignments":{"0":{"ssms":["s0"],"cnvs":[]}}}`)
 	b := json.RawMessage(`{"populations":{"0":{"cellular_prevalence":[0.5],"num_ssms":1,"num_cnvs":0}},"structure":{"0":[]},"mut_assignments":{"0":{"ssms":["s0"],"cnvs":[]}}}`)
 	freqs, err := aggregateFreqsByNode([]json.RawMessage{a, b})
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows := freqs["0"]
+	rows := freqs[nodeMutKey(map[string][]string{"ssms": {"s0"}})]
 	if len(rows) != 2 {
-		t.Fatalf("expected 2 rows for node 0, got %d", len(rows))
+		t.Fatalf("expected 2 rows for mutation set {s0}, got %d", len(rows))
+	}
+}
+
+// TestAggregateFreqsByNode_KeyedByMutationContentNotNodeID is the M7
+// regression test. Two samples share the same topology signature, but the
+// two non-root children swap phi rank between samples — exactly the
+// scenario that produces different node IDs for the same mutation set,
+// since node IDs are assigned per-sample by descending cellular prevalence
+// (see summarizePops). Keying by node ID would silently pool the WRONG
+// rows together (an order statistic: "whichever sibling ranked higher this
+// sample"); keying by mutation content must pool the RIGHT rows.
+func TestAggregateFreqsByNode_KeyedByMutationContentNotNodeID(t *testing.T) {
+	// Sample 1: node "1" (higher phi) holds s0, node "2" (lower phi) holds s1.
+	sample1 := json.RawMessage(`{
+		"populations":{
+			"0":{"cellular_prevalence":[0.9],"num_ssms":0,"num_cnvs":0},
+			"1":{"cellular_prevalence":[0.6],"num_ssms":1,"num_cnvs":0},
+			"2":{"cellular_prevalence":[0.3],"num_ssms":1,"num_cnvs":0}
+		},
+		"structure":{"0":[1,2]},
+		"mut_assignments":{
+			"1":{"ssms":["s0"],"cnvs":[]},
+			"2":{"ssms":["s1"],"cnvs":[]}
+		}
+	}`)
+	// Sample 2: sibling ranks swapped — node "1" (higher phi) now holds s1,
+	// node "2" (lower phi) now holds s0.
+	sample2 := json.RawMessage(`{
+		"populations":{
+			"0":{"cellular_prevalence":[0.9],"num_ssms":0,"num_cnvs":0},
+			"1":{"cellular_prevalence":[0.55],"num_ssms":1,"num_cnvs":0},
+			"2":{"cellular_prevalence":[0.5],"num_ssms":1,"num_cnvs":0}
+		},
+		"structure":{"0":[1,2]},
+		"mut_assignments":{
+			"1":{"ssms":["s1"],"cnvs":[]},
+			"2":{"ssms":["s0"],"cnvs":[]}
+		}
+	}`)
+
+	freqs, err := aggregateFreqsByNode([]json.RawMessage{sample1, sample2})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s0Key := nodeMutKey(map[string][]string{"ssms": {"s0"}})
+	s1Key := nodeMutKey(map[string][]string{"ssms": {"s1"}})
+
+	s0Rows := freqs[s0Key]
+	if len(s0Rows) != 2 || s0Rows[0][0] != 0.6 || s0Rows[1][0] != 0.5 {
+		t.Errorf("s0 rows = %v, want [[0.6] [0.5]] (its own values across both samples, not the order statistic)", s0Rows)
+	}
+	s1Rows := freqs[s1Key]
+	if len(s1Rows) != 2 || s1Rows[0][0] != 0.3 || s1Rows[1][0] != 0.55 {
+		t.Errorf("s1 rows = %v, want [[0.3] [0.55]] (its own values across both samples, not the order statistic)", s1Rows)
 	}
 }
 
