@@ -843,6 +843,47 @@ func TestRemoveSmallNodes_ZeroTotalReads(t *testing.T) {
 	}
 }
 
+// TestRemoveSmallNodes_RoundHalfToEven verifies the threshold is computed
+// with Python 3's round-half-to-even rule, not Go's math.Round (half-away-
+// from-zero). minFrac=0.5 and totalSSMs=5 is a genuine float64 tie: 0.5 and
+// 5 are both exactly representable, so minFrac*totalSSMs == 2.5 exactly (no
+// binary-rounding noise to worry about). Python's round(2.5) == 2 (2 is
+// even); Go's math.Round(2.5) == 3. threshold=2 means "keep populations
+// with num_ssms >= 2" — pop1 and pop2 (2 SSMs each) survive, pop3 (1 SSM)
+// is removed. Under the old half-away-from-zero rounding, threshold=3 would
+// have also removed pop1 and pop2, leaving no non-root populations.
+func TestRemoveSmallNodes_RoundHalfToEven(t *testing.T) {
+	summary := buildSummary(t,
+		map[string]interface{}{
+			"0": map[string]interface{}{"cellular_prevalence": []interface{}{1.0}, "num_ssms": 0, "num_cnvs": 0},
+			"1": map[string]interface{}{"cellular_prevalence": []interface{}{0.9}, "num_ssms": 2, "num_cnvs": 0},
+			"2": map[string]interface{}{"cellular_prevalence": []interface{}{0.6}, "num_ssms": 2, "num_cnvs": 0},
+			"3": map[string]interface{}{"cellular_prevalence": []interface{}{0.5}, "num_ssms": 1, "num_cnvs": 0},
+		},
+		map[string]interface{}{"0": []interface{}{1, 2, 3}},
+		map[string]interface{}{
+			"1": map[string]interface{}{"ssms": []interface{}{"s0", "s1"}, "cnvs": []interface{}{}},
+			"2": map[string]interface{}{"ssms": []interface{}{"s2", "s3"}, "cnvs": []interface{}{}},
+			"3": map[string]interface{}{"ssms": []interface{}{"s_small"}, "cnvs": []interface{}{}},
+		},
+	)
+	ssms := []*SSM{
+		{ID: "s_small", A: []int{45}, D: []int{100}}, // implied_phi ≈ 1.1 → clamp 1.0 → closest to pop1 (CP=0.9)
+	}
+	result := removeSmallNodes(summary, 0.5, ssms, nil)
+
+	pops := result["populations"].(map[string]interface{})
+	if len(pops) != 3 { // root, pop1, pop2 survive; pop3 removed
+		t.Fatalf("got %d populations, want 3 (threshold should be 2, not 3)", len(pops))
+	}
+	if got := getPopSSMs(t, result, "1"); got != 3 { // 2 original + reassigned s_small
+		t.Errorf("pop 1 num_ssms = %d, want 3", got)
+	}
+	if got := getPopSSMs(t, result, "2"); got != 2 {
+		t.Errorf("pop 2 num_ssms = %d, want 2 (should not have been pruned)", got)
+	}
+}
+
 // ── pickBestSample tests ────────────────────────────────────────────────────
 
 // TestPickBestSample_BestIsMidChain ensures the helper returns the index of

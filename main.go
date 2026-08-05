@@ -3654,6 +3654,28 @@ func getCNVsFromMutAss(mutAss map[string]interface{}, popIdx string) []interface
 // ssmData and cnvData provide the read counts needed for the VAF math. Either
 // can be nil (e.g. in tests that only exercise structural changes); mutations
 // without read-data lookups are silently dropped from the output.
+// roundHalfEven rounds x to the nearest integer, breaking exact .5 ties
+// toward the nearest even integer — matching Python 3's round() (and
+// int(round(...)) as used by result_munger.py's min_ssms computation).
+// Go's math.Round breaks ties away from zero instead, which would silently
+// diverge from the Python reference whenever minFrac*totalSSMs lands on an
+// exact half-integer.
+func roundHalfEven(x float64) int {
+	floor := math.Floor(x)
+	diff := x - floor
+	switch {
+	case diff < 0.5:
+		return int(floor)
+	case diff > 0.5:
+		return int(floor) + 1
+	default: // exact tie
+		if int(floor)%2 == 0 {
+			return int(floor)
+		}
+		return int(floor) + 1
+	}
+}
+
 func removeSmallNodes(summary map[string]interface{}, minFrac float64, ssmData []*SSM, cnvData []*CNV) map[string]interface{} {
 	popsRaw := summary["populations"].(map[string]interface{})
 	structRaw := summary["structure"].(map[string]interface{})
@@ -3669,7 +3691,7 @@ func removeSmallNodes(summary map[string]interface{}, minFrac float64, ssmData [
 		return summary
 	}
 
-	threshold := int(math.Round(minFrac * float64(totalSSMs)))
+	threshold := roundHalfEven(minFrac * float64(totalSSMs))
 	if threshold < 1 {
 		threshold = 1
 	}
