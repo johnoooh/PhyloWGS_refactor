@@ -4,6 +4,91 @@ All notable changes to the Go port (`phylowgs-go`) are recorded here.
 Format: reverse-chronological, grouped by date. Each entry references the
 landing commit short SHA on `go-port`.
 
+## 2026-08-05 — branch `go-port`
+
+Closes out the confirmed findings from the 2026-06-24 equivalence audit
+(`docs/analysis/2026-06-24-go-python-equivalence-audit.md`). Each item
+below states whether it changes inference output or only output
+labeling/reporting — only M1 changes inference.
+
+### Fixed — M5, b1, M2 (schema/output only)
+[`be78801`](https://github.com/johnoooh/PhyloWGS_refactor/commit/be78801)
+
+- `mutlist.json`'s `physical_cnvs[].cell_prev` is now parsed to
+  `[]float64` (was a raw `"0.0|0.718"` string), matching `util2.py:70`.
+- `mutlist.json` now carries a top-level `dataset_name`, matching
+  `json_writer.py`.
+- The GPU branch of `completeDataLogLikelihood` was silently dropping
+  all CNV-datum log-likelihood contributions (unreachable on default
+  stub-CUDA builds, but real on `-tags cuda`); extracted
+  `cnvDatumLogLikelihood` and now call it from both branches.
+
+### Fixed — rounding-mode bug (output only)
+[`29f3374`](https://github.com/johnoooh/PhyloWGS_refactor/commit/29f3374)
+
+`removeSmallNodes`'s pruning threshold used `math.Round`
+(half-away-from-zero) where Python 3's `int(round(...))` is
+round-half-to-even, causing permanent divergence at specific mutation
+counts (e.g. M=250: Python gives 2, Go gave 3) independent of the
+(intentionally-kept) adaptive-threshold question. Added
+`roundHalfEven`. Note: Go's adaptive `minFrac=max(1%, 2/M)` threshold
+itself was investigated and left as-is — Python's fixed-1% rule
+degenerates to a no-op below M≈100 under banker's rounding, so it isn't
+a considered design choice to replicate, and Go's version measurably
+beats it on K-error accuracy.
+
+### Fixed — M7: posterior frequency aggregation keyed by mutation content (output only)
+[`4c4403b`](https://github.com/johnoooh/PhyloWGS_refactor/commit/4c4403b)
+
+`aggregateFreqsByNode` pooled cellular-prevalence stats by node ID, but
+node IDs are per-sample DFS ordinals with no cross-sample identity —
+whenever two MCMC samples in the same posterior-topology group had
+siblings whose phi rank swapped between samples, the pooled mean/std in
+`posterior_trees/*.tex` was silently an order statistic rather than
+each mutation set's own posterior. Now keyed by the sorted-joined
+SSM+CNV name set (`nodeMutKey`), matching `posterior_trees.py:88-107`.
+
+### Fixed — M4 + M6: population renumbering and topology-signature timing (output only)
+[`54e4f3a`](https://github.com/johnoooh/PhyloWGS_refactor/commit/54e4f3a)
+
+- **M4**: `postProcessSummary` renumbered surviving populations by
+  ascending old index after removing empty nodes, rather than Python's
+  post-removal phi-descending order (`result_generator.py:81-86`).
+  Fixed by walking the reparented tree in phi-descending preorder.
+  Deleted `removeEmptyNodes` as confirmed-dead code — it would have
+  corrupted the live MCMC tree if ever wired into the hot path, since
+  it has no deep-copy support.
+- **M6**: the topology signature was always computed on an
+  already-empty-node-cleaned snapshot, so its (already-faithful)
+  genotype-inheritance-break logic could never fire — topologies Python
+  keeps separate were silently over-merged. Fixed by computing and
+  stamping a `topology_signature` field in `snapshotTree`, before
+  `postProcessSummary` runs.
+
+### Fixed — M1: MH kernel now matches the reference's mh.hpp, not data.py, for co-located CNV-SSMs (**inference output changes**)
+[`70b7187`](https://github.com/johnoooh/PhyloWGS_refactor/commit/70b7187)
+
+The reference pipeline runs `data.py` for assignment resampling /
+complete-data LLH and a separate C++ `mh.hpp`/`mh.o` kernel for MH phi
+sampling. Go had collapsed all three call sites onto `data.py`'s
+semantics — correct for two of three, wrong for MH sampling. For an SSM
+co-located on its own zero-copy-allele CNV (LOH `minor_cn=0`, or
+homozygous deletion), this biased phi estimates via a systematically
+different prior/channel-mix than the reference actually uses. Ported
+the reference's static per-iteration state collapse
+(`params.py:213-219`) into `computeSSMStates`, and replaced the MH
+kernel's dynamic `nv>0`-filtered reduction with the reference's
+unconditional four-term, `nr+nv>0`-guarded, fixed-`log(0.25)`-prior
+reduction. Assignment resampling and complete-data LLH are unchanged.
+Verified against an independent hand-derived LOH fixture (not derived
+from any Go code path), an algebraic invariance check for the common
+non-co-located case (1e-12 tolerance), and a full multi-chain
+LOH-bearing MCMC run clean under `-race`. **Not yet verified**: a full
+`sim_validation/` run against the actual Python/C++ pipeline on HPC —
+no local Python/GSL/`mh.o` build environment was available this
+session; recommended before treating this as validated for a
+publication-facing run.
+
 ## 2026-05-08 — branch `claude/go-port-gaps-and-correctness`
 
 Closes the remaining behavioral gaps with the Python `multievolve.py` /
