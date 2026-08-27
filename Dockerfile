@@ -1,8 +1,11 @@
-FROM golang:1.22-bookworm AS build
+FROM --platform=$BUILDPLATFORM golang:1.22-bookworm AS build
+
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /src
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/phylowgs-go .
+RUN CGO_ENABLED=1 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o /out/phylowgs-go .
 
 FROM debian:bookworm-slim
 
