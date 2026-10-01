@@ -588,6 +588,19 @@ func newNode(parent *Node, ntps int) *Node {
 	return n
 }
 
+// subtreeHasCNV reports whether n or any descendant carries a CNV datum.
+func subtreeHasCNV(n *Node, cnvNodes map[*Node]bool) bool {
+	if cnvNodes[n] {
+		return true
+	}
+	for _, c := range n.Children {
+		if subtreeHasCNV(c, cnvNodes) {
+			return true
+		}
+	}
+	return false
+}
+
 func (n *Node) hasData() bool {
 	if len(n.Data) > 0 {
 		return true
@@ -2075,6 +2088,14 @@ func killNode(child *Node, parent *Node) {
 }
 
 func (t *TSSB) cullTree() {
+	// CNVs are tree data too (Python's tssb.data holds SSM and CNV datums),
+	// so a node carrying only CNVs must not be culled.
+	cnvCount := make(map[*Node]int)
+	for _, c := range t.CNVData {
+		if c.Node != nil {
+			cnvCount[c.Node]++
+		}
+	}
 	var descend func(*TSSBNode) int
 	descend = func(root *TSSBNode) int {
 		counts := make([]int, len(root.Children))
@@ -2102,7 +2123,7 @@ func (t *TSSB) cullTree() {
 			}
 		}
 
-		total := len(root.Node.Data)
+		total := len(root.Node.Data) + cnvCount[root.Node]
 		for _, c := range counts[:keep] {
 			total += c
 		}
@@ -2212,6 +2233,12 @@ func (t *TSSB) spawnChild(parent *TSSBNode, depth int, rng *rand.Rand) *TSSBNode
 // and prunes branches with no assigned data.
 // Equivalent to original tssb.resample_stick_orders()
 func (t *TSSB) resampleStickOrders(rng *rand.Rand) {
+	cnvNodes := make(map[*Node]bool)
+	for _, c := range t.CNVData {
+		if c.Node != nil {
+			cnvNodes[c.Node] = true
+		}
+	}
 	var descend func(*TSSBNode, int)
 	descend = func(root *TSSBNode, depth int) {
 		if len(root.Children) == 0 {
@@ -2221,7 +2248,7 @@ func (t *TSSB) resampleStickOrders(rng *rand.Rand) {
 		// Find children that have data (represented set)
 		represented := make(map[int]bool)
 		for i, child := range root.Children {
-			if child.Node.hasData() {
+			if child.Node.hasData() || subtreeHasCNV(child.Node, cnvNodes) {
 				represented[i] = true
 			}
 		}
@@ -3145,6 +3172,16 @@ func summarizePops(tssb *TSSB, llh float64, chainID int) map[string]interface{} 
 	mutAss := make(map[string]mutAssignment)
 	popIdx := 0
 
+	// CNVs are not in node.Data (which indexes tssb.Data, SSMs only); their
+	// placement lives on cnv.Node. Python's result_generator reports them in
+	// mut_assignments[*].cnvs / num_cnvs, so collect them per node here.
+	cnvsByNode := make(map[*Node][]string)
+	for _, c := range tssb.CNVData {
+		if c.Node != nil {
+			cnvsByNode[c.Node] = append(cnvsByNode[c.Node], c.ID)
+		}
+	}
+
 	// Traverse TSSBNode tree (not Node.Children). Empty-node removal
 	// happens downstream at the JSON level in postProcessSummary, which
 	// operates on this function's output map — not on the live TSSB, since
@@ -3159,7 +3196,7 @@ func summarizePops(tssb *TSSB, llh float64, chainID int) map[string]interface{} 
 
 		// Extract SSMs and CNVs
 		ssms := []string{}
-		cnvs := []string{}
+		cnvs := append([]string{}, cnvsByNode[node]...)
 		for _, ssmIdx := range node.Data {
 			id := tssb.Data[ssmIdx].ID
 			if len(id) > 0 && id[0] == 'c' {
