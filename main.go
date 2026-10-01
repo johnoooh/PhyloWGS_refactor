@@ -2017,6 +2017,14 @@ func logLikelihoodWithCNVTreeMH(ssm *SSM, tssb *TSSB, newState bool) float64 {
 }
 
 func (t *TSSB) resampleSticks(rng *rand.Rand) {
+	// Python's num_local_data()/num_data() count CNV datums too (they live in
+	// node.data alongside SSMs); in Go they are tracked on cnv.Node instead.
+	cnvCount := make(map[*Node]int)
+	for _, c := range t.CNVData {
+		if c.Node != nil {
+			cnvCount[c.Node]++
+		}
+	}
 	var descend func(*TSSBNode, int)
 	descend = func(root *TSSBNode, depth int) {
 		dataDown := 0
@@ -2030,7 +2038,7 @@ func (t *TSSB) resampleSticks(rng *rand.Rand) {
 		// post_alpha = 1 + child_data and post_beta = dp_gamma + data_down.
 		for i := len(root.Children) - 1; i >= 0; i-- {
 			child := root.Children[i]
-			childData := countData(child)
+			childData := countData(child, cnvCount)
 			descend(child, depth+1)
 
 			postAlpha := 1.0 + float64(childData)
@@ -2043,7 +2051,7 @@ func (t *TSSB) resampleSticks(rng *rand.Rand) {
 			dataDown += childData
 		}
 
-		dataHere := len(root.Node.Data)
+		dataHere := len(root.Node.Data) + cnvCount[root.Node]
 		postAlpha := 1.0 + float64(dataHere)
 		postBeta := math.Pow(t.AlphaDecay, float64(depth))*t.DPAlpha + float64(dataDown)
 		if t.MinDepth <= depth {
@@ -2063,10 +2071,10 @@ func (t *TSSB) resampleSticks(rng *rand.Rand) {
 	t.invalidateWeightsCache()
 }
 
-func countData(node *TSSBNode) int {
-	count := len(node.Node.Data)
+func countData(node *TSSBNode, cnvCount map[*Node]int) int {
+	count := len(node.Node.Data) + cnvCount[node.Node]
 	for _, child := range node.Children {
-		count += countData(child)
+		count += countData(child, cnvCount)
 	}
 	return count
 }
