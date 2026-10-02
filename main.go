@@ -3127,9 +3127,22 @@ func writeResults(outDir string, results []ChainResult, chainInclusionFactor flo
 		if r.ElapsedTime > maxTime {
 			maxTime = r.ElapsedTime
 		}
+		// best_llh follows best_tree.json: timed-out chains are excluded.
+		if r.TimedOut {
+			continue
+		}
 		for _, t := range r.Trees {
 			if t.LLH > bestLLH {
 				bestLLH = t.LLH
+			}
+		}
+	}
+	if math.IsInf(bestLLH, -1) { // every chain timed out: partial samples are all we have
+		for _, r := range results {
+			for _, t := range r.Trees {
+				if t.LLH > bestLLH {
+					bestLLH = t.LLH
+				}
 			}
 		}
 	}

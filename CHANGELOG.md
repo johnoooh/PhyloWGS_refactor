@@ -4,6 +4,38 @@ All notable changes to the Go port (`phylowgs-go`) are recorded here.
 Format: reverse-chronological, grouped by date. Each entry references the
 landing commit short SHA on `go-port`.
 
+## 2026-10-02 — branch `go-port`
+
+**Inference-affecting:** the CNV fix changes LLH, tree shape, population
+counts and `num_cnvs` relative to earlier builds (CNV-only populations now
+appear). Earlier Go LLHs on CNV-bearing data were inflated by the bug.
+
+### Fixed — CNVs counted as tree data
+[`9d61dd1`], [`388fa91`]
+
+CNVs live in `tssb.CNVData`, not `node.Data`, so `summarizePops`,
+`cullTree`, `resampleStickOrders` and `resampleSticks` ignored them: Go
+emitted 0 CNVs per tree and could cull CNV-only nodes while `cnv.Node`
+still pointed at them (their phi froze and their LLH term was dropped).
+These paths now count CNV datums as Python's `node.py`/`tssb.py` do.
+
+### Added — opt-in `-chain-timeout` (default 0 = unchanged)
+[`7204cb4`]
+
+A chain over budget stops and is listed in `summary.json`
+`timed_out_chains`; it is excluded from trees/mutass/best_tree, `-I` is
+recomputed over completed chains, and `best_llh` ignores it. Set it below
+the scheduler time limit so one straggler cannot void all chains' results.
+If every chain times out, partial samples are merged with a warning (a
+timeout during burn-in leaves no samples and `writeResults` errors). The
+progress log line gains `nodes= depth= mhstd=`.
+
+### Changed — faster MH, sampling-neutral
+[`ac5d890`]
+
+~1.4x faster MH for CNV-linked SSMs; verified 0 LLH mismatches over
+~1550 (chain, iteration) points against the previous binary.
+
 ## 2026-08-05 — branch `go-port`
 
 Closes out the confirmed findings from the 2026-06-24 equivalence audit

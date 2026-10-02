@@ -262,9 +262,9 @@ The following were reviewed and found to match the original faithfully:
 | `findOrCreateNode` path construction (root index included at depth=0) | ✓ Match |
 | `pathLT` comparison (string %03d encoding, reversed s2>s1) | ✓ Match |
 | MH proposal: sampling uses `std·π + 1`, correction uses `std·π` | ✓ Faithful reproduction of C++ original |
-| `resampleSticks` (reverse-order Beta posteriors, root forced 0.999999) | ✓ Match |
-| `resampleStickOrders` (weighted ordering, Pi return on kill) | ✓ Match |
-| `cullTree` (trailing-empty-child removal, Pi return) | ✓ Match |
+| `resampleSticks` (reverse-order Beta posteriors, root forced 0.999999) | ✓ Match after 2026-10-02 CNV fix (388fa91); previously did not count CNV datums |
+| `resampleStickOrders` (weighted ordering, Pi return on kill) | ✓ Match after 2026-10-02 CNV fix (388fa91); previously did not count CNV datums |
+| `cullTree` (trailing-empty-child removal, Pi return) | ✓ Match after 2026-10-02 CNV fix (388fa91); previously did not count CNV datums |
 | `resampleHypers` (dp_alpha, alpha_decay, dp_gamma with correct bounds) | ✓ Match |
 | Non-CNV likelihood: `mu = (1-φ)·mu_r + φ·mu_v` | ✓ Match |
 | CNV likelihood (four-case maternal/paternal timing model) | ✓ Match |
