@@ -1600,7 +1600,17 @@ func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
 	infCount := 0
 
 	// Cache the current likelihood - it only changes when we accept a move
-	cachedOldLLH := t.paramPost(nodes, false)
+	cachedOldLLH := t.paramPost(nodes, false, nil)
+
+	// Dense per-timepoint proposal vectors (index = position in nodes) let the
+	// CNV-SSM MH likelihood read pi from a contiguous slice instead of chasing
+	// state.Node.Pi1[tp]. Only usable when every precomputed state is aligned
+	// with nodes (computeSSMStates uses getNodes(), the same pre-order as
+	// getMixture()); otherwise fall back to the pointer path.
+	var densePi [][]float64
+	if mhStatesAligned(t.Data, nodes) {
+		densePi = make([][]float64, t.NTPS)
+	}
 
 	for iter := 0; iter < iters; iter++ {
 		// Sample new pi values for each timepoint
@@ -1617,6 +1627,9 @@ func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
 				alpha[i] = std*pi[i] + 1
 			}
 			piNew := dirichletSample(alpha, rng)
+			if densePi != nil {
+				densePi[tp] = piNew
+			}
 
 			// Store proposed values
 			for i, node := range nodes {
@@ -1638,7 +1651,7 @@ func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
 
 		// Compute acceptance ratio - use cached old LLH
 		oldLLH := cachedOldLLH
-		newLLH := t.paramPost(nodes, true)
+		newLLH := t.paramPost(nodes, true, densePi)
 		logA := newLLH - oldLLH
 
 		// Add Dirichlet correction terms
@@ -1695,7 +1708,10 @@ func (t *TSSB) metropolis(iters int, std float64, rng *rand.Rand) float64 {
 	return float64(accepted) / float64(iters)
 }
 
-func (t *TSSB) paramPost(nodes []*Node, useNew bool) float64 {
+// densePi, when non-nil (only with useNew), holds the proposed pi per
+// timepoint indexed like nodes; see metropolis. It is a pure memory-layout
+// optimisation: the result is bit-identical to densePi == nil.
+func (t *TSSB) paramPost(nodes []*Node, useNew bool, densePi [][]float64) float64 {
 	// Simple serial computation - parallelization overhead too high for this hot path
 	// (called 10,000+ times per MCMC iteration)
 	llh := 0.0
@@ -1709,7 +1725,11 @@ func (t *TSSB) paramPost(nodes []*Node, useNew bool) float64 {
 		for _, idx := range node.Data {
 			ssm := t.Data[idx]
 			if len(ssm.CNVs) > 0 {
-				llh += logLikelihoodWithCNVTreeMH(ssm, t, useNew)
+				if densePi != nil && useNew && ssm.MHStateValid {
+					llh += logLikelihoodMHDense(ssm, densePi)
+				} else {
+					llh += logLikelihoodWithCNVTreeMH(ssm, t, useNew)
+				}
 			} else {
 				llh += ssm.logLikelihoodNoCNV(params)
 			}
@@ -2002,6 +2022,93 @@ func logLikelihoodWithCNVTreeMHPrecomputed(ssm *SSM, newState bool) float64 {
 			} else {
 				lls[i] = math.Log(1e-99)
 			}
+		}
+		llh += logsumexp(lls[:])
+	}
+	return llh
+}
+
+// mhStatesAligned reports whether every CNV SSM's precomputed MH states are
+// index-aligned with nodes (MHStates[k].Node == nodes[k]).
+func mhStatesAligned(data []*SSM, nodes []*Node) bool {
+	for _, ssm := range data {
+		if len(ssm.CNVs) == 0 || !ssm.MHStateValid {
+			continue
+		}
+		if len(ssm.MHStates) != len(nodes) {
+			return false
+		}
+		for k := range ssm.MHStates {
+			if ssm.MHStates[k].Node != nodes[k] {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// logLikelihoodMHDense is logLikelihoodWithCNVTreeMHPrecomputed(ssm, true)
+// with pi read from pis[tp][k] (== MHStates[k].Node.Pi1[tp]) and, for the
+// common non-co-located case, states 3/4 not recomputed: computeSSMStates
+// copies them verbatim from states 1/2, so their sums and binomial terms are
+// bitwise equal to those of 1/2. Accumulation order is unchanged, so the
+// result is bit-identical to the reference (see TestLogLikelihoodMHDense*).
+// This roughly halves the MH hot loop that dominates per-iteration cost.
+func logLikelihoodMHDense(ssm *SSM, pis [][]float64) float64 {
+	llh := 0.0
+	states := ssm.MHStates
+	four := ssm.UseFourStates
+	const prior = -1.3862943611198906 // math.Log(0.25)
+
+	term := func(nr, nv float64, tp int) float64 {
+		if nr+nv > 0 {
+			mu := (nr*ssm.MuR + nv*(1-ssm.MuR)) / (nr + nv)
+			if mu < 1e-15 {
+				mu = 1e-15
+			}
+			if mu > 1-1e-15 {
+				mu = 1 - 1e-15
+			}
+			return logBinomialLikelihood(ssm.A[tp], ssm.D[tp], mu) + prior + ssm.LogBinNormConst[tp]
+		}
+		return math.Log(1e-99)
+	}
+
+	for tp := range ssm.A {
+		pi := pis[tp][:len(states)]
+		var lls [4]float64
+		if four {
+			var nr1, nv1, nr2, nv2, nr3, nv3, nr4, nv4 float64
+			for k := range states {
+				s := &states[k]
+				p := pi[k]
+				nr1 += p * s.Nr1
+				nv1 += p * s.Nv1
+				nr2 += p * s.Nr2
+				nv2 += p * s.Nv2
+				nr3 += p * s.Nr3
+				nv3 += p * s.Nv3
+				nr4 += p * s.Nr4
+				nv4 += p * s.Nv4
+			}
+			lls[0] = term(nr1, nv1, tp)
+			lls[1] = term(nr2, nv2, tp)
+			lls[2] = term(nr3, nv3, tp)
+			lls[3] = term(nr4, nv4, tp)
+		} else {
+			var nr1, nv1, nr2, nv2 float64
+			for k := range states {
+				s := &states[k]
+				p := pi[k]
+				nr1 += p * s.Nr1
+				nv1 += p * s.Nv1
+				nr2 += p * s.Nr2
+				nv2 += p * s.Nv2
+			}
+			lls[0] = term(nr1, nv1, tp)
+			lls[1] = term(nr2, nv2, tp)
+			lls[2] = lls[0]
+			lls[3] = lls[1]
 		}
 		llh += logsumexp(lls[:])
 	}
