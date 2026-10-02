@@ -184,6 +184,11 @@ type ChainResult struct {
 	SampleLLH   []float64
 	FinalTree   *TSSB
 	ElapsedTime time.Duration
+	// TimedOut is set when the chain stopped early because it exceeded the
+	// -chain-timeout budget. Its partial samples are kept for diagnostics
+	// (chain_N_samples.txt) but the chain is excluded from the merged output
+	// whenever at least one chain completed (see selectChains).
+	TimedOut bool
 }
 
 // TreeSample holds a sampled tree state including a full population snapshot.
@@ -706,6 +711,23 @@ func (t *TSSB) getNodes() []*Node {
 	}
 	descend(t.Root)
 	return nodes
+}
+
+// treeShape returns the total node count (including empty nodes) and the
+// maximum node depth. Diagnostic only; does not touch the RNG or tree.
+func treeShape(t *TSSB) (nNodes, maxDepth int) {
+	var descend func(*TSSBNode, int)
+	descend = func(root *TSSBNode, depth int) {
+		nNodes++
+		if depth > maxDepth {
+			maxDepth = depth
+		}
+		for _, child := range root.Children {
+			descend(child, depth+1)
+		}
+	}
+	descend(t.Root, 0)
+	return nNodes, maxDepth
 }
 
 func (t *TSSB) getMixture() ([]float64, []*Node) {
@@ -2586,7 +2608,10 @@ func (t *TSSB) resampleHypers(rng *rand.Rand) {
 // MCMC Chain
 // ============================================================================
 
-func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters int, seed int64) ChainResult {
+// timeout > 0 bounds the chain's wall time: the budget is checked once at the
+// top of every MCMC iteration (no RNG draws, no state changes), so a chain that
+// finishes within budget is bit-identical to one run with timeout == 0.
+func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters int, seed int64, timeout time.Duration) ChainResult {
 	start := time.Now()
 	rng := rand.New(rand.NewSource(seed))
 
@@ -2656,8 +2681,15 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 	var trees []TreeSample
 
 	totalIters := burnin + samples
+	timedOut := false
 
 	for iter := -burnin; iter < samples; iter++ {
+		if timeout > 0 && time.Since(start) > timeout {
+			timedOut = true
+			log.Printf("Chain %d: exceeded -chain-timeout %v at iter=%d/%d llh=%s; stopping (chain will be excluded from merged results)",
+				chainID, timeout, iter+burnin, totalIters, lastLLHString(burninLLH, sampleLLH))
+			break
+		}
 		// MCMC iteration
 		tssb.resampleAssignments(rng)
 
@@ -2722,8 +2754,13 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 		if (iter+burnin+1)%100 == 0 {
 			elapsed := time.Since(start)
 			progress := float64(iter+burnin+1) / float64(totalIters) * 100
-			log.Printf("Chain %d: iter=%d/%d (%.1f%%) llh=%.2f elapsed=%v",
-				chainID, iter+burnin+1, totalIters, progress, llh, elapsed.Round(time.Second))
+			// Trailing fields (after elapsed=) are diagnostics for per-iteration
+			// cost: MH and CNV-SSM likelihood cost scale with node count and
+			// depth. Appended last so existing `elapsed=(\S+)` parsers still match.
+			nNodes, maxDepth := treeShape(tssb)
+			log.Printf("Chain %d: iter=%d/%d (%.1f%%) llh=%.2f elapsed=%v nodes=%d depth=%d mhstd=%.0f",
+				chainID, iter+burnin+1, totalIters, progress, llh, elapsed.Round(time.Second),
+				nNodes, maxDepth, mhStd)
 		}
 	}
 
@@ -2734,7 +2771,19 @@ func runChain(chainID int, ssms []*SSM, cnvs []*CNV, burnin, samples, mhIters in
 		SampleLLH:   sampleLLH,
 		FinalTree:   tssb,
 		ElapsedTime: time.Since(start),
+		TimedOut:    timedOut,
 	}
+}
+
+// lastLLHString formats the most recent LLH of a chain for log messages.
+func lastLLHString(burninLLH, sampleLLH []float64) string {
+	switch {
+	case len(sampleLLH) > 0:
+		return fmt.Sprintf("%.2f", sampleLLH[len(sampleLLH)-1])
+	case len(burninLLH) > 0:
+		return fmt.Sprintf("%.2f", burninLLH[len(burninLLH)-1])
+	}
+	return "n/a"
 }
 
 // ============================================================================
@@ -2867,6 +2916,45 @@ func filterChainsByInclusion(results []ChainResult, factor float64) (included []
 	return included, excluded
 }
 
+// selectChains applies the -I inclusion rule to the chains that ran to
+// completion. Chains that hit -chain-timeout are always excluded (and do not
+// set the inclusion threshold) as long as at least one chain completed; if
+// every chain timed out, all chains are passed to the inclusion rule so that
+// partial results are still produced. With no timed-out chains this is
+// exactly filterChainsByInclusion(results, factor).
+func selectChains(results []ChainResult, factor float64) (included []int, excluded []int) {
+	var completed, timedOut []int
+	for i, r := range results {
+		if r.TimedOut {
+			timedOut = append(timedOut, i)
+		} else {
+			completed = append(completed, i)
+		}
+	}
+	if len(timedOut) == 0 {
+		return filterChainsByInclusion(results, factor)
+	}
+	if len(completed) == 0 {
+		log.Printf("WARNING: all %d chains hit -chain-timeout; merging their partial samples", len(results))
+		return filterChainsByInclusion(results, factor)
+	}
+	log.Printf("Chain timeout: excluding timed-out chains %v from merged results", timedOut)
+	sub := make([]ChainResult, len(completed))
+	for k, i := range completed {
+		sub[k] = results[i]
+	}
+	inc, exc := filterChainsByInclusion(sub, factor)
+	for _, k := range inc {
+		included = append(included, completed[k])
+	}
+	for _, k := range exc {
+		excluded = append(excluded, completed[k])
+	}
+	excluded = append(excluded, timedOut...)
+	sort.Ints(excluded)
+	return included, excluded
+}
+
 // pickBestSample finds the (chain index, sample index) of the highest-LLH
 // post-burnin sample among the included chains. The returned indices satisfy
 // results[chainIdx].Trees[sampleIdx].LLH == llh == max over included samples.
@@ -2913,6 +3001,8 @@ func writeResults(outDir string, results []ChainResult, chainInclusionFactor flo
 		ChainTimes []string `json:"chain_times"`
 		BestLLH    float64  `json:"best_llh"`
 		TreeCounts []int    `json:"trees_per_chain"`
+		// Only present when -chain-timeout cut at least one chain short.
+		TimedOutChains []int `json:"timed_out_chains,omitempty"`
 	}{
 		NumChains:  len(results),
 		TreeCounts: make([]int, len(results)),
@@ -2924,6 +3014,9 @@ func writeResults(outDir string, results []ChainResult, chainInclusionFactor flo
 	for i, r := range results {
 		summary.TreeCounts[i] = len(r.Trees)
 		summary.ChainTimes[i] = r.ElapsedTime.String()
+		if r.TimedOut {
+			summary.TimedOutChains = append(summary.TimedOutChains, r.ChainID)
+		}
 		if r.ElapsedTime > maxTime {
 			maxTime = r.ElapsedTime
 		}
@@ -2982,7 +3075,7 @@ func writeResults(outDir string, results []ChainResult, chainInclusionFactor flo
 	}
 
 	// Filter chains by inclusion factor (matches Python's determine_chains_to_merge)
-	includedChains, excludedChains := filterChainsByInclusion(results, chainInclusionFactor)
+	includedChains, excludedChains := selectChains(results, chainInclusionFactor)
 	if len(includedChains) > 0 {
 		log.Printf("Chain inclusion filter (factor=%.2f): including chains %v", chainInclusionFactor, includedChains)
 		if len(excludedChains) > 0 {
@@ -4099,6 +4192,7 @@ type runConfig struct {
 	NoGPU                    bool
 	ChainInclusionFactor     float64
 	Dataset                  string
+	ChainTimeout             time.Duration // 0 = no per-chain wall-time budget
 }
 
 // runMCMC executes the full pipeline: load data, spawn chains, write results.
@@ -4168,7 +4262,7 @@ func runMCMC(cfg runConfig) error {
 		go func(chainID int) {
 			defer wg.Done()
 			chainSeed := seed + int64(chainID)*1000
-			results[chainID] = runChain(chainID, ssms, cnvs, cfg.Burnin, cfg.Samples, cfg.MHIters, chainSeed)
+			results[chainID] = runChain(chainID, ssms, cnvs, cfg.Burnin, cfg.Samples, cfg.MHIters, chainSeed, cfg.ChainTimeout)
 		}(i)
 	}
 
@@ -4234,6 +4328,9 @@ func main() {
 		"Matches Python multievolve.py -I. Set to inf to include all chains, 1.0 for only the best.")
 	dataset := flag.String("D", "phylowgs", "Dataset name embedded in mutass.zip and best_tree.json")
 	cpuProfile := flag.String("cpuprofile", "", "Write CPU profile to file")
+	chainTimeout := flag.Duration("chain-timeout", 0, "Per-chain wall-time budget (e.g. 3h15m; 0 = off). A chain still running "+
+		"when it is exceeded stops and is excluded from the merged results, so the other chains' output is still written. "+
+		"Set it below the scheduler time limit minus result-writing time.")
 
 	flag.Parse()
 
@@ -4269,6 +4366,7 @@ func main() {
 		NoGPU:                *noGPU,
 		ChainInclusionFactor: *chainInclusionFactor,
 		Dataset:              *dataset,
+		ChainTimeout:         *chainTimeout,
 	}
 
 	if err := runMCMC(cfg); err != nil {
