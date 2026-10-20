@@ -33,24 +33,48 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from compare_posteriors import _iter_py_trees, distances, summarize_run  # noqa: E402
+import gzip  # noqa: E402
+import zipfile  # noqa: E402
+
+from compare_posteriors import distances, summarize_run  # noqa: E402
 
 METRICS = ["coclust", "ancestry", "phi", "K_tv", "Kcnv_tv", "Kbig_tv", "branching"]
 
 
-def load_go_chain(path):
+def _thin(n, k, path):
+    """Evenly spaced indices of k out of n trees; raises if the chain is short."""
+    if n < k:
+        raise ValueError(f"{path}: {n} trees < --trees-per-chain {k}")
+    return set(np.linspace(0, n - 1, k).round().astype(int).tolist())
+
+
+def load_go_chain(path, k):
+    """Parse only the k kept lines (a large-M chain is GBs of JSON)."""
     with open(path) as f:
-        trees = [(t["structure"], t["populations"], t["mut_assignments"])
-                 for t in map(json.loads, f) if t]
-    if not trees:
-        raise ValueError(f"{path}: no trees")
+        n = sum(1 for line in f if line.strip())
+    keep = _thin(n, k, path)
+    trees = []
+    with open(path) as f:
+        for i, line in enumerate(x for x in f if x.strip()):
+            if i in keep:
+                t = json.loads(line)
+                trees.append((t["structure"], t["populations"], t["mut_assignments"]))
     return trees
 
 
-def load_py_chain(path):
-    trees = list(_iter_py_trees(Path(path)))
-    if not trees:
-        raise ValueError(f"{path}: no trees")
+def load_py_chain(path, k):
+    """write_results output for one chain; read mutass only for kept trees."""
+    path = Path(path)
+    with gzip.open(path / "tree_summaries.json.gz", "rt") as f:
+        summ = json.load(f)["trees"]
+    idxs = sorted(summ, key=int)
+    keep = _thin(len(idxs), k, path)
+    trees = []
+    with zipfile.ZipFile(path / "mutass.zip") as zf:
+        for i, idx in enumerate(idxs):
+            if i in keep:
+                mutass = json.loads(zf.read(f"{idx}.json"))["mut_assignments"]
+                trees.append((summ[idx]["structure"], summ[idx]["populations"], mutass))
     return trees
 
 
@@ -88,24 +112,27 @@ def main():
         if n < 2 * args.pool:
             raise ValueError(f"{n} {impl} chains < 2 x pool ({args.pool})")
 
-    chains = [("go", p, load_go_chain(p)) for p in args.go] + \
-             [("py", p, load_py_chain(p)) for p in args.py]
-    for impl, p, trees in chains:
-        if len(trees) < args.trees_per_chain:
-            raise ValueError(f"{p}: {len(trees)} trees < --trees-per-chain")
-    sets = [ssm_set(t) for _, _, t in chains]
-    if any(s != sets[0] for s in sets):
-        raise ValueError("Chains do not share the same SSM set")
-    ssm_ids = sorted(sets[0], key=lambda s: (len(s), s))
-    n_ssm_total = len(ssm_ids)
-    if n_ssm_total > args.max_ssms:
-        keep = np.random.default_rng(args.seed).choice(n_ssm_total, args.max_ssms, replace=False)
-        ssm_ids = [ssm_ids[i] for i in sorted(keep)]
-
+    # One chain in memory at a time; every chain's kept-tree SSM set must equal
+    # the first chain's, which also fixes the scored SSM subset.
+    loaders = [("go", p, load_go_chain) for p in args.go] + \
+              [("py", p, load_py_chain) for p in args.py]
     summ = {"go": [], "py": []}
-    for impl, p, trees in chains:
+    ref = ssm_ids = None
+    for impl, p, load in loaders:
+        trees = load(p, args.trees_per_chain)
+        ss = ssm_set(trees)
+        if ref is None:
+            ref = ss
+            ssm_ids = sorted(ref, key=lambda s: (len(s), s))
+            n_ssm_total = len(ssm_ids)
+            if n_ssm_total > args.max_ssms:
+                keep = np.random.default_rng(args.seed).choice(
+                    n_ssm_total, args.max_ssms, replace=False)
+                ssm_ids = [ssm_ids[i] for i in sorted(keep)]
+        elif ss != ref:
+            raise ValueError(f"{p}: SSM set differs from {loaders[0][1]}")
         summ[impl].append(summarize_run(trees, ssm_ids, args.trees_per_chain))
-    del chains
+        del trees
 
     rng = np.random.default_rng(args.seed)
     P = args.pool
