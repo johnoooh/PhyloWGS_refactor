@@ -35,7 +35,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from compare_posteriors import _iter_py_trees, distances, summarize_run  # noqa: E402
 
-METRICS = ["coclust", "ancestry", "phi", "K_tv", "branching"]
+METRICS = ["coclust", "ancestry", "phi", "K_tv", "Kcnv_tv", "Kbig_tv", "branching"]
 
 
 def load_go_chain(path):
@@ -64,6 +64,8 @@ def pool(summaries):
         "A": np.mean([s["A"] for s in summaries], axis=0),
         "phi": np.mean([s["phi"] for s in summaries], axis=0),
         "K": np.concatenate([s["K"] for s in summaries]),
+        "K_cnv": np.concatenate([s["K_cnv"] for s in summaries]),
+        "K_big": np.concatenate([s["K_big"] for s in summaries]),
         "branching": float(np.mean([s["branching"] for s in summaries])),
     }
 
@@ -76,6 +78,9 @@ def main():
     ap.add_argument("--draws", type=int, default=20, help="Random pool draws per group")
     ap.add_argument("--trees-per-chain", type=int, default=250,
                     help="Thin every chain to this many trees")
+    ap.add_argument("--max-ssms", type=int, default=1500,
+                    help="Score a fixed random subset of this many SSMs (bounds M x M memory;"
+                         " pair-averaged metrics stay unbiased)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
@@ -92,6 +97,10 @@ def main():
     if any(s != sets[0] for s in sets):
         raise ValueError("Chains do not share the same SSM set")
     ssm_ids = sorted(sets[0], key=lambda s: (len(s), s))
+    n_ssm_total = len(ssm_ids)
+    if n_ssm_total > args.max_ssms:
+        keep = np.random.default_rng(args.seed).choice(n_ssm_total, args.max_ssms, replace=False)
+        ssm_ids = [ssm_ids[i] for i in sorted(keep)]
 
     summ = {"go": [], "py": []}
     for impl, p, trees in chains:
@@ -110,9 +119,10 @@ def main():
         rows.append(("go-go", distances(go_a, go_b)))
         rows.append(("go-py", distances(go_a, py_a)))
 
-    out = {"M": len(ssm_ids), "n_go_chains": len(summ["go"]), "n_py_chains": len(summ["py"]),
+    out = {"M": n_ssm_total, "M_scored": len(ssm_ids), "n_go_chains": len(summ["go"]), "n_py_chains": len(summ["py"]),
            "pool": P, "draws": args.draws,
-           "mean_K": {k: float(np.mean([s["K"].mean() for s in v])) for k, v in summ.items()},
+           "mean_K": {kk: {k: float(np.mean([s[kk].mean() for s in v])) for k, v in summ.items()}
+                      for kk in ("K", "K_cnv", "K_big")},
            "groups": {}}
     for grp in ["py-py", "go-go", "go-py"]:
         out["groups"][grp] = {

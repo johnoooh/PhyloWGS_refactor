@@ -9,7 +9,15 @@ metric is label-invariant, averaged over posterior trees, and computed per SSM:
   coclust   P(i and j in the same node)
   ancestry  P(node(i) is a strict ancestor of node(j))
   phi       posterior mean cellular prevalence of node(i), per sample
-  K         distribution of the number of non-empty populations
+  K_tv      distribution of the number of populations holding >= 1 SSM
+  Kcnv_tv   same, counting populations holding >= 1 SSM or CNV (CNV-only
+            populations are invisible to K_tv and to the SSM pair metrics)
+  Kbig_tv   same, counting only populations of size (SSMs + CNVs) >=
+            max(1% of mutations, 2), the merge-survival rule of
+            score_results.count_populations_merged; separates tiny-node
+            artefacts (e.g. small clonal nodes) from real structure
+  K counts use each tree's raw populations on both sides (neither engine's
+  small-node merge applied), so the counting is identical for Go and Python.
   branching fraction of trees in which some node has >= 2 non-empty children
 
 For each metric, the distance between every pair of runs is grouped into
@@ -78,17 +86,18 @@ def summarize_run(trees, ssm_ids, max_trees):
         trees = [trees[i] for i in keep]
     M = len(ssm_ids)
     pos = {s: i for i, s in enumerate(ssm_ids)}
-    C = np.zeros((M, M))
-    A = np.zeros((M, M))
+    C = np.zeros((M, M), dtype=np.float32)
+    A = np.zeros((M, M), dtype=np.float32)
     phi = None
-    Ks, branching = [], []
+    Ks, Ks_cnv, Ks_big, branching = [], [], [], []
     for structure, pops, mutass in trees:
         nodes = sorted(pops, key=int)
         nidx = {n: k for k, n in enumerate(nodes)}
         lab = np.full(M, -1)
         for node, muts in mutass.items():
             for s in muts.get("ssms", []):
-                lab[pos[s]] = nidx[node]
+                if s in pos:  # ssm_ids may be a subset of the tree's SSMs
+                    lab[pos[s]] = nidx[node]
         if (lab < 0).any():
             raise ValueError(f"{(lab < 0).sum()} SSMs unassigned in a tree")
         # anc[k, l] = 1 if node k is a strict ancestor of node l
@@ -106,24 +115,35 @@ def summarize_run(trees, ssm_ids, max_trees):
         phi = cp[lab] if phi is None else phi + cp[lab]
         nonempty = {n for n in nodes if pops[n]["num_ssms"] > 0}
         Ks.append(len(nonempty))
+        sizes = [pops[n]["num_ssms"] + pops[n].get("num_cnvs", 0) for n in nodes]
+        big = max(0.01 * sum(sizes), 2)
+        Ks_cnv.append(sum(sz > 0 for sz in sizes))
+        Ks_big.append(sum(sz >= big for sz in sizes))
         branching.append(any(
             sum(str(c) in nonempty for c in cs) >= 2 for cs in structure.values()))
     T = len(trees)
     return {"C": C / T, "A": A / T, "phi": phi / T,
-            "K": np.array(Ks), "branching": float(np.mean(branching)), "T": T}
+            "K": np.array(Ks), "K_cnv": np.array(Ks_cnv), "K_big": np.array(Ks_big),
+            "branching": float(np.mean(branching)), "T": T}
+
+
+def k_tv(ka, kb):
+    """Total variation distance between two K samples' distributions."""
+    kmax = max(ka.max(), kb.max()) + 1
+    return 0.5 * np.abs(np.bincount(ka, minlength=kmax) / len(ka)
+                        - np.bincount(kb, minlength=kmax) / len(kb)).sum()
 
 
 def distances(a, b):
     M = a["C"].shape[0]
     offdiag = ~np.eye(M, dtype=bool)
-    kmax = max(a["K"].max(), b["K"].max()) + 1
-    pa = np.bincount(a["K"], minlength=kmax) / len(a["K"])
-    pb = np.bincount(b["K"], minlength=kmax) / len(b["K"])
     return {
         "coclust": np.abs(a["C"] - b["C"])[offdiag].mean(),
         "ancestry": np.abs(a["A"] - b["A"])[offdiag].mean(),
         "phi": np.abs(a["phi"] - b["phi"]).mean(),
-        "K_tv": 0.5 * np.abs(pa - pb).sum(),
+        "K_tv": k_tv(a["K"], b["K"]),
+        "Kcnv_tv": k_tv(a["K_cnv"], b["K_cnv"]),
+        "Kbig_tv": k_tv(a["K_big"], b["K_big"]),
         "branching": abs(a["branching"] - b["branching"]),
     }
 
@@ -158,7 +178,7 @@ def main():
         group = "-".join(sorted([ia, ib]))
         rows.append({"group": group, "run_a": da, "run_b": db, **distances(sa, sb)})
 
-    metrics = ["coclust", "ancestry", "phi", "K_tv", "branching"]
+    metrics = ["coclust", "ancestry", "phi", "K_tv", "Kcnv_tv", "Kbig_tv", "branching"]
     print(f"\nM={len(ssm_ids)} SSMs. Mean distance per pair group (max in parentheses):")
     print(f"{'metric':<10} {'py-py':>16} {'go-go':>16} {'go-py':>16}")
     for m in metrics:
