@@ -18,6 +18,7 @@ import argparse
 import json
 import re
 import statistics as st
+import sys
 from math import comb
 from pathlib import Path
 
@@ -43,6 +44,8 @@ def main():
     ap.add_argument("--rerun", required=True, help="rerun dir (tasks.tsv, runs/k<k>/chains)")
     ap.add_argument("--manifest", required=True)
     ap.add_argument("--kstats", required=True, help="dir of per-chain kstats/<k>.json")
+    ap.add_argument("--skip-k", type=int, nargs="*", default=[],
+                    help="Leave out these samples (e.g. a run still in progress)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -51,6 +54,9 @@ def main():
     for ln in open(Path(args.rerun) / "tasks.tsv"):
         _, k, cls, n_ssm, seed = ln.split("\t")[:5]
         k = int(k)
+        if k in args.skip_k:
+            print(f"skipping k={k}", file=sys.stderr)
+            continue
         chains = sorted((Path(args.rerun) / f"runs/k{k}/chains").glob("chain_*_trees.ndjson"))
         if len(chains) != N_CHAINS:
             raise ValueError(f"k={k}: {len(chains)} rerun chains, expected {N_CHAINS}")
