@@ -189,6 +189,9 @@ type ChainResult struct {
 	// (chain_N_samples.txt) but the chain is excluded from the merged output
 	// whenever at least one chain completed (see selectChains).
 	TimedOut bool
+	// ChainFilesWritten is set once chain_N_samples.txt and chain_N_trees.ndjson
+	// have been written as the chain finished, so writeResults skips them.
+	ChainFilesWritten bool
 }
 
 // TreeSample holds a sampled tree state including a full population snapshot.
@@ -3095,6 +3098,55 @@ func pickBestSample(results []ChainResult, included []int) (chainIdx, sampleIdx 
 	return chainIdx, sampleIdx, llh, nil
 }
 
+// writeChainFiles writes one chain's LLH trace (chain_N_samples.txt) and full
+// post-burnin tree snapshots (chain_N_trees.ndjson). Each file is written to a
+// .tmp name and renamed, so a run killed mid-write never leaves a truncated file
+// under the final name. main calls it as each chain finishes, so a straggler
+// that later hits the job's wall-time limit does not take the finished chains'
+// output with it.
+//
+// The ndjson file replaces the Python original's trees.zip: each line is a
+// self-contained JSON object with fields iteration, chain_id, llh,
+// num_populations, populations, structure, mut_assignments.
+func writeChainFiles(outDir string, r ChainResult) error {
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		return err
+	}
+	write := func(name string, body func(w *bufio.Writer)) error {
+		final := filepath.Join(outDir, name)
+		f, err := os.Create(final + ".tmp")
+		if err != nil {
+			return err
+		}
+		w := bufio.NewWriter(f)
+		body(w)
+		if err := w.Flush(); err != nil {
+			f.Close()
+			return err
+		}
+		if err := f.Close(); err != nil {
+			return err
+		}
+		return os.Rename(final+".tmp", final)
+	}
+	if err := write(fmt.Sprintf("chain_%d_samples.txt", r.ChainID), func(w *bufio.Writer) {
+		fmt.Fprintln(w, "Iteration\tLLH\tNumNodes")
+		for _, t := range r.Trees {
+			fmt.Fprintf(w, "%d\t%.6f\t%d\n", t.Iteration, t.LLH, t.NumNodes)
+		}
+	}); err != nil {
+		return err
+	}
+	return write(fmt.Sprintf("chain_%d_trees.ndjson", r.ChainID), func(w *bufio.Writer) {
+		for _, t := range r.Trees {
+			if t.Snapshot != nil {
+				w.Write(t.Snapshot)
+				w.WriteByte('\n')
+			}
+		}
+	})
+}
+
 func writeResults(outDir string, results []ChainResult, chainInclusionFactor float64, datasetName string) error {
 	if err := os.MkdirAll(outDir, 0755); err != nil {
 		return err
@@ -3154,44 +3206,14 @@ func writeResults(outDir string, results []ChainResult, chainInclusionFactor flo
 		return err
 	}
 
-	// Write per-chain LLH trace (backward-compatible TSV format)
+	// Per-chain files; chains already written as they finished are skipped.
 	for _, r := range results {
-		chainPath := filepath.Join(outDir, fmt.Sprintf("chain_%d_samples.txt", r.ChainID))
-		f, err := os.Create(chainPath)
-		if err != nil {
+		if r.ChainFilesWritten {
+			continue
+		}
+		if err := writeChainFiles(outDir, r); err != nil {
 			return err
 		}
-		fmt.Fprintln(f, "Iteration\tLLH\tNumNodes")
-		for _, t := range r.Trees {
-			fmt.Fprintf(f, "%d\t%.6f\t%d\n", t.Iteration, t.LLH, t.NumNodes)
-		}
-		f.Close()
-	}
-
-	// Write per-chain full posterior tree snapshots as newline-delimited JSON.
-	// Each line is a self-contained JSON object with fields: iteration, chain_id,
-	// llh, num_populations, populations, structure, mut_assignments.
-	// This file replaces the Python original's trees.zip and can be consumed by
-	// downstream post-processing tools (e.g. write_results.py with a Go-aware
-	// adapter, or a future Go-native posterior analysis pipeline).
-	for _, r := range results {
-		ndjsonPath := filepath.Join(outDir, fmt.Sprintf("chain_%d_trees.ndjson", r.ChainID))
-		f, err := os.Create(ndjsonPath)
-		if err != nil {
-			return err
-		}
-		w := bufio.NewWriter(f)
-		for _, t := range r.Trees {
-			if t.Snapshot != nil {
-				w.Write(t.Snapshot)
-				w.WriteByte('\n')
-			}
-		}
-		if err := w.Flush(); err != nil {
-			f.Close()
-			return err
-		}
-		f.Close()
 	}
 
 	// Filter chains by inclusion factor (matches Python's determine_chains_to_merge)
@@ -4382,7 +4404,16 @@ func runMCMC(cfg runConfig) error {
 		go func(chainID int) {
 			defer wg.Done()
 			chainSeed := seed + int64(chainID)*1000
-			results[chainID] = runChain(chainID, ssms, cnvs, cfg.Burnin, cfg.Samples, cfg.MHIters, chainSeed, cfg.ChainTimeout)
+			r := runChain(chainID, ssms, cnvs, cfg.Burnin, cfg.Samples, cfg.MHIters, chainSeed, cfg.ChainTimeout)
+			// Write this chain's files now rather than after every chain is done.
+			// On failure writeResults retries them at the end.
+			if err := writeChainFiles(cfg.OutDir, r); err != nil {
+				log.Printf("Chain %d: writing chain files failed (retried at end): %v", chainID, err)
+			} else {
+				r.ChainFilesWritten = true
+				log.Printf("Chain %d: wrote chain files", chainID)
+			}
+			results[chainID] = r
 		}(i)
 	}
 
