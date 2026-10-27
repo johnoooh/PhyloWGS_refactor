@@ -4,10 +4,17 @@
 #              as each finishes, so a straggler hitting the limit loses only itself
 #   STEP=conv  write_results.py on each of the 15 Python chains (no tree filters)
 #   STEP=cmp   pool_compare.py (needs >= 14 Go chains and all 15 Python chains)
-# Env: W (work dir), CLS, STEP; optional BIN, SIF, PY.
+# STEP and CLS come from the env or, failing that, the job name nq_<STEP>_<CLS>
+# (for submitters without --export, e.g. hpcgate submit -J nq_go_S).
+# Env: W (work dir, default below); optional BIN, SIF, PY.
 #SBATCH --partition=cmobic_cpu
+#SBATCH --output=/data1/core005/ccs/orgeraj/go_runs/nq1500/logs/%x_%a.log
 set -euo pipefail
-: "${W:?}" "${CLS:?}" "${STEP:?}"
+W=${W:-/data1/core005/ccs/orgeraj/go_runs/nq1500}
+if [ -z "${STEP:-}" ] && [[ "${SLURM_JOB_NAME:-}" =~ ^nq_(go|conv|cmp)_([SMLX])$ ]]; then
+    STEP=${BASH_REMATCH[1]}; CLS=${BASH_REMATCH[2]}
+fi
+: "${CLS:?set CLS or name the job nq_<step>_<cls>}" "${STEP:?set STEP or name the job nq_<step>_<cls>}"
 BIN=${BIN:-/data1/core005/ccs/orgeraj/go_runs/bin/phylowgs-go-cf49940}
 SIF=${SIF:-/data1/core005/ccs/orgeraj/go_runs/m1xcheck/phylowgs-1.5.2-msk.sif}
 PY=${PY:-/home/orgeraj/miniforge3/bin/python3}
