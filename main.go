@@ -2908,17 +2908,17 @@ func writeMutList(outDir string, ssms []*SSM, cnvs []*CNV, datasetName string) e
 	type ssmEntry struct {
 		RefReads             []int   `json:"ref_reads"`
 		TotalReads           []int   `json:"total_reads"`
-		ExpectedRefInRef     float64 `json:"expected_ref_in_ref"`
-		ExpectedRefInVariant float64 `json:"expected_ref_in_variant"`
-		Name                 string  `json:"name,omitempty"`
+		ExpectedRefInRef     PyFloat `json:"expected_ref_in_ref"`
+		ExpectedRefInVariant PyFloat `json:"expected_ref_in_variant"`
+		Name                 string  `json:"name"`
 	}
 	ssmsOut := make(map[string]ssmEntry, len(ssms))
 	for _, s := range ssms {
 		ssmsOut[s.ID] = ssmEntry{
 			RefReads:             s.A,
 			TotalReads:           s.D,
-			ExpectedRefInRef:     s.MuR,
-			ExpectedRefInVariant: s.MuV,
+			ExpectedRefInRef:     PyFloat(s.MuR),
+			ExpectedRefInVariant: PyFloat(s.MuV),
 			Name:                 s.Name,
 		}
 	}
@@ -2929,11 +2929,20 @@ func writeMutList(outDir string, ssms []*SSM, cnvs []*CNV, datasetName string) e
 		MaternalCN int    `json:"maternal_cn"`
 		PaternalCN int    `json:"paternal_cn"`
 	}
+	// physCNVEntry mirrors PhysicalCNV with cell_prev typed as Python floats.
+	type physCNVEntry struct {
+		Chrom    string    `json:"chrom"`
+		Start    int       `json:"start"`
+		End      int       `json:"end"`
+		MajorCN  int       `json:"major_cn"`
+		MinorCN  int       `json:"minor_cn"`
+		CellPrev []PyFloat `json:"cell_prev"`
+	}
 	type cnvEntry struct {
-		RefReads     []int         `json:"ref_reads"`
-		TotalReads   []int         `json:"total_reads"`
-		PhysicalCNVs []PhysicalCNV `json:"physical_cnvs"`
-		SSMs         []cnvSSMEntry `json:"ssms"`
+		RefReads     []int          `json:"ref_reads"`
+		TotalReads   []int          `json:"total_reads"`
+		PhysicalCNVs []physCNVEntry `json:"physical_cnvs"`
+		SSMs         []cnvSSMEntry  `json:"ssms"`
 	}
 	cnvsOut := make(map[string]cnvEntry, len(cnvs))
 	for _, c := range cnvs {
@@ -2945,9 +2954,9 @@ func writeMutList(outDir string, ssms []*SSM, cnvs []*CNV, datasetName string) e
 				PaternalCN: link.PaternalCN,
 			})
 		}
-		physCNVs := c.PhysicalCNVs
-		if physCNVs == nil {
-			physCNVs = []PhysicalCNV{} // emit [] not null
+		physCNVs := make([]physCNVEntry, 0, len(c.PhysicalCNVs)) // emit [] not null
+		for _, p := range c.PhysicalCNVs {
+			physCNVs = append(physCNVs, physCNVEntry{p.Chrom, p.Start, p.End, p.MajorCN, p.MinorCN, pyFloats(p.CellPrev)})
 		}
 		cnvsOut[c.ID] = cnvEntry{
 			RefReads:     c.A,
@@ -3342,6 +3351,7 @@ func writeResults(outDir string, results []ChainResult, chainInclusionFactor flo
 	}
 	generic = removeSmallNodes(generic, minFrac, ssmData, cnvData)
 	generic = removeSuperclones(generic)
+	retypeSummary(generic)
 
 	treeData, err := json.MarshalIndent(generic, "", "  ")
 	if err != nil {
@@ -3401,7 +3411,7 @@ func cellPrevFromRaw(popRaw interface{}) []float64 {
 
 func summarizePops(tssb *TSSB, llh float64, chainID int) map[string]interface{} {
 	type popSummary struct {
-		CellPrev []float64 `json:"cellular_prevalence"`
+		CellPrev []PyFloat `json:"cellular_prevalence"`
 		NumSSMs  int       `json:"num_ssms"`
 		NumCNVs  int       `json:"num_cnvs"`
 	}
@@ -3459,7 +3469,7 @@ func summarizePops(tssb *TSSB, llh float64, chainID int) map[string]interface{} 
 			}
 		}
 		pops[idStr] = popSummary{
-			CellPrev: phi,
+			CellPrev: pyFloats(phi),
 			NumSSMs:  len(ssms),
 			NumCNVs:  len(cnvs),
 		}
@@ -3493,7 +3503,7 @@ func summarizePops(tssb *TSSB, llh float64, chainID int) map[string]interface{} 
 
 	return map[string]interface{}{
 		"chain_id":        chainID,
-		"llh":             llh,
+		"llh":             PyFloat(llh),
 		"num_populations": nonEmpty, // non-empty pops only, matching Python convention
 		"populations":     pops,
 		"structure":       structure,
@@ -4305,6 +4315,7 @@ func snapshotTree(tssb *TSSB, llh float64, iteration, chainID int, mutIdx map[st
 	}
 
 	generic = postProcessSummary(generic)
+	retypeSummary(generic)
 	// Stamp iteration into the snapshot so each line is self-contained
 	generic["iteration"] = iteration
 	if sigErr == nil {
