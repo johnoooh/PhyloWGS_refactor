@@ -274,9 +274,10 @@ func kdeEvaluate(data [][]float64, w, u []float64, norm float64) ([]float64, err
 			}
 			energy /= 2.0
 			// Mirrors 'invalid' on inf-inf in diff. numpy does not raise
-			// when a quiet NaN merely propagates, and for indices in [0, 1]
-			// this is unreachable; it must not be relied on as a fallback
-			// for NaN inputs.
+			// when a quiet NaN merely propagates. Not expected in practice
+			// for indices in [0, 1] (would need overflow in the Cholesky
+			// whitening); it must not be relied on as a fallback for NaN
+			// inputs.
 			if math.IsNaN(energy) {
 				return nil, kdeFallback("invalid value in subtract")
 			}
