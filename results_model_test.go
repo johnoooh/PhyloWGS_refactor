@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -90,5 +91,66 @@ func TestLoadGoResults_AllFixtures(t *testing.T) {
 		if err != nil || len(rs.Trees) == 0 {
 			t.Errorf("%s: err=%v", c, err)
 		}
+	}
+}
+
+func writeTestZip(t *testing.T, entries [][2]string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "trees.zip")
+	f, err := os.Create(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zw := zip.NewWriter(f)
+	for _, e := range entries {
+		w, err := zw.Create(e[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		w.Write([]byte(e[1]))
+	}
+	zw.Close()
+	f.Close()
+	return p
+}
+
+const okTree = `{"llh":-1.5,"structure":{"0":[]},"populations":{"0":{"cellular_prevalence":[1],"num_ssms":0,"num_cnvs":0}}}`
+
+func loadWithSimMutlist(t *testing.T, zp string) error {
+	_, err := loadGoResults(zp, filepath.Join("testdata", "native_results", "sim", "mutlist.json"))
+	return err
+}
+
+func TestLoadGoResults_DuplicateIdx(t *testing.T) {
+	zp := writeTestZip(t, [][2]string{{"tree_5_-1.5", okTree}, {"tree_5_-2.5", okTree}})
+	if err := loadWithSimMutlist(t, zp); err == nil || !strings.Contains(err.Error(), "duplicate") {
+		t.Fatalf("err = %v, want duplicate", err)
+	}
+}
+
+func TestLoadGoResults_MalformedName(t *testing.T) {
+	zp := writeTestZip(t, [][2]string{{"tree_0_-1.5", okTree}, {"tree_x_-2.5", okTree}, {"tree_3", okTree}})
+	if err := loadWithSimMutlist(t, zp); err == nil || !strings.Contains(err.Error(), "2 unparseable") {
+		t.Fatalf("err = %v, want 2 unparseable", err)
+	}
+}
+
+func TestLoadGoResults_MissingKey(t *testing.T) {
+	cases := map[string]string{
+		"llh":         `{"structure":{},"populations":{}}`,
+		"structure":   `{"llh":-1,"populations":{}}`,
+		"populations": `{"llh":-1,"structure":{}}`,
+	}
+	for key, body := range cases {
+		zp := writeTestZip(t, [][2]string{{"tree_7_-1", body}})
+		err := loadWithSimMutlist(t, zp)
+		if err == nil || !strings.Contains(err.Error(), key) || !strings.Contains(err.Error(), "tree 7") {
+			t.Errorf("%s: err = %v", key, err)
+		}
+	}
+	// present-but-empty structure and absent mut_assignments are fine
+	zp := writeTestZip(t, [][2]string{{"tree_7_-1", `{"llh":-1,"structure":{},"populations":{}}`}})
+	if err := loadWithSimMutlist(t, zp); err != nil {
+		t.Errorf("empty structure should load: %v", err)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Population is one node's summary in a sampled tree.
@@ -46,7 +47,7 @@ type ResultSet struct {
 }
 
 type treeJSON struct {
-	LLH         float64               `json:"llh"`
+	LLH         *float64              `json:"llh"`
 	Structure   map[string][]int      `json:"structure"`
 	Populations map[string]popJSON    `json:"populations"`
 	MutAss      map[string]mutAssJSON `json:"mut_assignments"`
@@ -77,6 +78,11 @@ func intKeys[V any](m map[string]V) (map[int]V, error) {
 }
 
 func (t *treeJSON) toSummary() (*TreeSummary, map[int]*MutAss, error) {
+	for key, absent := range map[string]bool{"llh": t.LLH == nil, "structure": t.Structure == nil, "populations": t.Populations == nil} {
+		if absent {
+			return nil, nil, fmt.Errorf("missing key %q", key)
+		}
+	}
 	structure, err := intKeys(t.Structure)
 	if err != nil {
 		return nil, nil, fmt.Errorf("structure: %w", err)
@@ -89,7 +95,7 @@ func (t *treeJSON) toSummary() (*TreeSummary, map[int]*MutAss, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("mut_assignments: %w", err)
 	}
-	ts := &TreeSummary{LLH: t.LLH, Structure: structure, Populations: map[int]*Population{}}
+	ts := &TreeSummary{LLH: *t.LLH, Structure: structure, Populations: map[int]*Population{}}
 	for n, p := range pops {
 		ts.Populations[n] = &Population{CellPrev: p.CellPrev, NumSSMs: p.NumSSMs, NumCNVs: p.NumCNVs}
 	}
@@ -115,9 +121,15 @@ func loadGoResults(treesZip, mutlistPath string) (*ResultSet, error) {
 	if r.NumTrees() == 0 {
 		return nil, fmt.Errorf("no trees in %s", treesZip)
 	}
+	if bad := countUnparseableTrees(r); bad > 0 {
+		return nil, fmt.Errorf("%d unparseable tree_ entries in %s", bad, treesZip)
+	}
 	rs := &ResultSet{Trees: map[int]*TreeSummary{}, MutAss: map[int]map[int]*MutAss{}, Muts: muts}
 	for i := 0; i < r.NumTrees(); i++ {
 		idx := r.entries[i].idx
+		if _, dup := rs.Trees[idx]; dup {
+			return nil, fmt.Errorf("duplicate tree index %d in %s", idx, treesZip)
+		}
 		raw, _, err := r.LoadTree(i)
 		if err != nil {
 			return nil, fmt.Errorf("tree %d: %w", idx, err)
@@ -133,6 +145,18 @@ func loadGoResults(treesZip, mutlistPath string) (*ResultSet, error) {
 		rs.Trees[idx], rs.MutAss[idx] = ts, mas
 	}
 	return rs, nil
+}
+
+// countUnparseableTrees counts tree_-prefixed zip entries the archive reader
+// silently skipped (bad name split, index or llh).
+func countUnparseableTrees(r *TreeArchiveReader) int {
+	n := 0
+	for _, f := range r.r.File {
+		if strings.HasPrefix(f.Name, "tree_") {
+			n++
+		}
+	}
+	return n - r.NumTrees()
 }
 
 func loadMutList(path string) (*MutList, error) {
