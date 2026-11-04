@@ -23,7 +23,7 @@ run_one() {
     ref python2 dump_expected.py "$tmp" "$exp"
   else
     # Controller ruling 2: error.txt holds the bare exception message.
-    tail -n 1 "$tmp/stderr" | sed 's/^Exception: //' > "$exp/error.txt"
+    tail -n 1 "$tmp/stderr" | sed -E 's/^[A-Za-z_][A-Za-z0-9_.]*: //' > "$exp/error.txt"
   fi
   rm -rf "$tmp"
 }

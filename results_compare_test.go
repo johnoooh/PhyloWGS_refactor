@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -232,6 +233,9 @@ func TestComparePythonJSON_CapsAndRejectsGarbage(t *testing.T) {
 	}
 }
 
+// errPrefixRE matches an exception-class prefix that error.txt must not carry.
+var errPrefixRE = regexp.MustCompile(`^\w[\w.]*: `)
+
 // TestNativeResultsFixtures checks every case x flag set has the expected
 // files, that each expected JSON file is self-consistent under the comparator,
 // and that the known error cases carry the reference's message.
@@ -245,15 +249,15 @@ func TestNativeResultsFixtures(t *testing.T) {
 	}
 	errCases := map[string]string{
 		"multiprimary/default": "of trees are multiprimary",
-		"single/default":       "should have multiple elements",
-		"single/prod":          "should have multiple elements",
+		"single/default":       "`dataset` input should have multiple elements.",
+		"single/prod":          "`dataset` input should have multiple elements.",
 	}
 	for c, sets := range cases {
 		for _, fs := range sets {
 			dir := root + "/" + c + "/" + fs + "/expected/"
 			if want, isErr := errCases[c+"/"+fs]; isErr {
 				b, err := os.ReadFile(dir + "error.txt")
-				if err != nil || !strings.Contains(string(b), want) || strings.HasPrefix(string(b), "Exception:") {
+				if err != nil || !strings.Contains(string(b), want) || errPrefixRE.Match(b) {
 					t.Errorf("%s/%s: bad error.txt %q (%v)", c, fs, b, err)
 				}
 				continue
