@@ -213,3 +213,36 @@ func TestKDEOneSampleCovIsFallback(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+// Ruling 8: when the trees sit on exactly two distinct (X, Y) points the
+// 2-D covariance is mathematically rank 1, and Python's own result depends
+// on the OpenBLAS kernel (2d with Inf densities under Prescott, 1d under
+// Sandybridge/Haswell). It is not a parity target; this pins Go's
+// deterministic sequential port (reviewer fuzz case 25).
+func TestTreeDensities_RankDeficientIsDeterministic(t *testing.T) {
+	trees := map[int]*TreeSummary{}
+	idx := map[int][3]float64{}
+	want := map[int]float64{}
+	for _, k := range []int{1, 4, 16, 22, 31} {
+		trees[k] = &TreeSummary{}
+		idx[k] = [3]float64{0x1.5ad6b5ad6b5adp-1, 0x1.3d1c13d1c13d2p-5, 0x1.22af122af122bp-2}
+		want[k] = 0x1.a64751efb286ep+02
+	}
+	for _, k := range []int{7, 10, 13, 19, 25, 28, 34, 37} {
+		trees[k] = &TreeSummary{}
+		idx[k] = [3]float64{0x1.aaaaaaaaaaaabp-2, 0x1.c71c71c71c71cp-3, 0x1.71c71c71c71c7p-2}
+		want[k] = 0x1.5067548edee61p+03
+	}
+	dens, mode, err := treeDensities(trees, idx)
+	if err != nil || mode != "1d" {
+		t.Fatalf("mode %q err %v, want 1d", mode, err)
+	}
+	if len(dens) != len(want) {
+		t.Fatalf("%d densities, want %d", len(dens), len(want))
+	}
+	for k, w := range want {
+		if dens[k] != w {
+			t.Errorf("tree %d: %x, want %x", k, dens[k], w)
+		}
+	}
+}

@@ -98,6 +98,11 @@ func npCov(data [][]float64, w []float64) ([]float64, error) {
 				s += float64(x[a][i] * xw[b][i])
 			}
 			c[a*d+b] = s * inv
+			// numpy raises 'invalid' only when an op creates a NaN from
+			// non-NaN operands; a quiet NaN merely propagating does not
+			// raise. For indices in [0, 1] the only NaN here is 0*inf when
+			// n == 1 (fact 0). Not a fallback for NaN inputs: do not rely
+			// on it as one.
 			if math.IsNaN(c[a*d+b]) {
 				return nil, kdeFallback("invalid value in multiply")
 			}
@@ -268,6 +273,10 @@ func kdeEvaluate(data [][]float64, w, u []float64, norm float64) ([]float64, err
 				energy += float64(diff * diff)
 			}
 			energy /= 2.0
+			// Mirrors 'invalid' on inf-inf in diff. numpy does not raise
+			// when a quiet NaN merely propagates, and for indices in [0, 1]
+			// this is unreachable; it must not be relied on as a fallback
+			// for NaN inputs.
 			if math.IsNaN(energy) {
 				return nil, kdeFallback("invalid value in subtract")
 			}
