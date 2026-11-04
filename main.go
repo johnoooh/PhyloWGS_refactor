@@ -4477,6 +4477,13 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "write-results" {
+		if err := writeResultsSubcommand(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	// Parse command line flags
 	samples := flag.Int("s", 2500, "Number of MCMC samples")
