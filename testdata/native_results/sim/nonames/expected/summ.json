@@ -1,0 +1,5350 @@
+{
+ "dataset_name": "sim",
+ "params": {},
+ "tree_densities": {
+  "0": 866.2730043401373,
+  "1": 874.060971107048,
+  "10": 1387.681934815559,
+  "11": 1417.4326212679914,
+  "12": 1154.7383511743708,
+  "13": 1435.3488968824292,
+  "14": 1186.5868362900812,
+  "15": 1128.440006387431,
+  "16": 888.0667416172537,
+  "17": 1569.7887309042997,
+  "18": 1842.4639517495293,
+  "19": 811.2159325209736,
+  "2": 783.88519926807,
+  "20": 1276.5713097507064,
+  "21": 2405.1019966922822,
+  "22": 2055.548302119299,
+  "23": 2655.1404555981244,
+  "24": 3645.3431866466913,
+  "25": 2707.844468555455,
+  "26": 634.2963615126972,
+  "27": 3152.1025938790704,
+  "28": 3626.3134089936875,
+  "29": 955.8053910026754,
+  "3": 1392.220533796658,
+  "30": 3637.819392511208,
+  "31": 1620.4732735536882,
+  "32": 2968.1311054535054,
+  "33": 3068.5618219825274,
+  "34": 2998.993860476837,
+  "35": 3701.2495397195553,
+  "36": 2421.509246667222,
+  "37": 1801.4513892557598,
+  "38": 2819.184050326476,
+  "39": 3181.908124618141,
+  "4": 598.4325070733696,
+  "40": 844.2872971769759,
+  "41": 1491.106418405185,
+  "42": 3668.5555276513346,
+  "43": 3402.7543022873665,
+  "44": 3052.833297073296,
+  "45": 1564.4166816719894,
+  "46": 3153.1903423146296,
+  "47": 2663.986490753626,
+  "48": 3597.1471786152447,
+  "49": 1319.471935081345,
+  "5": 956.0567506885028,
+  "50": 1410.6348636032033,
+  "51": 3332.202444288018,
+  "52": 3432.310648562578,
+  "53": 2328.878040073143,
+  "54": 3194.04928403329,
+  "55": 2020.3588352175068,
+  "56": 2330.4747115869304,
+  "57": 2689.0065913623366,
+  "58": 1994.7811574604648,
+  "59": 208.5405092980308,
+  "6": 1253.7169226585067,
+  "7": 1334.4436574320566,
+  "8": 1139.1061920019158,
+  "9": 879.0389353985856
+ },
+ "trees": {
+  "0": {
+   "branching_index": 0.05150753768844221,
+   "clustering_index": 0.5151256281407035,
+   "linearity_index": 0.43336683417085425,
+   "llh": -23482.794434604963,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0000000000000002
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998653675417419
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3127878117943446
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 4
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.11189489608713256
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.018167662855423455
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 8
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.002718717946394109
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 10
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.21820811113049068
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 30
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.01573057209315171
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.2024713836535686
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     6,
+     8
+    ],
+    "2": [
+     3,
+     4
+    ],
+    "4": [
+     5
+    ],
+    "6": [
+     7
+    ]
+   }
+  },
+  "1": {
+   "branching_index": 0.05944723618090452,
+   "clustering_index": 0.5158291457286432,
+   "linearity_index": 0.4247236180904523,
+   "llh": -23475.395035728856,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999999
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997883772083793
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.31730879159543585
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.08325069757596949
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.017663651458725664
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 12
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.014175112475030073
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 7
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.21183799836594458
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 30
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.15292365947138906
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.09383593573465014
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 5
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     6,
+     7
+    ],
+    "2": [
+     3,
+     4,
+     5
+    ],
+    "7": [
+     8
+    ]
+   }
+  },
+  "10": {
+   "branching_index": 0.050301507537688445,
+   "clustering_index": 0.5196984924623116,
+   "linearity_index": 0.43,
+   "llh": -23454.238143980114,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998702167396397
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.31572110739596443
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.02096805977657277
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 9
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.017970711432945947
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.002109053062915396
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 9
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.20982404128167775
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 33
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.1298702175051646
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 5
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     6,
+     7
+    ],
+    "2": [
+     3
+    ],
+    "3": [
+     4
+    ],
+    "4": [
+     5
+    ]
+   }
+  },
+  "11": {
+   "branching_index": 0.048844221105527635,
+   "clustering_index": 0.5211557788944724,
+   "linearity_index": 0.43,
+   "llh": -23464.430271812183,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0000000000000002
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998276508707155
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3190013361660453
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.02033858352191454
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 6
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.016351978948850886
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.002056866014687845
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 11
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.20852227838483867
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 34
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.09565760170567464
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     6,
+     7
+    ],
+    "2": [
+     3
+    ],
+    "3": [
+     4
+    ],
+    "4": [
+     5
+    ]
+   }
+  },
+  "12": {
+   "branching_index": 0.053618090452261305,
+   "clustering_index": 0.5194974874371859,
+   "linearity_index": 0.4268844221105528,
+   "llh": -23447.305519522833,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0000000000000002
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998511063464599
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.306576539101761
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.019980733033177555
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 7
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.010811298253290613
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 9
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.21711953200661457
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 33
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.10527046144249227
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 7
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.02652966141229831
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     5,
+     6,
+     7
+    ],
+    "2": [
+     3
+    ],
+    "3": [
+     4
+    ]
+   }
+  },
+  "13": {
+   "branching_index": 0.050301507537688445,
+   "clustering_index": 0.5202010050251257,
+   "linearity_index": 0.4294974874371859,
+   "llh": -23443.898345441503,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9996765058515843
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3145246595141784
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.019190308723568646
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 10
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.00484586733221912
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 9
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.21079369002112713
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 33
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.09002001043722258
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 5
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     5,
+     6
+    ],
+    "2": [
+     3
+    ],
+    "3": [
+     4
+    ]
+   }
+  },
+  "14": {
+   "branching_index": 0.050804020100502514,
+   "clustering_index": 0.5179396984924624,
+   "linearity_index": 0.4312562814070352,
+   "llh": -23469.970198200022,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999999
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998306973035601
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.31778496183121
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.021258214840136333
+     ],
+     "num_cnvs": 8,
+     "num_ssms": 8
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.018600024895750085
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 2
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.002750109433940039
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 10
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.21884810797914905
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 2
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.09655674226393895
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.21253234759134979
+     ],
+     "num_cnvs": 8,
+     "num_ssms": 32
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     6,
+     8
+    ],
+    "2": [
+     3
+    ],
+    "3": [
+     4
+    ],
+    "4": [
+     5
+    ],
+    "6": [
+     7
+    ]
+   }
+  },
+  "15": {
+   "branching_index": 0.047839195979899496,
+   "clustering_index": 0.5207537688442211,
+   "linearity_index": 0.4314070351758794,
+   "llh": -23492.759235295944,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999999
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998464087442577
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.31196856322665
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.023974523189448982
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 7
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.015234456662291689
+     ],
+     "num_cnvs": 2,
+     "num_ssms": 3
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.0016266782460022666
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.001056649380701104
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 10
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.2197043694776724
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 2
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.21328397790977754
+     ],
+     "num_cnvs": 8,
+     "num_ssms": 34
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     7,
+     8
+    ],
+    "2": [
+     3
+    ],
+    "3": [
+     4
+    ],
+    "4": [
+     5,
+     6
+    ]
+   }
+  },
+  "16": {
+   "branching_index": 0.049798994974874375,
+   "clustering_index": 0.5174371859296483,
+   "linearity_index": 0.4327638190954774,
+   "llh": -23483.087870290743,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0000000000000002
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998693463646167
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3169697214601565
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 4
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.02036506115313774
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 4
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.016579763638833032
+     ],
+     "num_cnvs": 2,
+     "num_ssms": 5
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.0025258961915642615
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.0021638031748158464
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 10
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.21860725932407168
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 3
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.21067358046561468
+     ],
+     "num_cnvs": 8,
+     "num_ssms": 32
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     7,
+     8
+    ],
+    "2": [
+     3
+    ],
+    "3": [
+     4
+    ],
+    "4": [
+     5,
+     6
+    ]
+   }
+  },
+  "17": {
+   "branching_index": 0.05959798994974874,
+   "clustering_index": 0.5081407035175879,
+   "linearity_index": 0.4322613065326633,
+   "llh": -23493.528398462528,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999998
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998177935371423
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.31083492232410936
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.18819282411668883
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 5
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.021153466731785232
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 5
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.01765323714706103
+     ],
+     "num_cnvs": 4,
+     "num_ssms": 5
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.0018108721708073067
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 9
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.22075277203602411
+     ],
+     "num_cnvs": 2,
+     "num_ssms": 5
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.07307534159963086
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "9": {
+     "cellular_prevalence": [
+      0.2123427636567692
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 25
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     7,
+     9
+    ],
+    "2": [
+     3,
+     4
+    ],
+    "4": [
+     5
+    ],
+    "5": [
+     6
+    ],
+    "7": [
+     8
+    ]
+   }
+  },
+  "18": {
+   "branching_index": 0.05864321608040201,
+   "clustering_index": 0.5094974874371859,
+   "linearity_index": 0.43185929648241206,
+   "llh": -23510.161708690295,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998296922674923
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3061287477512323
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 4
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.18195459540879294
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 5
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.026170291215108856
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 6
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.014279229647772784
+     ],
+     "num_cnvs": 4,
+     "num_ssms": 14
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.22034631445215078
+     ],
+     "num_cnvs": 2,
+     "num_ssms": 5
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.1312776725386569
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.207556357006465
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 24
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     6,
+     8
+    ],
+    "2": [
+     3,
+     4
+    ],
+    "4": [
+     5
+    ],
+    "6": [
+     7
+    ]
+   }
+  },
+  "19": {
+   "branching_index": 0.057386934673366835,
+   "clustering_index": 0.507537688442211,
+   "linearity_index": 0.4350753768844221,
+   "llh": -23500.833190674624,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999999
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998654210429928
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.30402424795698413
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 5
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.18405154558084325
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 11
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.025474433738768447
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 7
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.014774651199146073
+     ],
+     "num_cnvs": 4,
+     "num_ssms": 14
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.13669121606001985
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.20656153431169547
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 20
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     6,
+     7
+    ],
+    "2": [
+     3,
+     4
+    ],
+    "4": [
+     5
+    ]
+   }
+  },
+  "2": {
+   "branching_index": 0.05402010050251256,
+   "clustering_index": 0.5213567839195979,
+   "linearity_index": 0.42462311557788945,
+   "llh": -23482.679519140584,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0000000000000002
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997466784178366
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.32476037385221285
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.030420255637291407
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.019590940887854378
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 19
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.2515697244996527
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.0777741643430908
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.2118103239162805
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 31
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     5,
+     7
+    ],
+    "2": [
+     3,
+     4
+    ],
+    "5": [
+     6
+    ]
+   }
+  },
+  "20": {
+   "branching_index": 0.05844221105527638,
+   "clustering_index": 0.5080402010050251,
+   "linearity_index": 0.43351758793969847,
+   "llh": -23493.22348833792,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997556644744208
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3165356145131648
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.14137076882494867
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 14
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.023838833270364505
+     ],
+     "num_cnvs": 4,
+     "num_ssms": 5
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.016821885311240653
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 4
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.0026948709853730998
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 9
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.2040222483164701
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 22
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.02505714500619333
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     7
+    ],
+    "2": [
+     3,
+     4
+    ],
+    "4": [
+     5,
+     6
+    ],
+    "7": [
+     8
+    ]
+   }
+  },
+  "21": {
+   "branching_index": 0.059698492462311556,
+   "clustering_index": 0.51,
+   "linearity_index": 0.4303015075376884,
+   "llh": -23457.97595409828,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999998
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.999799920707646
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.31272973701763335
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.1466361092793253
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 13
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.02475482766614119
+     ],
+     "num_cnvs": 4,
+     "num_ssms": 4
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.016340337845061906
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 8
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.0013024239687607314
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 8
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.21128186742469016
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 24
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     7
+    ],
+    "2": [
+     3,
+     4
+    ],
+    "4": [
+     5,
+     6
+    ]
+   }
+  },
+  "22": {
+   "branching_index": 0.059698492462311556,
+   "clustering_index": 0.5092462311557789,
+   "linearity_index": 0.43105527638190955,
+   "llh": -23457.837911325372,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999998
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998019139417331
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3146133501525284
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.14682510348277708
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 15
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.025424784426494405
+     ],
+     "num_cnvs": 3,
+     "num_ssms": 3
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.014107885558333335
+     ],
+     "num_cnvs": 6,
+     "num_ssms": 11
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.0063380170939322696
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.0006372043717618464
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.20921453392161127
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 22
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     8
+    ],
+    "2": [
+     3,
+     4
+    ],
+    "4": [
+     5,
+     7
+    ],
+    "5": [
+     6
+    ]
+   }
+  },
+  "23": {
+   "branching_index": 0.059396984924623114,
+   "clustering_index": 0.5109547738693467,
+   "linearity_index": 0.4296482412060301,
+   "llh": -23457.618176693504,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999998
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997773669909653
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3132188069155814
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.10399263448801087
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 13
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.020399533445564697
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.015495458078193487
+     ],
+     "num_cnvs": 4,
+     "num_ssms": 10
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.011552278895527929
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.0011504808638306836
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 5
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.2079755427570412
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 25
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     8
+    ],
+    "2": [
+     3,
+     4
+    ],
+    "4": [
+     5,
+     7
+    ],
+    "5": [
+     6
+    ]
+   }
+  },
+  "24": {
+   "branching_index": 0.06613065326633166,
+   "clustering_index": 0.507537688442211,
+   "linearity_index": 0.4263316582914573,
+   "llh": -23478.287648876147,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997886878776029
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "10": {
+     "cellular_prevalence": [
+      0.2036048831146915
+     ],
+     "num_cnvs": 6,
+     "num_ssms": 22
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3114153009563583
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.12455437114560734
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 15
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.013814038642140597
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 6
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.003615720746280878
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.0021493175232046658
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.0020221835983464807
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 5
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.021374528428020654
+     ],
+     "num_cnvs": 4,
+     "num_ssms": 2
+    },
+    "9": {
+     "cellular_prevalence": [
+      0.22266058564633728
+     ],
+     "num_cnvs": 3,
+     "num_ssms": 3
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     9,
+     10
+    ],
+    "2": [
+     3,
+     4,
+     6,
+     7,
+     8
+    ],
+    "4": [
+     5
+    ]
+   }
+  },
+  "25": {
+   "branching_index": 0.0642713567839196,
+   "clustering_index": 0.5106030150753769,
+   "linearity_index": 0.42512562814070354,
+   "llh": -23479.77022041376,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997733377300304
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3190655936066838
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.12740990103244695
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 11
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.012932895684522881
+     ],
+     "num_cnvs": 3,
+     "num_ssms": 4
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.004163215544751671
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 9
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.018972944500292677
+     ],
+     "num_cnvs": 6,
+     "num_ssms": 4
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.017984238275282
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.1526482039284239
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "9": {
+     "cellular_prevalence": [
+      0.20443101217306528
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 26
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     8,
+     9
+    ],
+    "2": [
+     3,
+     4,
+     5,
+     6,
+     7
+    ]
+   }
+  },
+  "26": {
+   "branching_index": 0.06412060301507538,
+   "clustering_index": 0.5137688442211056,
+   "linearity_index": 0.4221105527638191,
+   "llh": -23468.58563176933,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999999
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997855831359774
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.12597211753544402
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 10
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.01392625651004771
+     ],
+     "num_cnvs": 3,
+     "num_ssms": 3
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.0009981331501768783
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 8
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.018361156464173953
+     ],
+     "num_cnvs": 6,
+     "num_ssms": 3
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.014815507501745094
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.17553888279263294
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.20348099757529375
+     ],
+     "num_cnvs": 14,
+     "num_ssms": 29
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  },
+  "27": {
+   "branching_index": 0.06582914572864322,
+   "clustering_index": 0.5066331658291457,
+   "linearity_index": 0.4275376884422111,
+   "llh": -23468.905808646843,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997635585183253
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.31173940651638304
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 4
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.1193612078915996
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 7
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.02154351557543626
+     ],
+     "num_cnvs": 2,
+     "num_ssms": 3
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.01931318236618959
+     ],
+     "num_cnvs": 4,
+     "num_ssms": 4
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.01679974465352549
+     ],
+     "num_cnvs": 3,
+     "num_ssms": 3
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.013210064075754884
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 10
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.22522569350741473
+     ],
+     "num_cnvs": 4,
+     "num_ssms": 6
+    },
+    "9": {
+     "cellular_prevalence": [
+      0.20085592913722977
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 23
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     8,
+     9
+    ],
+    "2": [
+     3,
+     4,
+     5,
+     6,
+     7
+    ]
+   }
+  },
+  "28": {
+   "branching_index": 0.06623115577889448,
+   "clustering_index": 0.5074371859296483,
+   "linearity_index": 0.4263316582914573,
+   "llh": -23448.726330468686,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999999
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998736848138715
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3145868756993033
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.11768212492216819
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 8
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.019145597768242824
+     ],
+     "num_cnvs": 8,
+     "num_ssms": 6
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.013139141192352826
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 7
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.008151207419882425
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 7
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.21876127074731114
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.2035334522616325
+     ],
+     "num_cnvs": 4,
+     "num_ssms": 24
+    },
+    "9": {
+     "cellular_prevalence": [
+      0.16414769026728981
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     7,
+     8,
+     9
+    ],
+    "2": [
+     3,
+     4,
+     5,
+     6
+    ]
+   }
+  },
+  "29": {
+   "branching_index": 0.07221105527638191,
+   "clustering_index": 0.5013065326633166,
+   "linearity_index": 0.4264824120603015,
+   "llh": -23465.89896232002,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998072990208479
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "10": {
+     "cellular_prevalence": [
+      0.20261906606278632
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 16
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.31644674802931194
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.11166663306237674
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 5
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.019774740617821432
+     ],
+     "num_cnvs": 2,
+     "num_ssms": 2
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.019664933410226747
+     ],
+     "num_cnvs": 6,
+     "num_ssms": 5
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.014195287107360966
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 9
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.2243159810950939
+     ],
+     "num_cnvs": 4,
+     "num_ssms": 10
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.20267758615548748
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 6
+    },
+    "9": {
+     "cellular_prevalence": [
+      0.025640611859389442
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     7,
+     8,
+     10
+    ],
+    "2": [
+     3,
+     4,
+     5,
+     6
+    ],
+    "8": [
+     9
+    ]
+   }
+  },
+  "3": {
+   "branching_index": 0.04778894472361809,
+   "clustering_index": 0.5233668341708543,
+   "linearity_index": 0.4288442211055276,
+   "llh": -23457.179765189107,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999999
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997476304294207
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3106581277904738
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.061106198702602775
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.017376462850243586
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 11
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.0039418824182002096
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 8
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.21492980285840765
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 35
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     6
+    ],
+    "2": [
+     3,
+     4
+    ],
+    "4": [
+     5
+    ]
+   }
+  },
+  "30": {
+   "branching_index": 0.06618090452261306,
+   "clustering_index": 0.5075879396984925,
+   "linearity_index": 0.4262311557788945,
+   "llh": -23442.445746551664,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998600616552251
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.31210014600536584
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.10745101742415498
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.21290319791193954
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 16
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.14266814090030608
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 18
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.10423972122888
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.020246818302811852
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 6
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.000933783295792386
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 13
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     4,
+     5,
+     6,
+     7
+    ],
+    "2": [
+     3
+    ],
+    "7": [
+     8
+    ]
+   }
+  },
+  "31": {
+   "branching_index": 0.06909547738693467,
+   "clustering_index": 0.5033668341708543,
+   "linearity_index": 0.4275376884422111,
+   "llh": -23452.855565024973,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997723562439309
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "10": {
+     "cellular_prevalence": [
+      0.01120082107383161
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.31286644307679184
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.08619432743612881
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.21050425012826193
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 14
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.19418070490040548
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.13984085408054667
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 16
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.12593586402492263
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.018412149490824974
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 9
+    },
+    "9": {
+     "cellular_prevalence": [
+      0.007260629492345422
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 8
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     4,
+     6,
+     7,
+     8,
+     10
+    ],
+    "2": [
+     3
+    ],
+    "4": [
+     5
+    ],
+    "8": [
+     9
+    ]
+   }
+  },
+  "32": {
+   "branching_index": 0.06668341708542713,
+   "clustering_index": 0.5059798994974875,
+   "linearity_index": 0.4273366834170854,
+   "llh": -23451.113921442105,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0000000000000002
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.999844344121425
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.31584345799096464
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.08911559161721444
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.21401317005172327
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 17
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.14775575857385356
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 15
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.13277386977736869
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.019488345330554567
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 10
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.003604358435721065
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 10
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     4,
+     5,
+     6,
+     7
+    ],
+    "2": [
+     3
+    ],
+    "7": [
+     8
+    ]
+   }
+  },
+  "33": {
+   "branching_index": 0.06768844221105527,
+   "clustering_index": 0.5057788944723618,
+   "linearity_index": 0.4265326633165829,
+   "llh": -23459.25692526437,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998073603443818
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3178189320855614
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 4
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.2132634010477689
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 13
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.15532886476407146
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 18
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.11926593616816294
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 6
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.02099165135662069
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 8
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.011776365488605287
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 11
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "6": [
+     7
+    ]
+   }
+  },
+  "34": {
+   "branching_index": 0.0678391959798995,
+   "clustering_index": 0.5056281407035176,
+   "linearity_index": 0.4265326633165829,
+   "llh": -23457.53719748396,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999998
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.999789036256481
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3120516270518295
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.20773233543166233
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 15
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.16543161869824327
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 16
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.13413212901795854
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 7
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.018697098934505378
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 8
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.008372555758874923
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 11
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "6": [
+     7
+    ]
+   }
+  },
+  "35": {
+   "branching_index": 0.06396984924623116,
+   "clustering_index": 0.5093467336683417,
+   "linearity_index": 0.4266834170854271,
+   "llh": -23451.537369904774,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999999
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997864942010969
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.11132840994927472
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.21408212770789886
+     ],
+     "num_cnvs": 14,
+     "num_ssms": 17
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.18171311662543121
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 21
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.020642317024408233
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 7
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.0059134235067049516
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 5
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.001579343217571955
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 8
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3,
+     4,
+     5
+    ],
+    "5": [
+     6,
+     7
+    ]
+   }
+  },
+  "36": {
+   "branching_index": 0.06819095477386934,
+   "clustering_index": 0.5076884422110552,
+   "linearity_index": 0.42412060301507537,
+   "llh": -23462.97990155771,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0000000000000002
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998525462605726
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.11008981498032916
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.21311762700636824
+     ],
+     "num_cnvs": 14,
+     "num_ssms": 17
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.17621854956100083
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 20
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.01985746019357014
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 5
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.005940606661894728
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.002676959040514401
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 6
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.012830578830801942
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 6
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3,
+     4,
+     5,
+     8
+    ],
+    "5": [
+     6,
+     7
+    ]
+   }
+  },
+  "37": {
+   "branching_index": 0.07080402010050252,
+   "clustering_index": 0.5051758793969849,
+   "linearity_index": 0.42402010050251254,
+   "llh": -23468.73956220391,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.99985437518083
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "10": {
+     "cellular_prevalence": [
+      0.012225071621919326
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 5
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3126383807212255
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.13504524404597376
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.2118119727576622
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 16
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.1728192412349264
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 18
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.12517117987623866
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.038862748296147005
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.020681648837717483
+     ],
+     "num_cnvs": 8,
+     "num_ssms": 4
+    },
+    "9": {
+     "cellular_prevalence": [
+      0.0023109533343681505
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 8
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     4,
+     5,
+     6,
+     7,
+     8,
+     10
+    ],
+    "2": [
+     3
+    ],
+    "8": [
+     9
+    ]
+   }
+  },
+  "38": {
+   "branching_index": 0.0685929648241206,
+   "clustering_index": 0.5052763819095477,
+   "linearity_index": 0.42613065326633165,
+   "llh": -23470.33948747405,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0000000000000002
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998440373598134
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "10": {
+     "cellular_prevalence": [
+      0.013580078611822819
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 2
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.30986234415381525
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.1010858911183314
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.21065240012218617
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 20
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.16611692322456303
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 14
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.045303973854667376
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.020157099991271476
+     ],
+     "num_cnvs": 8,
+     "num_ssms": 3
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.006495794129366378
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 5
+    },
+    "9": {
+     "cellular_prevalence": [
+      0.004121107053083631
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 7
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     4,
+     5,
+     6,
+     7,
+     10
+    ],
+    "2": [
+     3
+    ],
+    "7": [
+     8
+    ],
+    "8": [
+     9
+    ]
+   }
+  },
+  "39": {
+   "branching_index": 0.0671859296482412,
+   "clustering_index": 0.5060804020100502,
+   "linearity_index": 0.42673366834170856,
+   "llh": -23467.24769808392,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998582088350376
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "10": {
+     "cellular_prevalence": [
+      0.016669288433797814
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 2
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.30946255179743726
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.12226650633020077
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.1019171069202066
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.21757066062752448
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 19
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.15612548813314844
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 14
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.028460999064880532
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.019981099886124374
+     ],
+     "num_cnvs": 8,
+     "num_ssms": 2
+    },
+    "9": {
+     "cellular_prevalence": [
+      0.015138102676445957
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 12
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     5,
+     6,
+     8,
+     10
+    ],
+    "2": [
+     3,
+     4
+    ],
+    "6": [
+     7
+    ],
+    "8": [
+     9
+    ]
+   }
+  },
+  "4": {
+   "branching_index": 0.04824120603015075,
+   "clustering_index": 0.526180904522613,
+   "linearity_index": 0.4255778894472362,
+   "llh": -23451.891426144935,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0000000000000002
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998151417393701
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3160146772163178
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.06898232289340425
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.016920123692335635
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 19
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.2116713943776495
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 34
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     5
+    ],
+    "2": [
+     3,
+     4
+    ]
+   }
+  },
+  "40": {
+   "branching_index": 0.05542713567839196,
+   "clustering_index": 0.5093467336683417,
+   "linearity_index": 0.4352261306532663,
+   "llh": -23466.639211609512,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999997
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997764247885702
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.21518386516127513
+     ],
+     "num_cnvs": 14,
+     "num_ssms": 21
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.170662224517632
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 18
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.033805175965820465
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 5
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.007619557366074707
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 7
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.01984957773533271
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 5
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.018814830382597864
+     ],
+     "num_cnvs": 2,
+     "num_ssms": 2
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.017543438018063583
+     ],
+     "num_cnvs": 2,
+     "num_ssms": 2
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3,
+     6,
+     8
+    ],
+    "3": [
+     4
+    ],
+    "4": [
+     5
+    ],
+    "6": [
+     7
+    ]
+   }
+  },
+  "41": {
+   "branching_index": 0.059698492462311556,
+   "clustering_index": 0.5078894472361809,
+   "linearity_index": 0.43241206030150753,
+   "llh": -23495.34911636699,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999998
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997929868224429
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.30907168616524694
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.10643340163429478
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.2145639244151245
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 18
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.16107822702358568
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 18
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.010819158668936096
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 10
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.02325149364010327
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 7
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.015792251495268833
+     ],
+     "num_cnvs": 4,
+     "num_ssms": 3
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     4,
+     5,
+     7
+    ],
+    "2": [
+     3
+    ],
+    "5": [
+     6
+    ],
+    "7": [
+     8
+    ]
+   }
+  },
+  "42": {
+   "branching_index": 0.06376884422110553,
+   "clustering_index": 0.5087939698492462,
+   "linearity_index": 0.42743718592964824,
+   "llh": -23485.582032426162,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0000000000000004
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.999840957732412
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.31638172322394487
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.21107788915392306
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 18
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.1560116262524084
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 18
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.08848703798834132
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.025075908126477812
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 4
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.01260515649805859
+     ],
+     "num_cnvs": 4,
+     "num_ssms": 13
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.01873471729782949
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3,
+     4,
+     6,
+     8
+    ],
+    "4": [
+     5
+    ],
+    "6": [
+     7
+    ]
+   }
+  },
+  "43": {
+   "branching_index": 0.06261306532663316,
+   "clustering_index": 0.5105527638190954,
+   "linearity_index": 0.42683417085427133,
+   "llh": -23458.87293292464,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998214884174386
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.21658670925365825
+     ],
+     "num_cnvs": 14,
+     "num_ssms": 21
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.14771444830829664
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 19
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.014072199171384171
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.023599751164966334
+     ],
+     "num_cnvs": 6,
+     "num_ssms": 4
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.012962736308738803
+     ],
+     "num_cnvs": 3,
+     "num_ssms": 7
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.001615499234034818
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 7
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3,
+     5
+    ],
+    "3": [
+     4
+    ],
+    "5": [
+     6,
+     7
+    ]
+   }
+  },
+  "44": {
+   "branching_index": 0.06673366834170855,
+   "clustering_index": 0.5083417085427135,
+   "linearity_index": 0.4249246231155779,
+   "llh": -23451.64181864618,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997838217353815
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.31809387371188064
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.019049035399070262
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 2
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.017745488580943155
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 2
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.21220294527975586
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 17
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.16580235451766
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 21
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.02199145484714248
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 4
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.013233018416322295
+     ],
+     "num_cnvs": 2,
+     "num_ssms": 7
+    },
+    "9": {
+     "cellular_prevalence": [
+      0.0015318462621957333
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 5
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     5,
+     6,
+     7
+    ],
+    "2": [
+     3,
+     4
+    ],
+    "7": [
+     8,
+     9
+    ]
+   }
+  },
+  "45": {
+   "branching_index": 0.06758793969849246,
+   "clustering_index": 0.5093969849246232,
+   "linearity_index": 0.42301507537688443,
+   "llh": -23451.017880757947,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999999
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998223370982404
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.31196099587392884
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.01642719301916693
+     ],
+     "num_cnvs": 8,
+     "num_ssms": 6
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.21095698014073253
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 24
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.16422632709141766
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 14
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.0006465971064559268
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 5
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.008688529079075795
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 4
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.0011731643006257036
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     4,
+     5,
+     6,
+     7,
+     8
+    ],
+    "2": [
+     3
+    ]
+   }
+  },
+  "46": {
+   "branching_index": 0.06376884422110553,
+   "clustering_index": 0.5104020100502512,
+   "linearity_index": 0.4258291457286432,
+   "llh": -23460.41331457278,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999999
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997883795726945
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "10": {
+     "cellular_prevalence": [
+      0.002153283975335469
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3204730992892823
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.0154784418868846
+     ],
+     "num_cnvs": 3,
+     "num_ssms": 3
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.21252641529301497
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 25
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.15919436666118736
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 14
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.01721546800644465
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.02178074311033586
+     ],
+     "num_cnvs": 6,
+     "num_ssms": 2
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.005223821954116255
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "9": {
+     "cellular_prevalence": [
+      0.0012030008321421903
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 8
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     4,
+     5,
+     7
+    ],
+    "2": [
+     3
+    ],
+    "5": [
+     6
+    ],
+    "7": [
+     8,
+     10
+    ],
+    "8": [
+     9
+    ]
+   }
+  },
+  "47": {
+   "branching_index": 0.06618090452261306,
+   "clustering_index": 0.5092964824120603,
+   "linearity_index": 0.4245226130653266,
+   "llh": -23452.129324217833,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0000000000000002
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998509659512539
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3094921091002034
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.016703427772974486
+     ],
+     "num_cnvs": 2,
+     "num_ssms": 3
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.21637090900331651
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 22
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.1687193147115208
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 16
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.022408164877804247
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 3
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.002986346648959508
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.0006170011763267495
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 10
+    },
+    "9": {
+     "cellular_prevalence": [
+      0.0015559751677345392
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     4,
+     5,
+     6
+    ],
+    "2": [
+     3
+    ],
+    "6": [
+     7,
+     8,
+     9
+    ]
+   }
+  },
+  "48": {
+   "branching_index": 0.0649246231155779,
+   "clustering_index": 0.5090452261306533,
+   "linearity_index": 0.4260301507537688,
+   "llh": -23466.047431063547,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998565372900193
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.31423537857732137
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.01516264672827473
+     ],
+     "num_cnvs": 2,
+     "num_ssms": 5
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.21381845438098057
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 21
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.17904795571410537
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 17
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.016047442082326436
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 4
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.002335118727865429
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.0012166872646229016
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 9
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     4,
+     5,
+     7,
+     8
+    ],
+    "2": [
+     3
+    ],
+    "5": [
+     6
+    ]
+   }
+  },
+  "49": {
+   "branching_index": 0.0657286432160804,
+   "clustering_index": 0.5112562814070352,
+   "linearity_index": 0.42301507537688443,
+   "llh": -23454.06008096186,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998889990654221
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.017054828970034446
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 6
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.004253101407914808
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.21377162985136178
+     ],
+     "num_cnvs": 14,
+     "num_ssms": 23
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.16029579802814184
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 17
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.00261716623831907
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.0008726385547330152
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 9
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     4,
+     5,
+     6,
+     7
+    ],
+    "2": [
+     3
+    ]
+   }
+  },
+  "5": {
+   "branching_index": 0.053768844221105526,
+   "clustering_index": 0.5209045226130653,
+   "linearity_index": 0.42532663316582914,
+   "llh": -23447.396574346403,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999998
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997024187640688
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.30676791554024896
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 4
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.10677528762656541
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.018683577792336967
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 13
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.20830286871193393
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 33
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.006191146235109805
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 7
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     5,
+     6
+    ],
+    "2": [
+     3,
+     4
+    ]
+   }
+  },
+  "50": {
+   "branching_index": 0.055125628140703514,
+   "clustering_index": 0.5122110552763819,
+   "linearity_index": 0.43266331658291457,
+   "llh": -23501.558650157436,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0000000000000002
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9994818107868817
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.01991226806756268
+     ],
+     "num_cnvs": 8,
+     "num_ssms": 6
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.21149765714117053
+     ],
+     "num_cnvs": 14,
+     "num_ssms": 21
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.001542067212704376
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 10
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.16287739691406874
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 20
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.016114420136239795
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 3
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3,
+     5,
+     6
+    ],
+    "3": [
+     4
+    ]
+   }
+  },
+  "51": {
+   "branching_index": 0.06145728643216081,
+   "clustering_index": 0.5105527638190954,
+   "linearity_index": 0.4279899497487437,
+   "llh": -23484.367471828835,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999998
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.999841712573846
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.01758800268799162
+     ],
+     "num_cnvs": 3,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.004156516079864793
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 8
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.21740125987443706
+     ],
+     "num_cnvs": 14,
+     "num_ssms": 23
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.0059252551343745834
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.15701898763089972
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 17
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.025034942751356086
+     ],
+     "num_cnvs": 6,
+     "num_ssms": 3
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.006131279102328034
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     4,
+     6,
+     7
+    ],
+    "2": [
+     3
+    ],
+    "4": [
+     5
+    ],
+    "7": [
+     8
+    ]
+   }
+  },
+  "52": {
+   "branching_index": 0.06195979899497488,
+   "clustering_index": 0.5101005025125628,
+   "linearity_index": 0.42793969849246233,
+   "llh": -23463.354758247264,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999997
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998409312640333
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.021879724889756775
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.007585766800088666
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.21212047897013028
+     ],
+     "num_cnvs": 14,
+     "num_ssms": 22
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.017928132432632134
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 3
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.1265123654112713
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 18
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.022102942436154006
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 3
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.008237463383971844
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "9": {
+     "cellular_prevalence": [
+      0.001404551021169784
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 8
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     4,
+     6,
+     7
+    ],
+    "2": [
+     3
+    ],
+    "4": [
+     5
+    ],
+    "7": [
+     8
+    ],
+    "8": [
+     9
+    ]
+   }
+  },
+  "53": {
+   "branching_index": 0.0578391959798995,
+   "clustering_index": 0.5126633165829145,
+   "linearity_index": 0.4294974874371859,
+   "llh": -23453.042977137993,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997317657893994
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.21393864543890814
+     ],
+     "num_cnvs": 14,
+     "num_ssms": 26
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.020560250593833297
+     ],
+     "num_cnvs": 3,
+     "num_ssms": 2
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.14387589744679397
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 15
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.02103842137569123
+     ],
+     "num_cnvs": 6,
+     "num_ssms": 5
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.004050788203118836
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 5
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.002493501989815942
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 7
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     4,
+     5
+    ],
+    "2": [
+     3
+    ],
+    "5": [
+     6
+    ],
+    "6": [
+     7
+    ]
+   }
+  },
+  "54": {
+   "branching_index": 0.06090452261306532,
+   "clustering_index": 0.5110050251256282,
+   "linearity_index": 0.42809045226130654,
+   "llh": -23455.00299477113,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999999
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997937538860998
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3105156774530113
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.2150921184331981
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 24
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.15834447867189025
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 14
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.021669478152409584
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 5
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.007689873738303189
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.001813418459578892
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 11
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3,
+     4,
+     5
+    ],
+    "5": [
+     6
+    ],
+    "6": [
+     7
+    ]
+   }
+  },
+  "55": {
+   "branching_index": 0.057738693467336684,
+   "clustering_index": 0.5139698492462311,
+   "linearity_index": 0.42829145728643214,
+   "llh": -23451.026402702544,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999997
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998325151148887
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.213070341393732
+     ],
+     "num_cnvs": 14,
+     "num_ssms": 28
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.01933009991048895
+     ],
+     "num_cnvs": 4,
+     "num_ssms": 3
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.1409292279280954
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 13
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.022044519634750404
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.0025111326962965036
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 6
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.0017858832036157378
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 7
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     4,
+     5
+    ],
+    "2": [
+     3
+    ],
+    "5": [
+     6,
+     7
+    ]
+   }
+  },
+  "56": {
+   "branching_index": 0.05849246231155779,
+   "clustering_index": 0.511105527638191,
+   "linearity_index": 0.43040201005025125,
+   "llh": -23473.70691748463,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998798403591245
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.1255272672106797
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.21443371756681553
+     ],
+     "num_cnvs": 14,
+     "num_ssms": 27
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.025224034547091524
+     ],
+     "num_cnvs": 6,
+     "num_ssms": 3
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.001949928448879808
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.16521835323475692
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 10
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.026091338744999873
+     ],
+     "num_cnvs": 2,
+     "num_ssms": 2
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.008292088856102409
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 4
+    },
+    "9": {
+     "cellular_prevalence": [
+      0.0016623735165723873
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 8
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3,
+     6,
+     7
+    ],
+    "3": [
+     4
+    ],
+    "4": [
+     5
+    ],
+    "7": [
+     8,
+     9
+    ]
+   }
+  },
+  "57": {
+   "branching_index": 0.05914572864321608,
+   "clustering_index": 0.5122110552763819,
+   "linearity_index": 0.428643216080402,
+   "llh": -23529.10014752857,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0000000000000002
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997640888247602
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.10063478408564046
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.020938165710830865
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.21592107847250228
+     ],
+     "num_cnvs": 14,
+     "num_ssms": 26
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.12305456519607974
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.022515986540122452
+     ],
+     "num_cnvs": 4,
+     "num_ssms": 3
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.18178160422377976
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 9
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.008870504751083051
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 14
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3,
+     4,
+     7,
+     8
+    ],
+    "4": [
+     5,
+     6
+    ]
+   }
+  },
+  "58": {
+   "branching_index": 0.05849246231155779,
+   "clustering_index": 0.5139195979899498,
+   "linearity_index": 0.42758793969849246,
+   "llh": -23542.04112111876,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0000000000000002
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9996733421401912
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.11071701451267545
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 4
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.21499404662470575
+     ],
+     "num_cnvs": 14,
+     "num_ssms": 27
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.02415691098482313
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 3
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.1802541475826545
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 10
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.005881612860637617
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.001476361677522746
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 14
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3,
+     5,
+     6
+    ],
+    "3": [
+     4
+    ],
+    "6": [
+     7
+    ]
+   }
+  },
+  "59": {
+   "branching_index": 0.038442211055276385,
+   "clustering_index": 0.5133668341708543,
+   "linearity_index": 0.44819095477386933,
+   "llh": -23526.130326356248,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999997
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997464965915286
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.299535101063957
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.21018804084130618
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 27
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.02250931377861806
+     ],
+     "num_cnvs": 8,
+     "num_ssms": 5
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.00260697584473768
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 12
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.14228657323307486
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 11
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.011129564920395726
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 3
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3,
+     6,
+     7
+    ],
+    "3": [
+     4
+    ],
+    "4": [
+     5
+    ]
+   }
+  },
+  "6": {
+   "branching_index": 0.048190954773869345,
+   "clustering_index": 0.5241206030150753,
+   "linearity_index": 0.4276884422110553,
+   "llh": -23452.014480144135,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0000000000000002
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.999850879398543
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.30943772387826185
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 3
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.018908258031325308
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 9
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.0022316394819813386
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 7
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.21332728702137838
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 36
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.021183488795518134
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 5
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     5,
+     6
+    ],
+    "2": [
+     3
+    ],
+    "3": [
+     4
+    ]
+   }
+  },
+  "7": {
+   "branching_index": 0.050603015075376886,
+   "clustering_index": 0.5222110552763819,
+   "linearity_index": 0.4271859296482412,
+   "llh": -23464.936142571598,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999999
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998566194960301
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3096296519211852
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.05664010428230726
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.018974504469908615
+     ],
+     "num_cnvs": 8,
+     "num_ssms": 7
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.014038646600732868
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 9
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.2164241493187294
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 35
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.02005785661530215
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 4
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     6,
+     7
+    ],
+    "2": [
+     3,
+     4
+    ],
+    "4": [
+     5
+    ]
+   }
+  },
+  "8": {
+   "branching_index": 0.04648241206030151,
+   "clustering_index": 0.5250251256281407,
+   "linearity_index": 0.4284924623115578,
+   "llh": -23443.123674784543,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      0.9999999999999997
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9998185211786712
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3195111924493688
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.020639231333448495
+     ],
+     "num_cnvs": 8,
+     "num_ssms": 9
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.005323740744147393
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.003880906906447186
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 2
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.0020216655167301124
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 5
+    },
+    "7": {
+     "cellular_prevalence": [
+      0.21243002146626605
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 37
+    },
+    "8": {
+     "cellular_prevalence": [
+      0.02043126168347297
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 3
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     7,
+     8
+    ],
+    "2": [
+     3
+    ],
+    "3": [
+     4,
+     5
+    ],
+    "5": [
+     6
+    ]
+   }
+  },
+  "9": {
+   "branching_index": 0.04447236180904523,
+   "clustering_index": 0.525175879396985,
+   "linearity_index": 0.43035175879396986,
+   "llh": -23443.003853761125,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0000000000000002
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.9997659830659572
+     ],
+     "num_cnvs": 7,
+     "num_ssms": 140
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.3083804264360211
+     ],
+     "num_cnvs": 5,
+     "num_ssms": 2
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.02052096983291137
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 12
+    },
+    "4": {
+     "cellular_prevalence": [
+      0.006380741337092579
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 3
+    },
+    "5": {
+     "cellular_prevalence": [
+      0.0022161859708041487
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 7
+    },
+    "6": {
+     "cellular_prevalence": [
+      0.2134827803952338
+     ],
+     "num_cnvs": 9,
+     "num_ssms": 36
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     6
+    ],
+    "2": [
+     3
+    ],
+    "3": [
+     4,
+     5
+    ]
+   }
+  }
+ }
+}

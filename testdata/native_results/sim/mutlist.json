@@ -1,0 +1,3853 @@
+{
+  "ssms": {
+    "s0": {
+      "ref_reads": [
+        96
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_0"
+    },
+    "s1": {
+      "ref_reads": [
+        118
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_1"
+    },
+    "s10": {
+      "ref_reads": [
+        96
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_10"
+    },
+    "s100": {
+      "ref_reads": [
+        186
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_100"
+    },
+    "s101": {
+      "ref_reads": [
+        177
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_101"
+    },
+    "s102": {
+      "ref_reads": [
+        200
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_102"
+    },
+    "s103": {
+      "ref_reads": [
+        0
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_103"
+    },
+    "s104": {
+      "ref_reads": [
+        100
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_104"
+    },
+    "s105": {
+      "ref_reads": [
+        200
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_105"
+    },
+    "s106": {
+      "ref_reads": [
+        185
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_106"
+    },
+    "s107": {
+      "ref_reads": [
+        199
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_107"
+    },
+    "s108": {
+      "ref_reads": [
+        125
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_108"
+    },
+    "s109": {
+      "ref_reads": [
+        101
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_109"
+    },
+    "s11": {
+      "ref_reads": [
+        110
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_11"
+    },
+    "s110": {
+      "ref_reads": [
+        91
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_110"
+    },
+    "s111": {
+      "ref_reads": [
+        200
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_111"
+    },
+    "s112": {
+      "ref_reads": [
+        190
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_112"
+    },
+    "s113": {
+      "ref_reads": [
+        104
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_113"
+    },
+    "s114": {
+      "ref_reads": [
+        182
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_114"
+    },
+    "s115": {
+      "ref_reads": [
+        89
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_115"
+    },
+    "s116": {
+      "ref_reads": [
+        90
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_116"
+    },
+    "s117": {
+      "ref_reads": [
+        96
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_117"
+    },
+    "s118": {
+      "ref_reads": [
+        95
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_118"
+    },
+    "s119": {
+      "ref_reads": [
+        93
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_119"
+    },
+    "s12": {
+      "ref_reads": [
+        65
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_12"
+    },
+    "s120": {
+      "ref_reads": [
+        98
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_120"
+    },
+    "s121": {
+      "ref_reads": [
+        84
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_121"
+    },
+    "s122": {
+      "ref_reads": [
+        80
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_122"
+    },
+    "s123": {
+      "ref_reads": [
+        0
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_123"
+    },
+    "s124": {
+      "ref_reads": [
+        200
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_124"
+    },
+    "s125": {
+      "ref_reads": [
+        94
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_125"
+    },
+    "s126": {
+      "ref_reads": [
+        200
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_126"
+    },
+    "s127": {
+      "ref_reads": [
+        118
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_127"
+    },
+    "s128": {
+      "ref_reads": [
+        109
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_128"
+    },
+    "s129": {
+      "ref_reads": [
+        97
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_129"
+    },
+    "s13": {
+      "ref_reads": [
+        0
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_13"
+    },
+    "s130": {
+      "ref_reads": [
+        189
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_130"
+    },
+    "s131": {
+      "ref_reads": [
+        109
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_131"
+    },
+    "s132": {
+      "ref_reads": [
+        92
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_132"
+    },
+    "s133": {
+      "ref_reads": [
+        200
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_133"
+    },
+    "s134": {
+      "ref_reads": [
+        107
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_134"
+    },
+    "s135": {
+      "ref_reads": [
+        182
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_135"
+    },
+    "s136": {
+      "ref_reads": [
+        180
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_136"
+    },
+    "s137": {
+      "ref_reads": [
+        113
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_137"
+    },
+    "s138": {
+      "ref_reads": [
+        164
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_138"
+    },
+    "s139": {
+      "ref_reads": [
+        91
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_139"
+    },
+    "s14": {
+      "ref_reads": [
+        184
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_14"
+    },
+    "s140": {
+      "ref_reads": [
+        105
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_140"
+    },
+    "s141": {
+      "ref_reads": [
+        103
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_141"
+    },
+    "s142": {
+      "ref_reads": [
+        0
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_142"
+    },
+    "s143": {
+      "ref_reads": [
+        118
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_143"
+    },
+    "s144": {
+      "ref_reads": [
+        183
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_144"
+    },
+    "s145": {
+      "ref_reads": [
+        105
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_145"
+    },
+    "s146": {
+      "ref_reads": [
+        91
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_146"
+    },
+    "s147": {
+      "ref_reads": [
+        117
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_147"
+    },
+    "s148": {
+      "ref_reads": [
+        184
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_148"
+    },
+    "s149": {
+      "ref_reads": [
+        198
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_149"
+    },
+    "s15": {
+      "ref_reads": [
+        189
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_15"
+    },
+    "s150": {
+      "ref_reads": [
+        96
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_150"
+    },
+    "s151": {
+      "ref_reads": [
+        182
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_151"
+    },
+    "s152": {
+      "ref_reads": [
+        180
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_152"
+    },
+    "s153": {
+      "ref_reads": [
+        101
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_153"
+    },
+    "s154": {
+      "ref_reads": [
+        98
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_154"
+    },
+    "s155": {
+      "ref_reads": [
+        117
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_155"
+    },
+    "s156": {
+      "ref_reads": [
+        185
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_156"
+    },
+    "s157": {
+      "ref_reads": [
+        97
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_157"
+    },
+    "s158": {
+      "ref_reads": [
+        190
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_158"
+    },
+    "s159": {
+      "ref_reads": [
+        200
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_159"
+    },
+    "s16": {
+      "ref_reads": [
+        98
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_16"
+    },
+    "s160": {
+      "ref_reads": [
+        107
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_160"
+    },
+    "s161": {
+      "ref_reads": [
+        104
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_161"
+    },
+    "s162": {
+      "ref_reads": [
+        106
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_162"
+    },
+    "s163": {
+      "ref_reads": [
+        1
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_163"
+    },
+    "s164": {
+      "ref_reads": [
+        103
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_164"
+    },
+    "s165": {
+      "ref_reads": [
+        188
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_165"
+    },
+    "s166": {
+      "ref_reads": [
+        95
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_166"
+    },
+    "s167": {
+      "ref_reads": [
+        0
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_167"
+    },
+    "s168": {
+      "ref_reads": [
+        176
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_168"
+    },
+    "s169": {
+      "ref_reads": [
+        120
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_169"
+    },
+    "s17": {
+      "ref_reads": [
+        107
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_17"
+    },
+    "s170": {
+      "ref_reads": [
+        96
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_170"
+    },
+    "s171": {
+      "ref_reads": [
+        85
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_171"
+    },
+    "s172": {
+      "ref_reads": [
+        187
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_172"
+    },
+    "s173": {
+      "ref_reads": [
+        108
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_173"
+    },
+    "s174": {
+      "ref_reads": [
+        1
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_174"
+    },
+    "s175": {
+      "ref_reads": [
+        181
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_175"
+    },
+    "s176": {
+      "ref_reads": [
+        118
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_176"
+    },
+    "s177": {
+      "ref_reads": [
+        185
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_177"
+    },
+    "s178": {
+      "ref_reads": [
+        102
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_178"
+    },
+    "s179": {
+      "ref_reads": [
+        107
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_179"
+    },
+    "s18": {
+      "ref_reads": [
+        109
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_18"
+    },
+    "s180": {
+      "ref_reads": [
+        184
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_180"
+    },
+    "s181": {
+      "ref_reads": [
+        97
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_181"
+    },
+    "s182": {
+      "ref_reads": [
+        95
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_182"
+    },
+    "s183": {
+      "ref_reads": [
+        172
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_183"
+    },
+    "s184": {
+      "ref_reads": [
+        114
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_184"
+    },
+    "s185": {
+      "ref_reads": [
+        94
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_185"
+    },
+    "s186": {
+      "ref_reads": [
+        200
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_186"
+    },
+    "s187": {
+      "ref_reads": [
+        107
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_187"
+    },
+    "s188": {
+      "ref_reads": [
+        102
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_188"
+    },
+    "s189": {
+      "ref_reads": [
+        185
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_189"
+    },
+    "s19": {
+      "ref_reads": [
+        107
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_19"
+    },
+    "s190": {
+      "ref_reads": [
+        106
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_190"
+    },
+    "s191": {
+      "ref_reads": [
+        90
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_191"
+    },
+    "s192": {
+      "ref_reads": [
+        104
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_192"
+    },
+    "s193": {
+      "ref_reads": [
+        107
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_193"
+    },
+    "s194": {
+      "ref_reads": [
+        190
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_194"
+    },
+    "s195": {
+      "ref_reads": [
+        104
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_195"
+    },
+    "s196": {
+      "ref_reads": [
+        200
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_196"
+    },
+    "s197": {
+      "ref_reads": [
+        182
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_197"
+    },
+    "s198": {
+      "ref_reads": [
+        0
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_198"
+    },
+    "s199": {
+      "ref_reads": [
+        0
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_199"
+    },
+    "s2": {
+      "ref_reads": [
+        103
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_2"
+    },
+    "s20": {
+      "ref_reads": [
+        93
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_20"
+    },
+    "s21": {
+      "ref_reads": [
+        100
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_21"
+    },
+    "s22": {
+      "ref_reads": [
+        91
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_22"
+    },
+    "s23": {
+      "ref_reads": [
+        95
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_23"
+    },
+    "s24": {
+      "ref_reads": [
+        98
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_24"
+    },
+    "s25": {
+      "ref_reads": [
+        99
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_25"
+    },
+    "s26": {
+      "ref_reads": [
+        98
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_26"
+    },
+    "s27": {
+      "ref_reads": [
+        186
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_27"
+    },
+    "s28": {
+      "ref_reads": [
+        200
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_28"
+    },
+    "s29": {
+      "ref_reads": [
+        109
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_29"
+    },
+    "s3": {
+      "ref_reads": [
+        106
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_3"
+    },
+    "s30": {
+      "ref_reads": [
+        0
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_30"
+    },
+    "s31": {
+      "ref_reads": [
+        113
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_31"
+    },
+    "s32": {
+      "ref_reads": [
+        106
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_32"
+    },
+    "s33": {
+      "ref_reads": [
+        188
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_33"
+    },
+    "s34": {
+      "ref_reads": [
+        91
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_34"
+    },
+    "s35": {
+      "ref_reads": [
+        123
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_35"
+    },
+    "s36": {
+      "ref_reads": [
+        90
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_36"
+    },
+    "s37": {
+      "ref_reads": [
+        199
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_37"
+    },
+    "s38": {
+      "ref_reads": [
+        97
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_38"
+    },
+    "s39": {
+      "ref_reads": [
+        110
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_39"
+    },
+    "s4": {
+      "ref_reads": [
+        84
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_4"
+    },
+    "s40": {
+      "ref_reads": [
+        111
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_40"
+    },
+    "s41": {
+      "ref_reads": [
+        100
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_41"
+    },
+    "s42": {
+      "ref_reads": [
+        93
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_42"
+    },
+    "s43": {
+      "ref_reads": [
+        104
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_43"
+    },
+    "s44": {
+      "ref_reads": [
+        102
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_44"
+    },
+    "s45": {
+      "ref_reads": [
+        99
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_45"
+    },
+    "s46": {
+      "ref_reads": [
+        117
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_46"
+    },
+    "s47": {
+      "ref_reads": [
+        197
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_47"
+    },
+    "s48": {
+      "ref_reads": [
+        195
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_48"
+    },
+    "s49": {
+      "ref_reads": [
+        109
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_49"
+    },
+    "s5": {
+      "ref_reads": [
+        200
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_5"
+    },
+    "s50": {
+      "ref_reads": [
+        108
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_50"
+    },
+    "s51": {
+      "ref_reads": [
+        107
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_51"
+    },
+    "s52": {
+      "ref_reads": [
+        200
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_52"
+    },
+    "s53": {
+      "ref_reads": [
+        124
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_53"
+    },
+    "s54": {
+      "ref_reads": [
+        106
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_54"
+    },
+    "s55": {
+      "ref_reads": [
+        188
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_55"
+    },
+    "s56": {
+      "ref_reads": [
+        100
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_56"
+    },
+    "s57": {
+      "ref_reads": [
+        97
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_57"
+    },
+    "s58": {
+      "ref_reads": [
+        110
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_58"
+    },
+    "s59": {
+      "ref_reads": [
+        93
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_59"
+    },
+    "s6": {
+      "ref_reads": [
+        192
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_6"
+    },
+    "s60": {
+      "ref_reads": [
+        110
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_60"
+    },
+    "s61": {
+      "ref_reads": [
+        100
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_61"
+    },
+    "s62": {
+      "ref_reads": [
+        186
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_62"
+    },
+    "s63": {
+      "ref_reads": [
+        80
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_63"
+    },
+    "s64": {
+      "ref_reads": [
+        62
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_64"
+    },
+    "s65": {
+      "ref_reads": [
+        119
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_65"
+    },
+    "s66": {
+      "ref_reads": [
+        98
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_66"
+    },
+    "s67": {
+      "ref_reads": [
+        97
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_67"
+    },
+    "s68": {
+      "ref_reads": [
+        112
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_68"
+    },
+    "s69": {
+      "ref_reads": [
+        180
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_69"
+    },
+    "s7": {
+      "ref_reads": [
+        172
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_7"
+    },
+    "s70": {
+      "ref_reads": [
+        100
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_70"
+    },
+    "s71": {
+      "ref_reads": [
+        200
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_71"
+    },
+    "s72": {
+      "ref_reads": [
+        113
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_72"
+    },
+    "s73": {
+      "ref_reads": [
+        0
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_73"
+    },
+    "s74": {
+      "ref_reads": [
+        95
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_74"
+    },
+    "s75": {
+      "ref_reads": [
+        200
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_75"
+    },
+    "s76": {
+      "ref_reads": [
+        91
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_76"
+    },
+    "s77": {
+      "ref_reads": [
+        0
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_77"
+    },
+    "s78": {
+      "ref_reads": [
+        92
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_78"
+    },
+    "s79": {
+      "ref_reads": [
+        0
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_79"
+    },
+    "s8": {
+      "ref_reads": [
+        98
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_8"
+    },
+    "s80": {
+      "ref_reads": [
+        0
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_80"
+    },
+    "s81": {
+      "ref_reads": [
+        0
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_81"
+    },
+    "s82": {
+      "ref_reads": [
+        81
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_82"
+    },
+    "s83": {
+      "ref_reads": [
+        187
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_83"
+    },
+    "s84": {
+      "ref_reads": [
+        96
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_84"
+    },
+    "s85": {
+      "ref_reads": [
+        182
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_85"
+    },
+    "s86": {
+      "ref_reads": [
+        110
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_86"
+    },
+    "s87": {
+      "ref_reads": [
+        0
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_87"
+    },
+    "s88": {
+      "ref_reads": [
+        105
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_88"
+    },
+    "s89": {
+      "ref_reads": [
+        85
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_89"
+    },
+    "s9": {
+      "ref_reads": [
+        95
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_9"
+    },
+    "s90": {
+      "ref_reads": [
+        0
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_90"
+    },
+    "s91": {
+      "ref_reads": [
+        190
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_91"
+    },
+    "s92": {
+      "ref_reads": [
+        191
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_92"
+    },
+    "s93": {
+      "ref_reads": [
+        200
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_93"
+    },
+    "s94": {
+      "ref_reads": [
+        100
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_94"
+    },
+    "s95": {
+      "ref_reads": [
+        180
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_95"
+    },
+    "s96": {
+      "ref_reads": [
+        88
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_96"
+    },
+    "s97": {
+      "ref_reads": [
+        89
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_97"
+    },
+    "s98": {
+      "ref_reads": [
+        189
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_98"
+    },
+    "s99": {
+      "ref_reads": [
+        108
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SIM_99"
+    }
+  },
+  "cnvs": {
+    "c0": {
+      "ref_reads": [
+        8833
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "22",
+          "start": 97174799,
+          "end": 99527948,
+          "major_cn": 3,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": [
+        {
+          "ssm_id": "s101",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s28",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s127",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s175",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s188",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s98",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s195",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s82",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s10",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s100",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s137",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s51",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s6",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s36",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s41",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s75",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s141",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s23",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s153",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s114",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s78",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s155",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s130",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s151",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s148",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s14",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s146",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s107",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s44",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s173",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s120",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s191",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s186",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s15",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s187",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s0",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s133",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s192",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s21",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s194",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s91",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s34",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s19",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s160",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s116",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s185",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s38",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s7",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s96",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s5",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s9",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s122",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s156",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s178",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s140",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s2",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s152",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s93",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s128",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        },
+        {
+          "ssm_id": "s89",
+          "maternal_cn": 1,
+          "paternal_cn": 3
+        }
+      ]
+    },
+    "c1": {
+      "ref_reads": [
+        8967
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "1",
+          "start": 37853895,
+          "end": 41545186,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": [
+        {
+          "ssm_id": "s95",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s65",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s58",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s29",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s168",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s71",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s139",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s97",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s68",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s27",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s37",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s136",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s49",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s85",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s197",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s63",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s135",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s184",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s169",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s20",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s88",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s166",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s144",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s110",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s115",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s59",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s72",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s50",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s99",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s42",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s76",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s52",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s183",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s8",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s161",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s106",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s60",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s182",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s113",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s83",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s190",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s109",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        }
+      ]
+    },
+    "c10": {
+      "ref_reads": [
+        117
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "22",
+          "start": 30479946,
+          "end": 31164207,
+          "major_cn": 2,
+          "minor_cn": 0,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": [
+        {
+          "ssm_id": "s12",
+          "maternal_cn": 0,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s64",
+          "maternal_cn": 0,
+          "paternal_cn": 2
+        }
+      ]
+    },
+    "c11": {
+      "ref_reads": [
+        3310
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "1",
+          "start": 77956969,
+          "end": 82791615,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": [
+        {
+          "ssm_id": "s112",
+          "maternal_cn": 2,
+          "paternal_cn": 1
+        }
+      ]
+    },
+    "c12": {
+      "ref_reads": [
+        9889
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "15",
+          "start": 87625508,
+          "end": 92560438,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": [
+        {
+          "ssm_id": "s66",
+          "maternal_cn": 2,
+          "paternal_cn": 1
+        }
+      ]
+    },
+    "c13": {
+      "ref_reads": [
+        8957
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "4",
+          "start": 47032372,
+          "end": 48996043,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": [
+        {
+          "ssm_id": "s196",
+          "maternal_cn": 2,
+          "paternal_cn": 1
+        }
+      ]
+    },
+    "c14": {
+      "ref_reads": [
+        8924
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "15",
+          "start": 24949245,
+          "end": 27301337,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": [
+        {
+          "ssm_id": "s164",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        }
+      ]
+    },
+    "c15": {
+      "ref_reads": [
+        9903
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "14",
+          "start": 8329018,
+          "end": 12400587,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": [
+        {
+          "ssm_id": "s45",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        }
+      ]
+    },
+    "c16": {
+      "ref_reads": [
+        9886
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "2",
+          "start": 65333880,
+          "end": 66215566,
+          "major_cn": 3,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c17": {
+      "ref_reads": [
+        8388
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "15",
+          "start": 22970880,
+          "end": 25970457,
+          "major_cn": 1,
+          "minor_cn": 0,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c18": {
+      "ref_reads": [
+        9894
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "20",
+          "start": 54500803,
+          "end": 58610072,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c19": {
+      "ref_reads": [
+        9897
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "19",
+          "start": 27343647,
+          "end": 32004804,
+          "major_cn": 2,
+          "minor_cn": 0,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c2": {
+      "ref_reads": [
+        8932
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "20",
+          "start": 91974191,
+          "end": 93152219,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": [
+        {
+          "ssm_id": "s150",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s126",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s3",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s121",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s157",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s129",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s43",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s24",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s84",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s125",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s54",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s74",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s55",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s33",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s16",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s26",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s104",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s131",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s94",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s70",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s62",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s119",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s170",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s67",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s162",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s149",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s134",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s18",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s69",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        }
+      ]
+    },
+    "c20": {
+      "ref_reads": [
+        9896
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "1",
+          "start": 45002890,
+          "end": 49204513,
+          "major_cn": 1,
+          "minor_cn": 0,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c21": {
+      "ref_reads": [
+        2403
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "6",
+          "start": 24599724,
+          "end": 25266092,
+          "major_cn": 3,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c22": {
+      "ref_reads": [
+        9888
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "6",
+          "start": 6450315,
+          "end": 8627475,
+          "major_cn": 2,
+          "minor_cn": 0,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c23": {
+      "ref_reads": [
+        8377
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "10",
+          "start": 95362150,
+          "end": 96081293,
+          "major_cn": 1,
+          "minor_cn": 0,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c24": {
+      "ref_reads": [
+        8977
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "4",
+          "start": 37528831,
+          "end": 38520601,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c25": {
+      "ref_reads": [
+        8812
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "19",
+          "start": 93224892,
+          "end": 96763767,
+          "major_cn": 3,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c26": {
+      "ref_reads": [
+        8410
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "18",
+          "start": 76506468,
+          "end": 80216129,
+          "major_cn": 2,
+          "minor_cn": 0,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c27": {
+      "ref_reads": [
+        8800
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "18",
+          "start": 66045631,
+          "end": 70027374,
+          "major_cn": 3,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c28": {
+      "ref_reads": [
+        3361
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "5",
+          "start": 1804352,
+          "end": 6198906,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c29": {
+      "ref_reads": [
+        9884
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "1",
+          "start": 74246626,
+          "end": 78074067,
+          "major_cn": 2,
+          "minor_cn": 0,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c3": {
+      "ref_reads": [
+        3334
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "16",
+          "start": 84603408,
+          "end": 86593389,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": [
+        {
+          "ssm_id": "s53",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s40",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s31",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s147",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s86",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s158",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s39",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s108",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s46",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s105",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s179",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s143",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s17",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s11",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s48",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s35",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s176",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s92",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s47",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s1",
+          "maternal_cn": 1,
+          "paternal_cn": 2
+        }
+      ]
+    },
+    "c4": {
+      "ref_reads": [
+        94
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "7",
+          "start": 39758863,
+          "end": 41057642,
+          "major_cn": 1,
+          "minor_cn": 0,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": [
+        {
+          "ssm_id": "s103",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s124",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s90",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s123",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s174",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s138",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s198",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s81",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s199",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s30",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s73",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s79",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s87",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s163",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        }
+      ]
+    },
+    "c5": {
+      "ref_reads": [
+        9920
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "18",
+          "start": 70600313,
+          "end": 73466530,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": [
+        {
+          "ssm_id": "s180",
+          "maternal_cn": 2,
+          "paternal_cn": 1
+        },
+        {
+          "ssm_id": "s159",
+          "maternal_cn": 2,
+          "paternal_cn": 1
+        },
+        {
+          "ssm_id": "s132",
+          "maternal_cn": 2,
+          "paternal_cn": 1
+        },
+        {
+          "ssm_id": "s189",
+          "maternal_cn": 2,
+          "paternal_cn": 1
+        },
+        {
+          "ssm_id": "s4",
+          "maternal_cn": 2,
+          "paternal_cn": 1
+        },
+        {
+          "ssm_id": "s32",
+          "maternal_cn": 2,
+          "paternal_cn": 1
+        },
+        {
+          "ssm_id": "s111",
+          "maternal_cn": 2,
+          "paternal_cn": 1
+        },
+        {
+          "ssm_id": "s61",
+          "maternal_cn": 2,
+          "paternal_cn": 1
+        },
+        {
+          "ssm_id": "s57",
+          "maternal_cn": 2,
+          "paternal_cn": 1
+        },
+        {
+          "ssm_id": "s56",
+          "maternal_cn": 2,
+          "paternal_cn": 1
+        }
+      ]
+    },
+    "c6": {
+      "ref_reads": [
+        8456
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "19",
+          "start": 29188357,
+          "end": 34022807,
+          "major_cn": 2,
+          "minor_cn": 0,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": [
+        {
+          "ssm_id": "s118",
+          "maternal_cn": 0,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s172",
+          "maternal_cn": 0,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s145",
+          "maternal_cn": 0,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s177",
+          "maternal_cn": 0,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s165",
+          "maternal_cn": 0,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s181",
+          "maternal_cn": 0,
+          "paternal_cn": 2
+        },
+        {
+          "ssm_id": "s117",
+          "maternal_cn": 0,
+          "paternal_cn": 2
+        }
+      ]
+    },
+    "c7": {
+      "ref_reads": [
+        96
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "1",
+          "start": 44568781,
+          "end": 47992310,
+          "major_cn": 1,
+          "minor_cn": 0,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": [
+        {
+          "ssm_id": "s13",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s142",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s167",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s77",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s80",
+          "maternal_cn": 1,
+          "paternal_cn": 0
+        }
+      ]
+    },
+    "c8": {
+      "ref_reads": [
+        8955
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "3",
+          "start": 11618050,
+          "end": 16548651,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": [
+        {
+          "ssm_id": "s102",
+          "maternal_cn": 2,
+          "paternal_cn": 1
+        },
+        {
+          "ssm_id": "s154",
+          "maternal_cn": 2,
+          "paternal_cn": 1
+        },
+        {
+          "ssm_id": "s193",
+          "maternal_cn": 2,
+          "paternal_cn": 1
+        }
+      ]
+    },
+    "c9": {
+      "ref_reads": [
+        8395
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "15",
+          "start": 75248370,
+          "end": 78614908,
+          "major_cn": 2,
+          "minor_cn": 0,
+          "cell_prev": [
+            0.0
+          ]
+        }
+      ],
+      "ssms": [
+        {
+          "ssm_id": "s22",
+          "maternal_cn": 2,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s25",
+          "maternal_cn": 2,
+          "paternal_cn": 0
+        },
+        {
+          "ssm_id": "s171",
+          "maternal_cn": 2,
+          "paternal_cn": 0
+        }
+      ]
+    }
+  },
+  "dataset_name": "sim"
+}

@@ -1,0 +1,122 @@
+{
+ "dataset_name": "cnvonly",
+ "params": {},
+ "tree_densities": {
+  "0": 0.0,
+  "1": 0.0,
+  "2": 0.0
+ },
+ "trees": {
+  "0": {
+   "branching_index": 0.0,
+   "clustering_index": 0.49748743718592964,
+   "linearity_index": 0.5025125628140703,
+   "llh": -1200.0,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.99
+     ],
+     "num_cnvs": 3,
+     "num_ssms": 100
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.5
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 100
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2
+    ]
+   }
+  },
+  "1": {
+   "branching_index": 0.0,
+   "clustering_index": 0.49748743718592964,
+   "linearity_index": 0.5025125628140703,
+   "llh": -1207.0,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.99
+     ],
+     "num_cnvs": 3,
+     "num_ssms": 100
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.5
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 100
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2
+    ]
+   }
+  },
+  "2": {
+   "branching_index": 0.0,
+   "clustering_index": 0.49748743718592964,
+   "linearity_index": 0.5025125628140703,
+   "llh": -1214.0,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.99
+     ],
+     "num_cnvs": 3,
+     "num_ssms": 100
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.5
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 100
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2
+    ]
+   }
+  }
+ }
+}

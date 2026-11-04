@@ -1,0 +1,2291 @@
+{
+  "ssms": {
+    "s0": {
+      "ref_reads": [
+        120
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_0"
+    },
+    "s1": {
+      "ref_reads": [
+        121
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_1"
+    },
+    "s2": {
+      "ref_reads": [
+        122
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_2"
+    },
+    "s3": {
+      "ref_reads": [
+        123
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_3"
+    },
+    "s4": {
+      "ref_reads": [
+        124
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_4"
+    },
+    "s5": {
+      "ref_reads": [
+        125
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_5"
+    },
+    "s6": {
+      "ref_reads": [
+        126
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_6"
+    },
+    "s7": {
+      "ref_reads": [
+        127
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_7"
+    },
+    "s8": {
+      "ref_reads": [
+        128
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_8"
+    },
+    "s9": {
+      "ref_reads": [
+        129
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_9"
+    },
+    "s10": {
+      "ref_reads": [
+        130
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_10"
+    },
+    "s11": {
+      "ref_reads": [
+        131
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_11"
+    },
+    "s12": {
+      "ref_reads": [
+        132
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_12"
+    },
+    "s13": {
+      "ref_reads": [
+        133
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_13"
+    },
+    "s14": {
+      "ref_reads": [
+        134
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_14"
+    },
+    "s15": {
+      "ref_reads": [
+        135
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_15"
+    },
+    "s16": {
+      "ref_reads": [
+        136
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_16"
+    },
+    "s17": {
+      "ref_reads": [
+        137
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_17"
+    },
+    "s18": {
+      "ref_reads": [
+        138
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_18"
+    },
+    "s19": {
+      "ref_reads": [
+        139
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_19"
+    },
+    "s20": {
+      "ref_reads": [
+        140
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_20"
+    },
+    "s21": {
+      "ref_reads": [
+        141
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_21"
+    },
+    "s22": {
+      "ref_reads": [
+        142
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_22"
+    },
+    "s23": {
+      "ref_reads": [
+        143
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_23"
+    },
+    "s24": {
+      "ref_reads": [
+        144
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_24"
+    },
+    "s25": {
+      "ref_reads": [
+        145
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_25"
+    },
+    "s26": {
+      "ref_reads": [
+        146
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_26"
+    },
+    "s27": {
+      "ref_reads": [
+        147
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_27"
+    },
+    "s28": {
+      "ref_reads": [
+        148
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_28"
+    },
+    "s29": {
+      "ref_reads": [
+        149
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_29"
+    },
+    "s30": {
+      "ref_reads": [
+        120
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_30"
+    },
+    "s31": {
+      "ref_reads": [
+        121
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_31"
+    },
+    "s32": {
+      "ref_reads": [
+        122
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_32"
+    },
+    "s33": {
+      "ref_reads": [
+        123
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_33"
+    },
+    "s34": {
+      "ref_reads": [
+        124
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_34"
+    },
+    "s35": {
+      "ref_reads": [
+        125
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_35"
+    },
+    "s36": {
+      "ref_reads": [
+        126
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_36"
+    },
+    "s37": {
+      "ref_reads": [
+        127
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_37"
+    },
+    "s38": {
+      "ref_reads": [
+        128
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_38"
+    },
+    "s39": {
+      "ref_reads": [
+        129
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_39"
+    },
+    "s40": {
+      "ref_reads": [
+        130
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_40"
+    },
+    "s41": {
+      "ref_reads": [
+        131
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_41"
+    },
+    "s42": {
+      "ref_reads": [
+        132
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_42"
+    },
+    "s43": {
+      "ref_reads": [
+        133
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_43"
+    },
+    "s44": {
+      "ref_reads": [
+        134
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_44"
+    },
+    "s45": {
+      "ref_reads": [
+        135
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_45"
+    },
+    "s46": {
+      "ref_reads": [
+        136
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_46"
+    },
+    "s47": {
+      "ref_reads": [
+        137
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_47"
+    },
+    "s48": {
+      "ref_reads": [
+        138
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_48"
+    },
+    "s49": {
+      "ref_reads": [
+        139
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_49"
+    },
+    "s50": {
+      "ref_reads": [
+        140
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_50"
+    },
+    "s51": {
+      "ref_reads": [
+        141
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_51"
+    },
+    "s52": {
+      "ref_reads": [
+        142
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_52"
+    },
+    "s53": {
+      "ref_reads": [
+        143
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_53"
+    },
+    "s54": {
+      "ref_reads": [
+        144
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_54"
+    },
+    "s55": {
+      "ref_reads": [
+        145
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_55"
+    },
+    "s56": {
+      "ref_reads": [
+        146
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_56"
+    },
+    "s57": {
+      "ref_reads": [
+        147
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_57"
+    },
+    "s58": {
+      "ref_reads": [
+        148
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_58"
+    },
+    "s59": {
+      "ref_reads": [
+        149
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_59"
+    },
+    "s60": {
+      "ref_reads": [
+        120
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_60"
+    },
+    "s61": {
+      "ref_reads": [
+        121
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_61"
+    },
+    "s62": {
+      "ref_reads": [
+        122
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_62"
+    },
+    "s63": {
+      "ref_reads": [
+        123
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_63"
+    },
+    "s64": {
+      "ref_reads": [
+        124
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_64"
+    },
+    "s65": {
+      "ref_reads": [
+        125
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_65"
+    },
+    "s66": {
+      "ref_reads": [
+        126
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_66"
+    },
+    "s67": {
+      "ref_reads": [
+        127
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_67"
+    },
+    "s68": {
+      "ref_reads": [
+        128
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_68"
+    },
+    "s69": {
+      "ref_reads": [
+        129
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_69"
+    },
+    "s70": {
+      "ref_reads": [
+        130
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_70"
+    },
+    "s71": {
+      "ref_reads": [
+        131
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_71"
+    },
+    "s72": {
+      "ref_reads": [
+        132
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_72"
+    },
+    "s73": {
+      "ref_reads": [
+        133
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_73"
+    },
+    "s74": {
+      "ref_reads": [
+        134
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_74"
+    },
+    "s75": {
+      "ref_reads": [
+        135
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_75"
+    },
+    "s76": {
+      "ref_reads": [
+        136
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_76"
+    },
+    "s77": {
+      "ref_reads": [
+        137
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_77"
+    },
+    "s78": {
+      "ref_reads": [
+        138
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_78"
+    },
+    "s79": {
+      "ref_reads": [
+        139
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_79"
+    },
+    "s80": {
+      "ref_reads": [
+        140
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_80"
+    },
+    "s81": {
+      "ref_reads": [
+        141
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_81"
+    },
+    "s82": {
+      "ref_reads": [
+        142
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_82"
+    },
+    "s83": {
+      "ref_reads": [
+        143
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_83"
+    },
+    "s84": {
+      "ref_reads": [
+        144
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_84"
+    },
+    "s85": {
+      "ref_reads": [
+        145
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_85"
+    },
+    "s86": {
+      "ref_reads": [
+        146
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_86"
+    },
+    "s87": {
+      "ref_reads": [
+        147
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_87"
+    },
+    "s88": {
+      "ref_reads": [
+        148
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_88"
+    },
+    "s89": {
+      "ref_reads": [
+        149
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_89"
+    },
+    "s90": {
+      "ref_reads": [
+        120
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_90"
+    },
+    "s91": {
+      "ref_reads": [
+        121
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_91"
+    },
+    "s92": {
+      "ref_reads": [
+        122
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_92"
+    },
+    "s93": {
+      "ref_reads": [
+        123
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_93"
+    },
+    "s94": {
+      "ref_reads": [
+        124
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_94"
+    },
+    "s95": {
+      "ref_reads": [
+        125
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_95"
+    },
+    "s96": {
+      "ref_reads": [
+        126
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_96"
+    },
+    "s97": {
+      "ref_reads": [
+        127
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_97"
+    },
+    "s98": {
+      "ref_reads": [
+        128
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_98"
+    },
+    "s99": {
+      "ref_reads": [
+        129
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_99"
+    },
+    "s100": {
+      "ref_reads": [
+        130
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_100"
+    },
+    "s101": {
+      "ref_reads": [
+        131
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_101"
+    },
+    "s102": {
+      "ref_reads": [
+        132
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_102"
+    },
+    "s103": {
+      "ref_reads": [
+        133
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_103"
+    },
+    "s104": {
+      "ref_reads": [
+        134
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_104"
+    },
+    "s105": {
+      "ref_reads": [
+        135
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_105"
+    },
+    "s106": {
+      "ref_reads": [
+        136
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_106"
+    },
+    "s107": {
+      "ref_reads": [
+        137
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_107"
+    },
+    "s108": {
+      "ref_reads": [
+        138
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_108"
+    },
+    "s109": {
+      "ref_reads": [
+        139
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_109"
+    },
+    "s110": {
+      "ref_reads": [
+        140
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_110"
+    },
+    "s111": {
+      "ref_reads": [
+        141
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_111"
+    },
+    "s112": {
+      "ref_reads": [
+        142
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_112"
+    },
+    "s113": {
+      "ref_reads": [
+        143
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_113"
+    },
+    "s114": {
+      "ref_reads": [
+        144
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_114"
+    },
+    "s115": {
+      "ref_reads": [
+        145
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_115"
+    },
+    "s116": {
+      "ref_reads": [
+        146
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_116"
+    },
+    "s117": {
+      "ref_reads": [
+        147
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_117"
+    },
+    "s118": {
+      "ref_reads": [
+        148
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_118"
+    },
+    "s119": {
+      "ref_reads": [
+        149
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_119"
+    },
+    "s120": {
+      "ref_reads": [
+        120
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_120"
+    },
+    "s121": {
+      "ref_reads": [
+        121
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_121"
+    },
+    "s122": {
+      "ref_reads": [
+        122
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_122"
+    },
+    "s123": {
+      "ref_reads": [
+        123
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_123"
+    },
+    "s124": {
+      "ref_reads": [
+        124
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_124"
+    },
+    "s125": {
+      "ref_reads": [
+        125
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_125"
+    },
+    "s126": {
+      "ref_reads": [
+        126
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_126"
+    },
+    "s127": {
+      "ref_reads": [
+        127
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_127"
+    },
+    "s128": {
+      "ref_reads": [
+        128
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_128"
+    },
+    "s129": {
+      "ref_reads": [
+        129
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_129"
+    },
+    "s130": {
+      "ref_reads": [
+        130
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_130"
+    },
+    "s131": {
+      "ref_reads": [
+        131
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_131"
+    },
+    "s132": {
+      "ref_reads": [
+        132
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_132"
+    },
+    "s133": {
+      "ref_reads": [
+        133
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_133"
+    },
+    "s134": {
+      "ref_reads": [
+        134
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_134"
+    },
+    "s135": {
+      "ref_reads": [
+        135
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_135"
+    },
+    "s136": {
+      "ref_reads": [
+        136
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_136"
+    },
+    "s137": {
+      "ref_reads": [
+        137
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_137"
+    },
+    "s138": {
+      "ref_reads": [
+        138
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_138"
+    },
+    "s139": {
+      "ref_reads": [
+        139
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_139"
+    },
+    "s140": {
+      "ref_reads": [
+        140
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_140"
+    },
+    "s141": {
+      "ref_reads": [
+        141
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_141"
+    },
+    "s142": {
+      "ref_reads": [
+        142
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_142"
+    },
+    "s143": {
+      "ref_reads": [
+        143
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_143"
+    },
+    "s144": {
+      "ref_reads": [
+        144
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_144"
+    },
+    "s145": {
+      "ref_reads": [
+        145
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_145"
+    },
+    "s146": {
+      "ref_reads": [
+        146
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_146"
+    },
+    "s147": {
+      "ref_reads": [
+        147
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_147"
+    },
+    "s148": {
+      "ref_reads": [
+        148
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_148"
+    },
+    "s149": {
+      "ref_reads": [
+        149
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_149"
+    },
+    "s150": {
+      "ref_reads": [
+        120
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_150"
+    },
+    "s151": {
+      "ref_reads": [
+        121
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_151"
+    },
+    "s152": {
+      "ref_reads": [
+        122
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_152"
+    },
+    "s153": {
+      "ref_reads": [
+        123
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_153"
+    },
+    "s154": {
+      "ref_reads": [
+        124
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_154"
+    },
+    "s155": {
+      "ref_reads": [
+        125
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_155"
+    },
+    "s156": {
+      "ref_reads": [
+        126
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_156"
+    },
+    "s157": {
+      "ref_reads": [
+        127
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_157"
+    },
+    "s158": {
+      "ref_reads": [
+        128
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_158"
+    },
+    "s159": {
+      "ref_reads": [
+        129
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_159"
+    },
+    "s160": {
+      "ref_reads": [
+        130
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_160"
+    },
+    "s161": {
+      "ref_reads": [
+        131
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_161"
+    },
+    "s162": {
+      "ref_reads": [
+        132
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_162"
+    },
+    "s163": {
+      "ref_reads": [
+        133
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_163"
+    },
+    "s164": {
+      "ref_reads": [
+        134
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_164"
+    },
+    "s165": {
+      "ref_reads": [
+        135
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_165"
+    },
+    "s166": {
+      "ref_reads": [
+        136
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_166"
+    },
+    "s167": {
+      "ref_reads": [
+        137
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_167"
+    },
+    "s168": {
+      "ref_reads": [
+        138
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_168"
+    },
+    "s169": {
+      "ref_reads": [
+        139
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_169"
+    },
+    "s170": {
+      "ref_reads": [
+        140
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_170"
+    },
+    "s171": {
+      "ref_reads": [
+        141
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_171"
+    },
+    "s172": {
+      "ref_reads": [
+        142
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_172"
+    },
+    "s173": {
+      "ref_reads": [
+        143
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_173"
+    },
+    "s174": {
+      "ref_reads": [
+        144
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_174"
+    },
+    "s175": {
+      "ref_reads": [
+        145
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_175"
+    },
+    "s176": {
+      "ref_reads": [
+        146
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_176"
+    },
+    "s177": {
+      "ref_reads": [
+        147
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_177"
+    },
+    "s178": {
+      "ref_reads": [
+        148
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_178"
+    },
+    "s179": {
+      "ref_reads": [
+        149
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_179"
+    },
+    "s180": {
+      "ref_reads": [
+        120
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_180"
+    },
+    "s181": {
+      "ref_reads": [
+        121
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_181"
+    },
+    "s182": {
+      "ref_reads": [
+        122
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_182"
+    },
+    "s183": {
+      "ref_reads": [
+        123
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_183"
+    },
+    "s184": {
+      "ref_reads": [
+        124
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_184"
+    },
+    "s185": {
+      "ref_reads": [
+        125
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_185"
+    },
+    "s186": {
+      "ref_reads": [
+        126
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_186"
+    },
+    "s187": {
+      "ref_reads": [
+        127
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_187"
+    },
+    "s188": {
+      "ref_reads": [
+        128
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_188"
+    },
+    "s189": {
+      "ref_reads": [
+        129
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_189"
+    },
+    "s190": {
+      "ref_reads": [
+        130
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_190"
+    },
+    "s191": {
+      "ref_reads": [
+        131
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_191"
+    },
+    "s192": {
+      "ref_reads": [
+        132
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_192"
+    },
+    "s193": {
+      "ref_reads": [
+        133
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_193"
+    },
+    "s194": {
+      "ref_reads": [
+        134
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_194"
+    },
+    "s195": {
+      "ref_reads": [
+        135
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_195"
+    },
+    "s196": {
+      "ref_reads": [
+        136
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_196"
+    },
+    "s197": {
+      "ref_reads": [
+        137
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_197"
+    },
+    "s198": {
+      "ref_reads": [
+        138
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_198"
+    },
+    "s199": {
+      "ref_reads": [
+        139
+      ],
+      "total_reads": [
+        200
+      ],
+      "expected_ref_in_ref": 0.999,
+      "expected_ref_in_variant": 0.5,
+      "name": "SYN_199"
+    }
+  },
+  "cnvs": {
+    "c0": {
+      "ref_reads": [
+        4000
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "1",
+          "start": 0,
+          "end": 500,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.5
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c1": {
+      "ref_reads": [
+        4100
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "1",
+          "start": 1000,
+          "end": 1500,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.5
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c2": {
+      "ref_reads": [
+        4200
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "1",
+          "start": 2000,
+          "end": 2500,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.5
+          ]
+        }
+      ],
+      "ssms": []
+    },
+    "c3": {
+      "ref_reads": [
+        4300
+      ],
+      "total_reads": [
+        10000
+      ],
+      "physical_cnvs": [
+        {
+          "chrom": "1",
+          "start": 3000,
+          "end": 3500,
+          "major_cn": 2,
+          "minor_cn": 1,
+          "cell_prev": [
+            0.5
+          ]
+        }
+      ],
+      "ssms": []
+    }
+  },
+  "dataset_name": "synthetic"
+}

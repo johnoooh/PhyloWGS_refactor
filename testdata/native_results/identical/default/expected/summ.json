@@ -1,0 +1,146 @@
+{
+ "dataset_name": "identical",
+ "params": {},
+ "tree_densities": {
+  "0": 7309849795952246.0,
+  "1": 7309849795952246.0,
+  "2": 7309849795952246.0
+ },
+ "trees": {
+  "0": {
+   "branching_index": 0.11299435028248588,
+   "clustering_index": 0.3785310734463277,
+   "linearity_index": 0.5084745762711864,
+   "llh": -500.0,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.99
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 30
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.6
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 20
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.3
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 10
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3
+    ]
+   }
+  },
+  "1": {
+   "branching_index": 0.11299435028248588,
+   "clustering_index": 0.3785310734463277,
+   "linearity_index": 0.5084745762711864,
+   "llh": -501.0,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.99
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 30
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.6
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 20
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.3
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 10
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3
+    ]
+   }
+  },
+  "2": {
+   "branching_index": 0.11299435028248588,
+   "clustering_index": 0.3785310734463277,
+   "linearity_index": 0.5084745762711864,
+   "llh": -502.0,
+   "populations": {
+    "0": {
+     "cellular_prevalence": [
+      1.0
+     ],
+     "num_cnvs": 0,
+     "num_ssms": 0
+    },
+    "1": {
+     "cellular_prevalence": [
+      0.99
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 30
+    },
+    "2": {
+     "cellular_prevalence": [
+      0.6
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 20
+    },
+    "3": {
+     "cellular_prevalence": [
+      0.3
+     ],
+     "num_cnvs": 1,
+     "num_ssms": 10
+    }
+   },
+   "structure": {
+    "0": [
+     1
+    ],
+    "1": [
+     2,
+     3
+    ]
+   }
+  }
+ }
+}
