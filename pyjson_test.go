@@ -92,3 +92,12 @@ func TestWriteMutList_PythonTypes(t *testing.T) {
 func regexpSpaces(s string) string {
 	return strings.NewReplacer(" ", "", "\n", "", "\t", "").Replace(s)
 }
+
+func TestPyFloat_NaNRejectedByEncodingJSON(t *testing.T) {
+	if _, err := json.Marshal(PyFloat(math.NaN())); err == nil {
+		t.Error("json.Marshal(NaN PyFloat) returned nil error")
+	}
+	if _, err := json.Marshal([]PyFloat{PyFloat(math.Inf(1))}); err == nil {
+		t.Error("json.Marshal([+Inf PyFloat]) returned nil error")
+	}
+}

@@ -9,6 +9,12 @@ import (
 // PyFloat marshals like Python 2.7's json.dumps(float) (repr): shortest
 // round-trip digits, always a decimal point or exponent, so a value that is
 // whole still reads back as a Python float (1.0, not 1).
+//
+// NaN and +/-Inf make MarshalJSON return Python's tokens (NaN, Infinity,
+// -Infinity), but encoding/json validates MarshalJSON output and rejects
+// them, so any NaN/Inf PyFloat makes the enclosing json.Marshal return an
+// error. This is intended: a NaN reaching output is an upstream bug and must
+// fail loudly.
 type PyFloat float64
 
 // MarshalJSON implements json.Marshaler.
