@@ -29,8 +29,11 @@ echo "binary=$(basename "$BIN") src=$(git -C "$SRC" rev-parse --short HEAD)"
 mkdir -p "$OUT"
 n_ok=0; n_dens=0; n_fail=0
 
-# tasks.tsv: header row, then i k cls n_ssm seed ssm cnv (tab-separated)
-for k in $(awk -F'\t' 'NR>1 {print $2}' "$TASKS"); do
+# tasks.tsv: NO header; rows are i k cls n_ssm seed ssm cnv (tab-separated)
+KS=$(awk -F'\t' 'NF>=2 {print $2}' "$TASKS")
+NK=$(echo "$KS" | grep -c .)
+[ "$NK" -eq 20 ] || { echo "expected 20 samples, read $NK"; exit 2; }
+for k in $KS; do
   chains=$RUNS/k$k/chains
   if [ ! -s "$chains/trees.zip" ] || [ ! -s "$chains/mutlist.json" ]; then
     echo "k$k FAIL missing_inputs"; n_fail=$((n_fail+1)); continue
