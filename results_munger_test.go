@@ -147,6 +147,28 @@ func TestRemoveSmallNodes_FractionRoundsToZero(t *testing.T) {
 	})
 }
 
+func TestRemoveSmallNodes_FractionRoundsHalfAway(t *testing.T) {
+	all := ssmIDs("s", 0, 50)
+	rs := oneTreeSet(map[int][]int{0: {1}, 1: {2}, 2: {3}}, []mkNode{
+		{cp: []float64{1}},
+		{cp: []float64{0.9}, ssms: all[:45]},
+		{cp: []float64{0.6}, ssms: all[45:48]},
+		{cp: []float64{0.3}, ssms: all[48:]},
+	}, mkMuts(all, nil, nil))
+	// 0.05 * 50 = 2.5 -> Python 2 round = 3: the 2-SSM node goes, the 3-SSM node stays.
+	if err := rs.RemoveSmallNodes(0.05); err != nil {
+		t.Fatal(err)
+	}
+	got := rs.Trees[0]
+	if len(got.Populations) != 3 || got.Populations[2].NumSSMs != 3 {
+		t.Fatalf("populations = %d, node 2 ssms = %d; want 3 nodes, node 2 kept with 3 ssms",
+			len(got.Populations), got.Populations[2].NumSSMs)
+	}
+	if got.Populations[1].NumSSMs != 47 {
+		t.Errorf("node 1 ssms = %d, want 47 (45 + 2 moved)", got.Populations[1].NumSSMs)
+	}
+}
+
 func TestRemoveSmallNodes_CountOfOne(t *testing.T) {
 	rs := chain3(0.9, 0.5, 0.3, 60)
 	// 1.0 is a count (keep nodes with >= 1 SSM), not a fraction of 31 SSMs.

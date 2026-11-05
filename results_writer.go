@@ -69,11 +69,11 @@ func nonNil[T any](xs []T) []T {
 func buildSummaries(rs *ResultSet, dataset string) (*summOut, error) {
 	idx, err := allTreeIndices(rs.Trees)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("write-results: tree indices: %w", err)
 	}
 	dens, mode, err := treeDensities(rs.Trees, idx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("write-results: tree densities: %w", err)
 	}
 	log.Printf("write-results: tree densities computed in %s mode over %d trees", mode, len(dens))
 	out := &summOut{DatasetName: dataset, Trees: map[int]treeOut{}, TreeDensities: map[int]PyFloat{}}
@@ -186,7 +186,8 @@ func writePythonResults(rs *ResultSet, dataset string, includeSSMNames bool, sum
 	return nil
 }
 
-const writeResultsUsage = "usage: phylowgs-go write-results [--include-ssm-names] [--min-ssms F] [--include-multiprimary] [--keep-superclones] [--max-multiprimary F] DATASET TREES_ZIP MUTLIST_JSON SUMM_OUT MUTS_OUT MUTASS_OUT"
+const writeResultsUsage = "usage: phylowgs-go write-results [--include-ssm-names] [--min-ssms F] [--include-multiprimary] [--keep-superclones] [--max-multiprimary F] DATASET TREES_ZIP MUTLIST_JSON SUMM_OUT MUTS_OUT MUTASS_OUT\n" +
+	"note: best_tree.json from the run uses the older adaptive filter (max(1%, 2/M), half-even rounding, no multiprimary removal); it is not the top-LLH tree in the summ.json.gz written by write-results"
 
 // writeResultsSubcommand is write_results.py main() for phylowgs-go output.
 func writeResultsSubcommand(args []string) error {

@@ -110,7 +110,9 @@ c0	66023,50883,62757	126755,100469,121941	s2,1,2;s4,0,1	chrom=1,start=1234,end=5
 After a run, `<output-dir>` contains:
 
 - `best_tree.json` — single-best tree (highest-LLH sample across all
-  included chains).
+  included chains). It uses the older adaptive filter (max(1%, 2/M),
+  half-even rounding, no multiprimary removal), so it is not the same as the
+  top-LLH tree in the `summ.json.gz` written by `write-results`.
 - `mutlist.json` — mutation reference table.
 - `summary.json` — per-chain trace and global summary (see below).
 - `chain_<N>_trees.ndjson` — per-chain newline-delimited JSON snapshots.

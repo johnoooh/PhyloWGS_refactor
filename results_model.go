@@ -142,9 +142,31 @@ func loadGoResults(treesZip, mutlistPath string) (*ResultSet, error) {
 		if err != nil {
 			return nil, fmt.Errorf("tree %d: %w", idx, err)
 		}
+		if err := checkMutAssIDs(idx, mas, muts); err != nil {
+			return nil, err
+		}
 		rs.Trees[idx], rs.MutAss[idx] = ts, mas
 	}
 	return rs, nil
+}
+
+// checkMutAssIDs fails on the first SSM/CNV id a tree assigns that the
+// mutlist lacks (a mutlist from the wrong sample). Ids are checked in node,
+// then list order so the reported id is deterministic.
+func checkMutAssIDs(idx int, mas map[int]*MutAss, muts *MutList) error {
+	for _, n := range sortedKeys(mas) {
+		for _, id := range mas[n].SSMs {
+			if _, ok := muts.SSMs[id]; !ok {
+				return fmt.Errorf("tree %d: ssm %s not in mutlist", idx, id)
+			}
+		}
+		for _, id := range mas[n].CNVs {
+			if _, ok := muts.CNVs[id]; !ok {
+				return fmt.Errorf("tree %d: cnv %s not in mutlist", idx, id)
+			}
+		}
+	}
+	return nil
 }
 
 // countUnparseableTrees counts tree_-prefixed zip entries the archive reader
@@ -165,30 +187,37 @@ func loadMutList(path string) (*MutList, error) {
 		return nil, err
 	}
 	var raw struct {
-		SSMs map[string]struct {
+		SSMs *map[string]struct {
 			RefReads   []int   `json:"ref_reads"`
 			TotalReads []int   `json:"total_reads"`
 			RefInRef   float64 `json:"expected_ref_in_ref"`
 			RefInVar   float64 `json:"expected_ref_in_variant"`
 			Name       string  `json:"name"`
 		} `json:"ssms"`
-		CNVs map[string]json.RawMessage `json:"cnvs"`
+		CNVs *map[string]json.RawMessage `json:"cnvs"`
 	}
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
+	// Python indexes mutlist['ssms'] / ['cnvs'] directly: absent is a KeyError.
+	if raw.SSMs == nil {
+		return nil, fmt.Errorf("mutlist %s: missing key \"ssms\"", path)
+	}
+	if raw.CNVs == nil {
+		return nil, fmt.Errorf("mutlist %s: missing key \"cnvs\"", path)
+	}
 	ml := &MutList{
-		SSMs:     make(map[string]*MutListSSM, len(raw.SSMs)),
-		CNVs:     raw.CNVs,
-		CNVReads: make(map[string][2][]int, len(raw.CNVs)),
+		SSMs:     make(map[string]*MutListSSM, len(*raw.SSMs)),
+		CNVs:     *raw.CNVs,
+		CNVReads: make(map[string][2][]int, len(*raw.CNVs)),
 	}
 	if ml.CNVs == nil {
 		ml.CNVs = map[string]json.RawMessage{}
 	}
-	for id, s := range raw.SSMs {
+	for id, s := range *raw.SSMs {
 		ml.SSMs[id] = &MutListSSM{s.RefReads, s.TotalReads, s.RefInRef, s.RefInVar, s.Name}
 	}
-	for id, c := range raw.CNVs {
+	for id, c := range *raw.CNVs {
 		var rd struct {
 			Ref   []int `json:"ref_reads"`
 			Total []int `json:"total_reads"`

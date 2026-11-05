@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -152,5 +153,49 @@ func TestLoadGoResults_MissingKey(t *testing.T) {
 	zp := writeTestZip(t, [][2]string{{"tree_7_-1", `{"llh":-1,"structure":{},"populations":{}}`}})
 	if err := loadWithSimMutlist(t, zp); err != nil {
 		t.Errorf("empty structure should load: %v", err)
+	}
+}
+
+func writeMutlist(t *testing.T, body string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "mutlist.json")
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func TestLoadGoResults_MutlistMissingSSMs(t *testing.T) {
+	zp := filepath.Join("testdata", "native_results", "sim", "trees.zip")
+	_, err := loadGoResults(zp, writeMutlist(t, `{}`))
+	if err == nil || !strings.Contains(err.Error(), `missing key "ssms"`) {
+		t.Fatalf("err = %v, want missing key \"ssms\"", err)
+	}
+	_, err = loadGoResults(zp, writeMutlist(t, `{"ssms":{}}`))
+	if err == nil || !strings.Contains(err.Error(), `missing key "cnvs"`) {
+		t.Fatalf("err = %v, want missing key \"cnvs\"", err)
+	}
+}
+
+func TestLoadGoResults_MutlistWrongSample(t *testing.T) {
+	dir := filepath.Join("testdata", "native_results", "sim")
+	b, err := os.ReadFile(filepath.Join(dir, "mutlist.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatal(err)
+	}
+	var ssms map[string]json.RawMessage
+	if err := json.Unmarshal(m["ssms"], &ssms); err != nil {
+		t.Fatal(err)
+	}
+	delete(ssms, "s0")
+	m["ssms"], _ = json.Marshal(ssms)
+	nb, _ := json.Marshal(m)
+	_, err = loadGoResults(filepath.Join(dir, "trees.zip"), writeMutlist(t, string(nb)))
+	if err == nil || !strings.Contains(err.Error(), "not in mutlist") {
+		t.Fatalf("err = %v, want 'not in mutlist'", err)
 	}
 }

@@ -25,7 +25,9 @@ REF=$SRC/testdata/native_results
 CMP=$SRC/sim_validation/native_results/compare_results.py
 
 [ -x "$BIN" ] || { echo "no binary: $BIN"; exit 2; }
-echo "binary=$(basename "$BIN") src=$(git -C "$SRC" rev-parse --short HEAD)"
+# strict int/float typing by default; LOOSE_INT_FLOAT=1 opts into --loose-int-float
+LOOSE=""; [ "${LOOSE_INT_FLOAT:-0}" = 1 ] && LOOSE="--loose-int-float"
+echo "binary=$(basename "$BIN") src=$(git -C "$SRC" rev-parse --short HEAD) loose_int_float=${LOOSE_INT_FLOAT:-0}"
 mkdir -p "$OUT"
 n_ok=0; n_dens=0; n_fail=0
 
@@ -61,7 +63,7 @@ for k in $KS; do
     echo "k$k FAIL decode"; n_fail=$((n_fail+1)); continue
   fi
 
-  res=$("$PY3" -I "$CMP" --loose-int-float "k$k" "$w/go" "$w/py"); rc=$?
+  res=$("$PY3" -I "$CMP" $LOOSE "k$k" "$w/go" "$w/py"); rc=$?
   echo "$res"
   case "$res" in
     *densities_undefined) n_dens=$((n_dens+1)) ;;

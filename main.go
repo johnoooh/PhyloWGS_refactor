@@ -3291,6 +3291,9 @@ func writeResults(outDir string, results []ChainResult, chainInclusionFactor flo
 		return fmt.Errorf("mutass.zip close: %w", err)
 	}
 
+	// NOTE: best_tree.json uses the older adaptive filter (max(1%, 2/M),
+	// half-even rounding, no multiprimary removal). It is not the same as the
+	// top-LLH tree in summ.json.gz written by `write-results`.
 	// Write best_tree.json from the snapshot of the best-LLH sample (matching
 	// Python: it picks the actual best-LLH tree from all sampled trees, not
 	// the final MCMC state).

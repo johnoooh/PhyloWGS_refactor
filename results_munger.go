@@ -35,14 +35,15 @@ func sortedKeys[V any](m map[int]V) []int {
 	return ks
 }
 
-// pyMean is np.mean on a 1-D vector: float64 sum in index order over n.
-// Empty input gives NaN, as numpy does. numpy sums pairwise for >= 8 elements.
+// pyMean is np.mean on a 1-D vector: numpy's pairwise float64 sum (npSum,
+// results_kde.go) divided by n, so it matches numpy for any length. Empty
+// input gives NaN, as numpy does.
 func pyMean[T int | float64](xs []T) float64 {
-	sum := 0.0
-	for _, x := range xs {
-		sum += float64(x)
+	f := make([]float64, len(xs))
+	for i, x := range xs {
+		f[i] = float64(x)
 	}
-	return sum / float64(len(xs))
+	return npSum(f) / float64(len(xs))
 }
 
 // findParent returns the first structure key (ascending) whose child list
