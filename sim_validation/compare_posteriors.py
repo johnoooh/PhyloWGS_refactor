@@ -19,6 +19,7 @@ metric is label-invariant, averaged over posterior trees, and computed per SSM:
   K counts use each tree's raw populations on both sides (neither engine's
   small-node merge applied), so the counting is identical for Go and Python.
   branching fraction of trees in which some node has >= 2 non-empty children
+  depth     depth of the deepest node carrying an SSM (root = 0), per tree
 
 For each metric, the distance between every pair of runs is grouped into
 py-py, go-go (seed noise) and go-py (implementation difference). Python is the
@@ -89,7 +90,7 @@ def summarize_run(trees, ssm_ids, max_trees):
     C = np.zeros((M, M), dtype=np.float32)
     A = np.zeros((M, M), dtype=np.float32)
     phi = None
-    Ks, Ks_cnv, Ks_big, branching = [], [], [], []
+    Ks, Ks_cnv, Ks_big, branching, depth = [], [], [], [], []
     for structure, pops, mutass in trees:
         nodes = sorted(pops, key=int)
         nidx = {n: k for k, n in enumerate(nodes)}
@@ -121,10 +122,20 @@ def summarize_run(trees, ssm_ids, max_trees):
         Ks_big.append(sum(sz >= big for sz in sizes))
         branching.append(any(
             sum(str(c) in nonempty for c in cs) >= 2 for cs in structure.values()))
+        depth.append(max(_depth(n, parent) for n in nonempty) if nonempty else 0)
     T = len(trees)
     return {"C": C / T, "A": A / T, "phi": phi / T,
             "K": np.array(Ks), "K_cnv": np.array(Ks_cnv), "K_big": np.array(Ks_big),
-            "branching": float(np.mean(branching)), "T": T}
+            "branching": float(np.mean(branching)), "depth": np.array(depth), "T": T}
+
+
+def _depth(n, parent):
+    """Edges from n up to the root (parent maps node -> parent, as strings or ints)."""
+    d, p = 0, parent.get(n)
+    while p is not None:
+        d += 1
+        p = parent.get(str(p))
+    return d
 
 
 def k_tv(ka, kb):
@@ -145,6 +156,7 @@ def distances(a, b):
         "Kcnv_tv": k_tv(a["K_cnv"], b["K_cnv"]),
         "Kbig_tv": k_tv(a["K_big"], b["K_big"]),
         "branching": abs(a["branching"] - b["branching"]),
+        "depth_tv": k_tv(a["depth"], b["depth"]),
     }
 
 

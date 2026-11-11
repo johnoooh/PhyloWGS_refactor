@@ -11,7 +11,8 @@ compares pooled posteriors of equal-size, disjoint, random chain subsets:
   go-py  a Go pool vs a Python pool             (implementation difference)
 
 Metrics are those of compare_posteriors.py (coclust, ancestry, phi, K_tv,
-branching). Each chain is summarized once; a pool is the tree-count-weighted
+branching, depth_tv = TV distance of the per-tree depth of the
+deepest SSM-carrying node). Each chain is summarized once; a pool is the tree-count-weighted
 mean of its chains (chains are thinned to the same tree count).
 
 Inputs per chain:
@@ -38,7 +39,7 @@ import zipfile  # noqa: E402
 
 from compare_posteriors import distances, summarize_run  # noqa: E402
 
-METRICS = ["coclust", "ancestry", "phi", "K_tv", "Kcnv_tv", "Kbig_tv", "branching"]
+METRICS = ["coclust", "ancestry", "phi", "K_tv", "Kcnv_tv", "Kbig_tv", "branching", "depth_tv"]
 
 
 def _thin(n, k, path):
@@ -91,6 +92,7 @@ def pool(summaries):
         "K_cnv": np.concatenate([s["K_cnv"] for s in summaries]),
         "K_big": np.concatenate([s["K_big"] for s in summaries]),
         "branching": float(np.mean([s["branching"] for s in summaries])),
+        "depth": np.concatenate([s["depth"] for s in summaries]),
     }
 
 
@@ -149,7 +151,8 @@ def main():
     out = {"M": n_ssm_total, "M_scored": len(ssm_ids), "n_go_chains": len(summ["go"]), "n_py_chains": len(summ["py"]),
            "pool": P, "draws": args.draws,
            "mean_K": {kk: {k: float(np.mean([s[kk].mean() for s in v])) for k, v in summ.items()}
-                      for kk in ("K", "K_cnv", "K_big")},
+                      for kk in ("K", "K_cnv", "K_big", "depth")},
+           "max_depth": {k: int(max(s["depth"].max() for s in v)) for k, v in summ.items()},
            "groups": {}}
     for grp in ["py-py", "go-go", "go-py"]:
         out["groups"][grp] = {
