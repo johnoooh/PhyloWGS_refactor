@@ -6,6 +6,8 @@ Python: each chain's mcmc_samples.txt has header Iteration/LLH/Time, Time being
 the seconds that iteration took; a chain's seconds = sum over its 3500 rows.
 The 15 chains ran as separate single-threaded processes, so CPU = sum of chain
 seconds, and wall = max chain seconds (assumes the 15 ran concurrently).
+Best LLH per engine = max LLH over all chains' post-burn-in samples (Python:
+mcmc_samples rows with Iteration >= 0; Go: chain_<c>_samples.txt), same inputs.
 
 Go: wall (Elapsed), CPU (TotalCPU) and cores (AllocCPUS) from sacct for the
 Slurm task that produced the chains: <work>/go_time/<k>.job (written by task.sh
@@ -26,15 +28,31 @@ GO_DUR = re.compile(r"(\d+(?:\.\d+)?)(h|ms|us|µs|ns|m|s)")
 UNIT = {"h": 3600, "m": 60, "s": 1, "ms": 1e-3, "us": 1e-6, "µs": 1e-6, "ns": 1e-9}
 
 
-def py_chain_seconds(path):
+def py_chain(path):
+    """(seconds, best post-burn-in LLH) of one Python chain."""
     with open(path) as f:
         head = f.readline().rstrip("\n").split("\t")
         if head != ["Iteration", "LLH", "Time"]:
             raise ValueError(f"{path}: unexpected header {head}")
-        t = [float(ln.split("\t")[2]) for ln in f if ln.strip()]
-    if len(t) != PY_ROWS:
-        raise ValueError(f"{path}: {len(t)} rows, expected {PY_ROWS}")
-    return sum(t)
+        rows = [ln.split("\t") for ln in f if ln.strip()]
+    if len(rows) != PY_ROWS:
+        raise ValueError(f"{path}: {len(rows)} rows, expected {PY_ROWS}")
+    return sum(float(r[2]) for r in rows), max(float(r[1]) for r in rows if int(r[0]) >= 0)
+
+
+def go_best_llh(chains):
+    """Max LLH over Go chain_<c>_samples.txt files (header Iteration/LLH/NumNodes)."""
+    best, n = None, 0
+    for p in sorted(Path(chains).glob("chain_*_samples.txt")):
+        with open(p) as f:
+            head = f.readline().split()
+            if head[:2] != ["Iteration", "LLH"]:
+                raise ValueError(f"{p}: unexpected header {head}")
+            v = [float(ln.split("\t")[1]) for ln in f if ln.strip()]
+        if v:
+            n += 1
+            best = max(v) if best is None else max(best, max(v))
+    return best, n
 
 
 def go_duration(s):
@@ -81,9 +99,14 @@ def main():
     W = Path(args.work)
     e = json.load(open(W / "manifest.json"))[args.k]
 
-    py = [py_chain_seconds(Path(p).parent / "mcmc_samples.txt") for p in e["py_src"]]
+    pc = [py_chain(Path(p).parent / "mcmc_samples.txt") for p in e["py_src"]]
+    py = [s for s, _ in pc]
     rec = {"k": e["k"], "cls": e["cls"], "n_ssm": e["n_ssm"], "go_src": e["go_src"],
-           "py_chain_s": py, "py_cpu_s": sum(py), "py_wall_s": max(py)}
+           "py_chain_s": py, "py_cpu_s": sum(py), "py_wall_s": max(py),
+           "py_best_llh": max(b for _, b in pc)}
+    rec["go_best_llh"], rec["go_llh_chains"] = go_best_llh(Path(e["go_dir"]) / "chains")
+    if rec["go_best_llh"] is not None:
+        rec["best_llh_go_minus_py"] = rec["go_best_llh"] - rec["py_best_llh"]
 
     jf = W / f"go_time/{e['k']}.job"
     job = jf.read_text().strip() if jf.exists() else e.get("go_job")

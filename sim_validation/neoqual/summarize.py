@@ -92,7 +92,7 @@ def runtime(W, man, cmp):
               f"{st.median([r['go_wall_s'] for r in ok]) / 3600:>17.2f}   {w[0]:.3f} ({w[1]:.3f}-{w[2]:.3f})"
               f"   {c[0]:.3f} ({c[1]:.3f}-{c[2]:.3f})")
     cols = ["k", "cls", "n_ssm", "go_src", "go_status", "py_wall_s", "py_cpu_s", "go_wall_s", "go_cpu_s",
-            "go_cores", "wall_ratio_go_py", "cpu_ratio_go_py", "n_go_chains", "py_mean_depth", "go_mean_depth",
+            "go_cores", "wall_ratio_go_py", "cpu_ratio_go_py", "py_best_llh", "go_best_llh", "best_llh_go_minus_py", "n_go_chains", "py_mean_depth", "go_mean_depth",
             "py_max_depth", "go_max_depth", "py_mean_K", "go_mean_K"] + [f"{x}_gp_over_within" for x in M]
     n = 0
     with open(W / "summary_table.tsv", "w") as f:
