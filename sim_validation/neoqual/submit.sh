@@ -16,10 +16,11 @@ PREV_S= PREV_M= PREV_L= PREV_X=
 for TAG in "$@"; do
     CLS=${TAG:0:1}
     case $CLS in
-        S) THR=10 MEM=10G TIME=6:00:00 PREV=$PREV_S ;;
-        M) THR=15 MEM=16G TIME=12:00:00 PREV=$PREV_M ;;
-        L) THR=15 MEM=32G TIME=24:00:00 PREV=$PREV_L ;;
-        X) THR=10 MEM=48G TIME=72:00:00 PREV=$PREV_X ;;
+        #  Go throttle, mem, time; conv (15 serial write_results) mem, time
+        S) THR=10 MEM=10G TIME=6:00:00  CMEM=8G  CTIME=4:00:00  PREV=$PREV_S ;;
+        M) THR=15 MEM=16G TIME=12:00:00 CMEM=8G  CTIME=6:00:00  PREV=$PREV_M ;;
+        L) THR=15 MEM=32G TIME=24:00:00 CMEM=16G CTIME=12:00:00 PREV=$PREV_L ;;
+        X) THR=10 MEM=48G TIME=72:00:00 CMEM=16G CTIME=24:00:00 PREV=$PREV_X ;;
         *) echo "bad tag $TAG" >&2; exit 1 ;;
     esac
     n=$(hpcgate run "grep -c . $W/tasks_$TAG.txt" | tail -1)
@@ -27,7 +28,7 @@ for TAG in "$@"; do
     A="0-$((n-1))"
     go=$(hpcgate submit $T -D $W -p cmobic_cpu -a "$A%$THR" -J nq_go_$TAG -c 12 --mem $MEM -t $TIME \
         ${PREV:+-d afterany:$PREV} | jid)
-    cv=$(hpcgate submit $T -D $W -p cmobic_cpu -a "$A%20" -J nq_conv_$TAG -c 1 --mem 8G -t 4:00:00 | jid)
+    cv=$(hpcgate submit $T -D $W -p cmobic_cpu -a "$A%20" -J nq_conv_$TAG -c 1 --mem $CMEM -t $CTIME | jid)
     cm=$(hpcgate submit $T -D $W -p cmobic_cpu -a "$A%20" -J nq_cmp_$TAG -c 1 --mem 16G -t 8:00:00 \
         -d afterany:$go:$cv | jid)
     [ -n "$go" ] && [ -n "$cv" ] && [ -n "$cm" ] || { echo "$TAG: a submission returned no job id" >&2; exit 1; }
